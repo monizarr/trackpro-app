@@ -1,0 +1,479 @@
+// This is your Prisma schema file for TrackPro App
+// Optimized for production garment manufacturing workflow
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// AUTHENTICATION & AUTHORIZATION
+// ============================================
+
+enum UserRole {
+  OWNER
+  KEPALA_GUDANG
+  KEPALA_PRODUKSI
+  PEMOTONG
+  PENJAHIT
+  FINISHING
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  email     String   @unique
+  password  String   // Hashed with bcrypt
+  name      String
+  role      UserRole
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  createdProducts       Product[]           @relation("ProductCreator")
+  createdMaterials      Material[]          @relation("MaterialCreator")
+  createdBatches        ProductionBatch[]   @relation("BatchCreator")
+  materialTransactions  MaterialTransaction[]
+  cuttingTasks          CuttingTask[]
+  sewingTasks           SewingTask[]
+  finishingTasks        FinishingTask[]
+  notifications         Notification[]
+  auditLogs             AuditLog[]
+
+  @@index([email])
+  @@index([username])
+  @@index([role])
+  @@map("users")
+}
+
+// ============================================
+// PRODUCT MANAGEMENT
+// ============================================
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  DISCONTINUED
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  sku         String        @unique // SKU Produk
+  name        String
+  description String?
+  price       Decimal       @db.Decimal(15, 2)
+  status      ProductStatus @default(ACTIVE)
+  images      String[]      // Array of image URLs
+  isDeleted   Boolean       @default(false) // Soft delete
+  createdById String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  createdBy        User              @relation("ProductCreator", fields: [createdById], references: [id])
+  productionBatches ProductionBatch[]
+  materials        ProductMaterial[]
+
+  @@index([sku])
+  @@index([status])
+  @@index([createdById])
+  @@map("products")
+}
+
+// ============================================
+// MATERIAL (BAHAN BAKU) MANAGEMENT
+// ============================================
+
+enum MaterialUnit {
+  METER
+  YARD
+  KILOGRAM
+  GRAM
+  PIECE
+  ROLL
+  BOX
+}
+
+model Material {
+  id              String       @id @default(cuid())
+  code            String       @unique
+  name            String
+  description     String?
+  unit            MaterialUnit
+  currentStock    Decimal      @db.Decimal(15, 3)
+  minimumStock    Decimal      @db.Decimal(15, 3)
+  price           Decimal      @db.Decimal(15, 2)
+  isActive        Boolean      @default(true)
+  createdById     String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  createdBy     User                  @relation("MaterialCreator", fields: [createdById], references: [id])
+  transactions  MaterialTransaction[]
+  products      ProductMaterial[]
+  batchAllocations BatchMaterialAllocation[]
+
+  @@index([code])
+  @@index([currentStock])
+  @@index([minimumStock])
+  @@map("materials")
+}
+
+// Product Materials (Many-to-Many with quantity)
+model ProductMaterial {
+  id         String  @id @default(cuid())
+  productId  String
+  materialId String
+  quantity   Decimal @db.Decimal(15, 3)
+  unit       MaterialUnit
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, materialId])
+  @@map("product_materials")
+}
+
+// ============================================
+// MATERIAL TRANSACTIONS (STOCK IN/OUT)
+// ============================================
+
+enum TransactionType {
+  IN      // Stock masuk
+  OUT     // Stock keluar untuk produksi
+  ADJUSTMENT
+  RETURN
+}
+
+model MaterialTransaction {
+  id          String          @id @default(cuid())
+  materialId  String
+  type        TransactionType
+  quantity    Decimal         @db.Decimal(15, 3)
+  unit        MaterialUnit
+  notes       String?
+  batchId     String?         // Reference to production batch if OUT
+  userId      String
+  createdAt   DateTime        @default(now())
+
+  material Material @relation(fields: [materialId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+  batch    ProductionBatch? @relation(fields: [batchId], references: [id])
+
+  @@index([materialId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([batchId])
+  @@map("material_transactions")
+}
+
+// ============================================
+// PRODUCTION BATCH MANAGEMENT
+// ============================================
+
+enum BatchStatus {
+  PENDING           // Batch created, waiting for material allocation
+  MATERIAL_REQUESTED // Material request sent to warehouse
+  MATERIAL_ALLOCATED // Material allocated by warehouse
+  ASSIGNED_TO_CUTTER // Assigned to cutting department
+  IN_CUTTING        // Currently being cut
+  CUTTING_COMPLETED // Cutting done, waiting for verification
+  CUTTING_VERIFIED  // Verified by production head
+  IN_SEWING         // Currently being sewn
+  SEWING_COMPLETED  // Sewing done, waiting for verification
+  SEWING_VERIFIED   // Verified by production head
+  IN_FINISHING      // Currently in finishing
+  FINISHING_COMPLETED // Finishing done
+  COMPLETED         // All processes completed
+  CANCELLED         // Batch cancelled
+}
+
+model ProductionBatch {
+  id              String      @id @default(cuid())
+  batchSku        String      @unique // Format: PROD-YYYYMMDD-XXX
+  productId       String
+  targetQuantity  Int
+  actualQuantity  Int         @default(0)
+  rejectQuantity  Int         @default(0)
+  status          BatchStatus @default(PENDING)
+  startDate       DateTime    @default(now())
+  completedDate   DateTime?
+  notes           String?
+  createdById     String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  product              Product                   @relation(fields: [productId], references: [id])
+  createdBy            User                      @relation("BatchCreator", fields: [createdById], references: [id])
+  materialAllocations  BatchMaterialAllocation[]
+  materialTransactions MaterialTransaction[]
+  cuttingTask          CuttingTask?
+  sewingTask           SewingTask?
+  finishingTask        FinishingTask?
+  qualityChecks        QualityCheck[]
+  timeline             BatchTimeline[]
+
+  @@index([batchSku])
+  @@index([status])
+  @@index([productId])
+  @@index([createdAt])
+  @@map("production_batches")
+}
+
+// ============================================
+// MATERIAL ALLOCATION FOR BATCHES
+// ============================================
+
+enum AllocationStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  ALLOCATED
+}
+
+model BatchMaterialAllocation {
+  id              String           @id @default(cuid())
+  batchId         String
+  materialId      String
+  requestedQty    Decimal          @db.Decimal(15, 3)
+  allocatedQty    Decimal?         @db.Decimal(15, 3)
+  status          AllocationStatus @default(REQUESTED)
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  batch    ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  material Material        @relation(fields: [materialId], references: [id])
+
+  @@index([batchId])
+  @@index([status])
+  @@map("batch_material_allocations")
+}
+
+// ============================================
+// PRODUCTION TASKS
+// ============================================
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  VERIFIED
+  REJECTED
+}
+
+// Cutting Task (Pemotong)
+model CuttingTask {
+  id              String     @id @default(cuid())
+  batchId         String     @unique
+  assignedToId    String
+  materialReceived Decimal   @db.Decimal(15, 3)
+  piecesCompleted Int        @default(0)
+  rejectPieces    Int        @default(0)
+  wasteQty        Decimal?   @db.Decimal(15, 3)
+  status          TaskStatus @default(PENDING)
+  notes           String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  verifiedAt      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  batch      ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  assignedTo User            @relation(fields: [assignedToId], references: [id])
+
+  @@index([status])
+  @@index([assignedToId])
+  @@map("cutting_tasks")
+}
+
+// Sewing Task (Penjahit)
+model SewingTask {
+  id              String     @id @default(cuid())
+  batchId         String     @unique
+  assignedToId    String
+  piecesReceived  Int
+  piecesCompleted Int        @default(0)
+  rejectPieces    Int        @default(0)
+  status          TaskStatus @default(PENDING)
+  notes           String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  verifiedAt      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  batch      ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  assignedTo User            @relation(fields: [assignedToId], references: [id])
+
+  @@index([status])
+  @@index([assignedToId])
+  @@map("sewing_tasks")
+}
+
+// Finishing Task
+model FinishingTask {
+  id              String     @id @default(cuid())
+  batchId         String     @unique
+  assignedToId    String
+  piecesReceived  Int
+  piecesCompleted Int        @default(0)
+  rejectPieces    Int        @default(0)
+  status          TaskStatus @default(PENDING)
+  notes           String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  batch      ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  assignedTo User            @relation(fields: [assignedToId], references: [id])
+
+  @@index([status])
+  @@index([assignedToId])
+  @@map("finishing_tasks")
+}
+
+// ============================================
+// QUALITY CONTROL
+// ============================================
+
+enum QualityCheckStage {
+  CUTTING
+  SEWING
+  FINISHING
+  FINAL
+}
+
+enum QualityStatus {
+  PASSED
+  FAILED
+  NEED_REWORK
+}
+
+model QualityCheck {
+  id            String            @id @default(cuid())
+  batchId       String
+  stage         QualityCheckStage
+  status        QualityStatus
+  passedQty     Int
+  failedQty     Int
+  reworkQty     Int               @default(0)
+  remarks       String?
+  checkedAt     DateTime          @default(now())
+
+  batch ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([stage])
+  @@map("quality_checks")
+}
+
+// ============================================
+// BATCH TIMELINE & TRACKING
+// ============================================
+
+enum TimelineEvent {
+  BATCH_CREATED
+  MATERIAL_REQUESTED
+  MATERIAL_ALLOCATED
+  ASSIGNED_TO_CUTTER
+  CUTTING_STARTED
+  CUTTING_COMPLETED
+  CUTTING_VERIFIED
+  ASSIGNED_TO_SEWER
+  SEWING_STARTED
+  SEWING_COMPLETED
+  SEWING_VERIFIED
+  ASSIGNED_TO_FINISHING
+  FINISHING_STARTED
+  FINISHING_COMPLETED
+  BATCH_COMPLETED
+  BATCH_CANCELLED
+}
+
+model BatchTimeline {
+  id        String        @id @default(cuid())
+  batchId   String
+  event     TimelineEvent
+  details   String?
+  createdAt DateTime      @default(now())
+
+  batch ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([createdAt])
+  @@map("batch_timeline")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+enum NotificationType {
+  LOW_STOCK
+  BATCH_ASSIGNMENT
+  VERIFICATION_NEEDED
+  DEADLINE_APPROACHING
+  TASK_COMPLETED
+  MATERIAL_REQUEST
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  APPROVE
+  REJECT
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  userId      String
+  action      AuditAction
+  entity      String      // Table name
+  entityId    String?     // Record ID
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
