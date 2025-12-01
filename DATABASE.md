@@ -5,6 +5,7 @@
 Database ini dirancang optimal untuk mendukung sistem manajemen produksi garmen dengan fitur tracking lengkap, role-based access control, dan audit trail.
 
 ### 🗄️ Database Information
+
 - **Database Name**: `trackpro-db`
 - **Database Type**: PostgreSQL
 - **ORM**: Prisma 7.0.1
@@ -16,20 +17,21 @@ Database ini dirancang optimal untuk mendukung sistem manajemen produksi garmen 
 
 Sistem mendukung 6 role berbeda:
 
-| Role | Description | Access Level |
-|------|-------------|--------------|
-| `OWNER` | Pemilik bisnis | Full access - Dashboard, Products, Materials, Reports |
-| `KEPALA_GUDANG` | Kepala Gudang | Material management, stock allocation |
-| `KEPALA_PRODUKSI` | Kepala Produksi | Production batch management, quality control |
-| `PEMOTONG` | Staff Pemotong | Cutting tasks and progress updates |
-| `PENJAHIT` | Staff Penjahit | Sewing tasks and progress updates |
-| `FINISHING` | Staff Finishing | Finishing tasks and final quality check |
+| Role              | Description     | Access Level                                          |
+| ----------------- | --------------- | ----------------------------------------------------- |
+| `OWNER`           | Pemilik bisnis  | Full access - Dashboard, Products, Materials, Reports |
+| `KEPALA_GUDANG`   | Kepala Gudang   | Material management, stock allocation                 |
+| `KEPALA_PRODUKSI` | Kepala Produksi | Production batch management, quality control          |
+| `PEMOTONG`        | Staff Pemotong  | Cutting tasks and progress updates                    |
+| `PENJAHIT`        | Staff Penjahit  | Sewing tasks and progress updates                     |
+| `FINISHING`       | Staff Finishing | Finishing tasks and final quality check               |
 
 ---
 
 ## 📋 Database Tables
 
 ### 1. **users** - User Management & Authentication
+
 ```prisma
 - id: String (cuid)
 - username: String (unique)
@@ -44,6 +46,7 @@ Sistem mendukung 6 role berbeda:
 **Indexes**: email, username, role
 
 ### 2. **products** - Product Catalog
+
 ```prisma
 - id, sku (unique)
 - name, description
@@ -54,12 +57,14 @@ Sistem mendukung 6 role berbeda:
 - createdById: FK to users
 ```
 
-**Features**: 
+**Features**:
+
 - Soft delete support
 - Multiple images per product
 - SKU-based identification
 
 ### 3. **materials** - Bahan Baku (Raw Materials)
+
 ```prisma
 - id, code (unique)
 - name, description
@@ -71,11 +76,13 @@ Sistem mendukung 6 role berbeda:
 ```
 
 **Features**:
+
 - Real-time stock tracking
 - Low-stock notifications support
 - Multiple unit types
 
 ### 4. **product_materials** - Product Bill of Materials (BOM)
+
 ```prisma
 - productId, materialId (composite unique)
 - quantity: Decimal
@@ -85,6 +92,7 @@ Sistem mendukung 6 role berbeda:
 **Purpose**: Defines which materials and quantities are needed per product.
 
 ### 5. **material_transactions** - Stock Movement History
+
 ```prisma
 - materialId: FK
 - type: IN | OUT | ADJUSTMENT | RETURN
@@ -96,11 +104,13 @@ Sistem mendukung 6 role berbeda:
 ```
 
 **Features**:
+
 - Complete audit trail
 - Links transactions to production batches
 - Supports various transaction types
 
 ### 6. **production_batches** - Batch Produksi
+
 ```prisma
 - id, batchSku (unique, format: PROD-YYYYMMDD-XXX)
 - productId: FK
@@ -111,13 +121,15 @@ Sistem mendukung 6 role berbeda:
 ```
 
 **Status Flow**:
+
 1. PENDING → 2. MATERIAL_REQUESTED → 3. MATERIAL_ALLOCATED →
-4. ASSIGNED_TO_CUTTER → 5. IN_CUTTING → 6. CUTTING_COMPLETED →
-7. CUTTING_VERIFIED → 8. IN_SEWING → 9. SEWING_COMPLETED →
-10. SEWING_VERIFIED → 11. IN_FINISHING → 12. FINISHING_COMPLETED →
-13. COMPLETED
+2. ASSIGNED_TO_CUTTER → 5. IN_CUTTING → 6. CUTTING_COMPLETED →
+3. CUTTING_VERIFIED → 8. IN_SEWING → 9. SEWING_COMPLETED →
+4. SEWING_VERIFIED → 11. IN_FINISHING → 12. FINISHING_COMPLETED →
+5. COMPLETED
 
 ### 7. **batch_material_allocations** - Material Allocation Requests
+
 ```prisma
 - batchId, materialId
 - requestedQty, allocatedQty: Decimal
@@ -127,6 +139,7 @@ Sistem mendukung 6 role berbeda:
 **Purpose**: Kepala Produksi requests materials, Kepala Gudang allocates.
 
 ### 8. **cutting_tasks** - Pemotongan Tasks
+
 ```prisma
 - batchId: FK (unique)
 - assignedToId: FK to users (PEMOTONG role)
@@ -136,6 +149,7 @@ Sistem mendukung 6 role berbeda:
 ```
 
 ### 9. **sewing_tasks** - Penjahitan Tasks
+
 ```prisma
 - batchId: FK (unique)
 - assignedToId: FK to users (PENJAHIT role)
@@ -145,6 +159,7 @@ Sistem mendukung 6 role berbeda:
 ```
 
 ### 10. **finishing_tasks** - Finishing Tasks
+
 ```prisma
 - batchId: FK (unique)
 - assignedToId: FK to users (FINISHING role)
@@ -154,6 +169,7 @@ Sistem mendukung 6 role berbeda:
 ```
 
 ### 11. **quality_checks** - Quality Control Records
+
 ```prisma
 - batchId: FK
 - stage: CUTTING | SEWING | FINISHING | FINAL
@@ -166,6 +182,7 @@ Sistem mendukung 6 role berbeda:
 **Purpose**: Quality control at each production stage.
 
 ### 12. **batch_timeline** - Production Timeline Tracking
+
 ```prisma
 - batchId: FK
 - event: TimelineEvent enum (16 different events)
@@ -174,11 +191,13 @@ Sistem mendukung 6 role berbeda:
 ```
 
 **Features**:
+
 - Complete history of batch lifecycle
 - Audit trail for production process
 - Used for analytics and bottleneck detection
 
 ### 13. **notifications** - User Notifications
+
 ```prisma
 - userId: FK
 - type: LOW_STOCK | BATCH_ASSIGNMENT | VERIFICATION_NEEDED | etc.
@@ -188,12 +207,14 @@ Sistem mendukung 6 role berbeda:
 ```
 
 **Use Cases**:
+
 - Low stock alerts
 - Task assignments
 - Verification requests
 - Deadline reminders
 
 ### 14. **audit_logs** - System Audit Trail
+
 ```prisma
 - userId: FK
 - action: CREATE | UPDATE | DELETE | LOGIN | LOGOUT | EXPORT | APPROVE | REJECT
@@ -205,6 +226,7 @@ Sistem mendukung 6 role berbeda:
 ```
 
 **Features**:
+
 - Complete activity logging
 - JSON diff of changes
 - User tracking with IP and User Agent
@@ -224,6 +246,7 @@ Sistem mendukung 6 role berbeda:
 ## 📈 Performance Optimization
 
 ### Indexes Created:
+
 - **users**: email, username, role
 - **products**: sku, status, createdById
 - **materials**: code, currentStock, minimumStock
@@ -237,6 +260,7 @@ Sistem mendukung 6 role berbeda:
 - **audit_logs**: userId, entity, createdAt
 
 ### Query Optimization:
+
 - Foreign key constraints for data integrity
 - Composite unique indexes where needed
 - Cascade deletes for related data cleanup
@@ -248,6 +272,7 @@ Sistem mendukung 6 role berbeda:
 Database sudah di-seed dengan:
 
 ### Users (Password: `password123`):
+
 - owner@trackpro.com (OWNER)
 - gudang@trackpro.com (KEPALA_GUDANG)
 - produksi@trackpro.com (KEPALA_PRODUKSI)
@@ -256,15 +281,18 @@ Database sudah di-seed dengan:
 - finishing@trackpro.com (FINISHING)
 
 ### Materials:
+
 - MAT-KAIN-001: Kain Katun Premium (500 meter)
 - MAT-BENANG-001: Benang Jahit Premium (200 roll)
 - MAT-KANCING-001: Kancing Kayu (1000 piece)
 
 ### Products:
+
 - PROD-GAMIS-001: Gamis Premium Elegant (Rp 350,000)
 - PROD-GAMIS-002: Gamis Casual Daily (Rp 250,000)
 
 ### Production Batch:
+
 - PROD-YYYYMMDD-001: Sample batch with material requests
 
 ---
