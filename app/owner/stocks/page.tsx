@@ -1,263 +1,225 @@
 "use client"
 
-import { useState } from "react"
-import { Search, Plus } from "lucide-react"
-import { Header } from "@/components/layout/header"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select } from "@/components/ui/select"
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog"
-
-type StockType = "Bahan Baku" | "Produk Jadi" | "Produk Gagal"
-type Unit = "Pcs" | "Roll"
-
-interface Stock {
-    id: number
-    name: string
-    type: StockType
-    quantity: number
-    unit: Unit
-}
+import { Package2, TrendingDown, TrendingUp, AlertTriangle } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function StocksPage() {
-    const [stocks, setStocks] = useState<Stock[]>([])
-    const [searchQuery, setSearchQuery] = useState("")
-    const [activeFilter, setActiveFilter] = useState<StockType | "Semua">("Semua")
-    const [isDialogOpen, setIsDialogOpen] = useState(false)
-    const [currentPage, setCurrentPage] = useState(1)
+    const rawMaterials = [
+        { id: 1, name: "Kain Katun Premium", stock: 250, unit: "Roll", min: 50, status: "good" },
+        { id: 2, name: "Kain Polyester", stock: 180, unit: "Roll", min: 50, status: "good" },
+        { id: 3, name: "Benang Jahit", stock: 45, unit: "Pcs", min: 100, status: "low" },
+        { id: 4, name: "Kancing Plastik", stock: 15, unit: "Pcs", min: 50, status: "critical" },
+    ]
 
-    // Form state
-    const [formData, setFormData] = useState({
-        name: "",
-        type: "Bahan Baku" as StockType,
-        quantity: 0,
-        unit: "Pcs" as Unit,
-    })
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault()
-        const newStock: Stock = {
-            id: stocks.length + 1,
-            ...formData,
-        }
-        setStocks([...stocks, newStock])
-        setIsDialogOpen(false)
-        setFormData({
-            name: "",
-            type: "Bahan Baku",
-            quantity: 0,
-            unit: "Pcs",
-        })
-    }
-
-    const filteredStocks = stocks.filter((stock) => {
-        const matchesSearch = stock.name
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase())
-        const matchesFilter =
-            activeFilter === "Semua" || stock.type === activeFilter
-        return matchesSearch && matchesFilter
-    })
-
-    const filters: Array<StockType | "Semua"> = [
-        "Semua",
-        "Bahan Baku",
-        "Produk Jadi",
-        "Produk Gagal",
+    const finishedProducts = [
+        { id: 1, name: "Kaos Premium", stock: 120, unit: "Pcs", status: "good" },
+        { id: 2, name: "Kemeja Formal", stock: 85, unit: "Pcs", status: "good" },
+        { id: 3, name: "Jaket Hoodie", stock: 42, unit: "Pcs", status: "good" },
     ]
 
     return (
-        <div className="h-full">
-            <Header breadcrumbs={[{ label: "Stok" }]} />
-
-            <div className="p-6 space-y-4">
-                {/* Search and Add Button */}
-                <div className="flex items-center justify-between gap-4">
-                    <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                            placeholder="Cari Product..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
-                        />
-                    </div>
-
-                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <Plus className="h-4 w-4 mr-2" />
-                                Input Stok
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Input Stok</DialogTitle>
-                                <DialogDescription>
-                                    Silakan masukkan informasi stok.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="name">Nama</Label>
-                                        <Input
-                                            id="name"
-                                            value={formData.name}
-                                            onChange={(e) =>
-                                                setFormData({ ...formData, name: e.target.value })
-                                            }
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="type">Tipe</Label>
-                                        <Select
-                                            id="type"
-                                            value={formData.type}
-                                            onChange={(e) =>
-                                                setFormData({
-                                                    ...formData,
-                                                    type: e.target.value as StockType,
-                                                })
-                                            }
-                                        >
-                                            <option value="Bahan Baku">Bahan Baku</option>
-                                            <option value="Produk Jadi">Produk Jadi</option>
-                                            <option value="Produk Gagal">Produk Gagal</option>
-                                        </Select>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="quantity">Stok Qty</Label>
-                                        <Input
-                                            id="quantity"
-                                            type="number"
-                                            value={formData.quantity}
-                                            onChange={(e) =>
-                                                setFormData({
-                                                    ...formData,
-                                                    quantity: parseInt(e.target.value) || 0,
-                                                })
-                                            }
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="unit">Satuan</Label>
-                                        <Select
-                                            id="unit"
-                                            value={formData.unit}
-                                            onChange={(e) =>
-                                                setFormData({
-                                                    ...formData,
-                                                    unit: e.target.value as Unit,
-                                                })
-                                            }
-                                        >
-                                            <option value="Pcs">Pcs</option>
-                                            <option value="Roll">Roll</option>
-                                        </Select>
-                                    </div>
-                                </div>
-                                <Button type="submit" className="w-full">
-                                    Simpan
-                                </Button>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
-                </div>
-
-                {/* Filters */}
-                <div className="flex gap-2">
-                    {filters.map((filter) => (
-                        <Button
-                            key={filter}
-                            variant={activeFilter === filter ? "default" : "outline"}
-                            onClick={() => setActiveFilter(filter)}
-                            size="sm"
-                        >
-                            {filter}
-                        </Button>
-                    ))}
-                </div>
-
-                {/* Table */}
-                <div className="border rounded-lg">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Nama</TableHead>
-                                <TableHead>Tipe</TableHead>
-                                <TableHead>Stok Qty</TableHead>
-                                <TableHead>Satuan</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredStocks.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="text-center text-muted-foreground">
-                                        Tidak ada data
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredStocks.map((stock) => (
-                                    <TableRow key={stock.id}>
-                                        <TableCell>{stock.name}</TableCell>
-                                        <TableCell>{stock.type}</TableCell>
-                                        <TableCell>{stock.quantity}</TableCell>
-                                        <TableCell>{stock.unit}</TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-
-                {/* Pagination */}
-                <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                        Halaman {currentPage} dari {Math.max(1, Math.ceil(filteredStocks.length / 10))}
-                    </div>
-                    <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={currentPage === 1}
-                            onClick={() => setCurrentPage(currentPage - 1)}
-                        >
-                            Prev
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={
-                                currentPage >= Math.max(1, Math.ceil(filteredStocks.length / 10))
-                            }
-                            onClick={() => setCurrentPage(currentPage + 1)}
-                        >
-                            Next
-                        </Button>
-                    </div>
+        <div className="flex-1 space-y-4 p-8 pt-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight">Inventory</h2>
+                    <p className="text-muted-foreground">
+                        Monitor your stock levels and materials
+                    </p>
                 </div>
             </div>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Raw Materials
+                        </CardTitle>
+                        <Package2 className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">4</div>
+                        <p className="text-xs text-muted-foreground">
+                            Types in inventory
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Finished Products
+                        </CardTitle>
+                        <Package2 className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">247</div>
+                        <p className="text-xs text-muted-foreground">
+                            Units ready to ship
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Low Stock Items
+                        </CardTitle>
+                        <TrendingDown className="h-4 w-4 text-orange-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-orange-500">2</div>
+                        <p className="text-xs text-muted-foreground">
+                            Need restock soon
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Stock Value
+                        </CardTitle>
+                        <TrendingUp className="h-4 w-4 text-green-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">Rp 45M</div>
+                        <p className="text-xs text-muted-foreground">
+                            Total inventory value
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <Tabs defaultValue="materials" className="space-y-4">
+                <TabsList>
+                    <TabsTrigger value="materials">Raw Materials</TabsTrigger>
+                    <TabsTrigger value="products">Finished Products</TabsTrigger>
+                    <TabsTrigger value="failed">Failed Products</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="materials" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Raw Materials Inventory</CardTitle>
+                            <CardDescription>
+                                Materials available for production
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {rawMaterials.map((material) => (
+                                    <div
+                                        key={material.id}
+                                        className="flex items-center justify-between p-4 rounded-lg border"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+                                                <Package2 className="h-5 w-5 text-blue-600" />
+                                            </div>
+                                            <div>
+                                                <p className="font-medium">{material.name}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Minimum stock: {material.min} {material.unit}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="text-right">
+                                                <p className="text-2xl font-bold">
+                                                    {material.stock}
+                                                </p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {material.unit}
+                                                </p>
+                                            </div>
+                                            {material.status === "good" && (
+                                                <Badge>In Stock</Badge>
+                                            )}
+                                            {material.status === "low" && (
+                                                <Badge variant="secondary">
+                                                    <TrendingDown className="h-3 w-3 mr-1" />
+                                                    Low Stock
+                                                </Badge>
+                                            )}
+                                            {material.status === "critical" && (
+                                                <Badge variant="destructive">
+                                                    <AlertTriangle className="h-3 w-3 mr-1" />
+                                                    Critical
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="products" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Finished Products</CardTitle>
+                            <CardDescription>
+                                Products ready for delivery
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {finishedProducts.map((product) => (
+                                    <div
+                                        key={product.id}
+                                        className="flex items-center justify-between p-4 rounded-lg border"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
+                                                <Package2 className="h-5 w-5 text-green-600" />
+                                            </div>
+                                            <div>
+                                                <p className="font-medium">{product.name}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Ready to ship
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="text-right">
+                                                <p className="text-2xl font-bold">
+                                                    {product.stock}
+                                                </p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {product.unit}
+                                                </p>
+                                            </div>
+                                            <Badge>Available</Badge>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="failed" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Failed Products</CardTitle>
+                            <CardDescription>
+                                Products that did not pass quality control
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex flex-col items-center justify-center py-8 text-center">
+                                <Package2 className="h-12 w-12 text-muted-foreground mb-4" />
+                                <p className="text-muted-foreground">
+                                    No failed products recorded
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
         </div>
     )
 }

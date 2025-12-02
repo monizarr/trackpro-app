@@ -1,192 +1,144 @@
-import { Header } from "@/components/layout/header"
-import { Package, TrendingUp, Users, AlertTriangle, CheckCircle, Clock } from "lucide-react"
+﻿import { Package, Users, AlertTriangle, CheckCircle, Clock, Activity } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Separator } from "@/components/ui/separator"
 
 export default function DashboardPage() {
-    const stats = [
-        {
-            title: "Total Products",
-            value: "24",
-            change: "+12%",
-            trend: "up",
-            icon: Package,
-            color: "from-blue-500 to-blue-600"
-        },
-        {
-            title: "Active Batches",
-            value: "8",
-            change: "+3",
-            trend: "up",
-            icon: TrendingUp,
-            color: "from-purple-500 to-purple-600"
-        },
-        {
-            title: "Total Employees",
-            value: "45",
-            change: "+5",
-            trend: "up",
-            icon: Users,
-            color: "from-green-500 to-green-600"
-        },
-    ]
-
-    const recentBatches = [
-        { id: "BATCH-001", product: "Kaos Premium", status: "CUTTING", progress: 35, color: "blue" },
-        { id: "BATCH-002", product: "Kemeja Formal", status: "SEWING", progress: 65, color: "purple" },
-        { id: "BATCH-003", product: "Jaket Hoodie", status: "FINISHING", progress: 85, color: "green" },
-        { id: "BATCH-004", product: "Celana Jeans", status: "PLANNED", progress: 10, color: "gray" },
-    ]
-
-    const qualityAlerts = [
-        { batch: "BATCH-002", issue: "Minor stitching defect", severity: "warning" },
-        { batch: "BATCH-001", issue: "Material shortage", severity: "error" },
-    ]
-
     return (
-        <div className="h-full">
-            <Header breadcrumbs={[{ label: "Dashboard" }]} />
-
-            <div className="p-6 space-y-6">
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {stats.map((stat) => {
-                        const Icon = stat.icon
-                        return (
-                            <div
-                                key={stat.title}
-                                className="relative overflow-hidden rounded-2xl bg-white border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all duration-200"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div className="space-y-2">
-                                        <p className="text-sm text-gray-600 font-medium">{stat.title}</p>
-                                        <div className="flex items-baseline space-x-2">
-                                            <h3 className="text-3xl font-bold text-gray-900">{stat.value}</h3>
-                                            <span className={`text-sm font-medium ${stat.trend === "up" ? "text-green-600" : "text-red-600"
-                                                }`}>
-                                                {stat.change}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className={`w-14 h-14 rounded-xl bg-linear-to-br ${stat.color} flex items-center justify-center shadow-lg`}>
-                                        <Icon className="w-7 h-7 text-white" />
-                                    </div>
-                                </div>
-                            </div>
-                        )
-                    })}
-                </div>
-
-                {/* Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Recent Production Batches */}
-                    <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-lg font-semibold text-gray-900">Recent Production Batches</h2>
-                            <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                                View all
-                            </button>
-                        </div>
-                        <div className="space-y-4">
-                            {recentBatches.map((batch) => (
-                                <div
-                                    key={batch.id}
-                                    className="flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors"
-                                >
-                                    <div className="flex items-center space-x-4 flex-1">
-                                        <div className={`w-12 h-12 rounded-xl bg-${batch.color}-50 flex items-center justify-center`}>
-                                            <Package className={`w-6 h-6 text-${batch.color}-600`} />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex items-center space-x-2">
-                                                <p className="font-medium text-gray-900">{batch.id}</p>
-                                                <span className={`px-2 py-0.5 text-xs font-medium rounded-full bg-${batch.color}-50 text-${batch.color}-700`}>
-                                                    {batch.status}
-                                                </span>
-                                            </div>
-                                            <p className="text-sm text-gray-600">{batch.product}</p>
-                                            <div className="mt-2 w-full bg-gray-100 rounded-full h-2">
-                                                <div
-                                                    className={`h-2 rounded-full bg-${batch.color}-500`}
-                                                    style={{ width: `${batch.progress}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="text-right ml-4">
-                                        <p className="text-sm font-semibold text-gray-900">{batch.progress}%</p>
-                                        <p className="text-xs text-gray-500">Complete</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Quality Alerts & Quick Actions */}
-                    <div className="space-y-6">
-                        {/* Quality Alerts */}
-                        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                            <div className="flex items-center space-x-2 mb-4">
-                                <AlertTriangle className="w-5 h-5 text-orange-500" />
-                                <h2 className="text-lg font-semibold text-gray-900">Quality Alerts</h2>
-                            </div>
-                            <div className="space-y-3">
-                                {qualityAlerts.map((alert, index) => (
-                                    <div
-                                        key={index}
-                                        className={`p-3 rounded-lg border ${alert.severity === "error"
-                                                ? "bg-red-50 border-red-200"
-                                                : "bg-orange-50 border-orange-200"
-                                            }`}
-                                    >
-                                        <p className="text-sm font-medium text-gray-900">{alert.batch}</p>
-                                        <p className="text-xs text-gray-600 mt-1">{alert.issue}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Quick Stats */}
-                        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-4">Today&apos;s Overview</h2>
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
-                                            <CheckCircle className="w-5 h-5 text-green-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-gray-600">Completed</p>
-                                            <p className="text-lg font-semibold text-gray-900">12</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                                            <Clock className="w-5 h-5 text-blue-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-gray-600">In Progress</p>
-                                            <p className="text-lg font-semibold text-gray-900">8</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
-                                            <AlertTriangle className="w-5 h-5 text-orange-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-gray-600">Issues</p>
-                                            <p className="text-lg font-semibold text-gray-900">2</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <div className="flex-1 space-y-4 p-8 pt-6">
+            <div className="flex items-center justify-between space-y-2">
+                <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
             </div>
+
+            <Tabs defaultValue="overview" className="space-y-4">
+                <TabsList>
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                    <TabsTrigger value="reports">Reports</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="overview" className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+                                <Package className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">24</div>
+                                <p className="text-xs text-muted-foreground">+12% from last month</p>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Active Batches</CardTitle>
+                                <Activity className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">8</div>
+                                <p className="text-xs text-muted-foreground">+3 new this week</p>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">45</div>
+                                <p className="text-xs text-muted-foreground">+5 since last quarter</p>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                        <Card className="col-span-4">
+                            <CardHeader>
+                                <CardTitle>Recent Production Batches</CardTitle>
+                                <CardDescription>You have 8 active production batches.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-8">
+                                    <div className="flex items-center">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100">
+                                            <Package className="h-4 w-4 text-blue-600" />
+                                        </div>
+                                        <div className="ml-4 space-y-1 flex-1">
+                                            <p className="text-sm font-medium leading-none">BATCH-001</p>
+                                            <p className="text-sm text-muted-foreground">Kaos Premium</p>
+                                        </div>
+                                        <div className="ml-auto font-medium flex items-center gap-2">
+                                            <Badge>CUTTING</Badge>
+                                            <span className="text-sm">35%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <div className="col-span-3 space-y-4">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        Quality Alerts
+                                    </CardTitle>
+                                    <CardDescription>2 issues need attention</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="flex items-start space-x-4 rounded-lg border p-3 bg-red-50 border-red-200">
+                                        <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-medium leading-none">BATCH-001</p>
+                                            <p className="text-xs text-muted-foreground">Material shortage detected</p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Today&apos;s Overview</CardTitle>
+                                    <CardDescription>Current production status</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="flex items-center">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-100">
+                                            <CheckCircle className="h-4 w-4 text-green-600" />
+                                        </div>
+                                        <div className="ml-4 space-y-1 flex-1">
+                                            <p className="text-sm font-medium leading-none">Completed</p>
+                                        </div>
+                                        <div className="text-2xl font-bold">12</div>
+                                    </div>
+                                    <Separator />
+                                    <div className="flex items-center">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100">
+                                            <Clock className="h-4 w-4 text-blue-600" />
+                                        </div>
+                                        <div className="ml-4 space-y-1 flex-1">
+                                            <p className="text-sm font-medium leading-none">In Progress</p>
+                                        </div>
+                                        <div className="text-2xl font-bold">8</div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="analytics" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Analytics</CardTitle>
+                            <CardDescription>Detailed analytics coming soon...</CardDescription>
+                        </CardHeader>
+                    </Card>
+                </TabsContent>
+            </Tabs>
         </div>
     )
 }
-

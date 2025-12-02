@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import {
     Table,
     TableBody,
@@ -170,18 +173,18 @@ export default function ProductDetailPage() {
 
     const getStatusBadge = (status: string) => {
         const statusMap = {
-            active: { label: "active", className: "bg-green-100 text-green-700 border-green-300" },
-            inactive: { label: "inactive", className: "bg-gray-100 text-gray-700 border-gray-300" },
-            in_progress: { label: "in_progress", className: "bg-blue-100 text-blue-700 border-blue-300" },
-            completed: { label: "completed", className: "bg-green-100 text-green-700 border-green-300" },
-            cancelled: { label: "cancelled", className: "bg-red-100 text-red-700 border-red-300" },
+            active: { label: "Active", variant: "default" as const },
+            inactive: { label: "Inactive", variant: "secondary" as const },
+            in_progress: { label: "In Progress", variant: "default" as const },
+            completed: { label: "Completed", variant: "default" as const },
+            cancelled: { label: "Cancelled", variant: "destructive" as const },
         };
 
         const statusInfo = statusMap[status as keyof typeof statusMap] || statusMap.active;
         return (
-            <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${statusInfo.className}`}>
+            <Badge variant={statusInfo.variant}>
                 {statusInfo.label}
-            </span>
+            </Badge>
         );
     };
 
@@ -194,208 +197,220 @@ export default function ProductDetailPage() {
     };
 
     return (
-        <div className="p-6">
+        <div className="flex-1 space-y-4 p-8 pt-6">
             {/* Breadcrumb */}
-            <div className="mb-6">
-                <Link href="/owner/products" className="text-sm text-gray-600 hover:text-gray-900 flex items-center">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Link href="/owner/products" className="hover:text-foreground flex items-center">
                     <ChevronLeft className="h-4 w-4 mr-1" />
-                    Produk
+                    Products
                 </Link>
             </div>
 
-            {/* Product Info Card */}
-            <div className="bg-white rounded-lg border p-6 mb-6">
-                <div className="flex justify-between items-start mb-4">
-                    <div>
-                        <h1 className="text-2xl font-bold">{product.name}</h1>
-                        <p className="text-sm text-gray-600">{product.description}</p>
-                    </div>
-                    <Button variant="ghost" size="icon">
-                        <Edit className="h-4 w-4" />
-                    </Button>
-                </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                {/* Product Info Card */}
+                <Card className="lg:col-span-3">
+                    <CardHeader>
+                        <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                                <CardTitle>{product.name}</CardTitle>
+                                <CardDescription>{product.description}</CardDescription>
+                            </div>
+                            <Button variant="ghost" size="icon">
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* Product Image */}
+                        <div className="relative w-full aspect-3/4">
+                            <Image
+                                src={product.image}
+                                alt={product.name}
+                                fill
+                                className="rounded-lg object-cover"
+                            />
+                        </div>
 
-                {/* Product Image */}
-                <div className="mb-4 relative w-full max-w-md mx-auto aspect-3/4">
-                    <Image
-                        src={product.image}
-                        alt={product.name}
-                        fill
-                        className="rounded-lg object-cover"
-                    />
-                </div>
+                        <Separator />
 
-                {/* Product Details */}
-                <div className="grid grid-cols-2 gap-4 border-t pt-4">
-                    <div>
-                        <span className="text-sm text-gray-600">Harga</span>
-                        <p className="text-xl font-semibold">{formatPrice(product.price)}</p>
-                    </div>
-                    <div>
-                        <span className="text-sm text-gray-600">Status</span>
-                        <div className="mt-1">{getStatusBadge(product.status)}</div>
-                    </div>
-                </div>
+                        {/* Product Details */}
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-muted-foreground">Price</span>
+                                <span className="text-xl font-bold">{formatPrice(product.price)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-muted-foreground">Status</span>
+                                {getStatusBadge(product.status)}
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-muted-foreground">SKU</span>
+                                <span className="font-mono text-sm font-medium">{product.sku}</span>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
-                <div className="mt-4 pt-4 border-t text-center">
-                    <span className="text-sm text-gray-600">SKU: </span>
-                    <span className="font-mono text-sm font-medium text-blue-600">{product.sku}</span>
-                </div>
-            </div>
-
-            {/* Production Section */}
-            <div className="bg-white rounded-lg border">
-                <div className="p-6 border-b">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-semibold">Daftar Produksi</h2>
-                        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Tambah Produksi
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Tambah Produksi Baru</DialogTitle>
-                                    <DialogDescription>
-                                        Buat batch produksi baru untuk produk ini
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4 py-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="batch_code">Kode Batch</Label>
-                                        <Input
-                                            id="batch_code"
-                                            placeholder="Masukkan kode batch"
-                                            value={newProduction.batch_code}
-                                            onChange={(e) => setNewProduction({ ...newProduction, batch_code: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="target">Target (PCS)</Label>
-                                        <Input
-                                            id="target"
-                                            type="number"
-                                            placeholder="Masukkan target produksi"
-                                            value={newProduction.target || ""}
-                                            onChange={(e) => setNewProduction({ ...newProduction, target: Number(e.target.value) })}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="notes">Catatan</Label>
-                                        <Textarea
-                                            id="notes"
-                                            placeholder="Catatan tambahan (opsional)"
-                                            value={newProduction.notes}
-                                            onChange={(e) => setNewProduction({ ...newProduction, notes: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex justify-end gap-2">
-                                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                                        Batal
+                {/* Production Section */}
+                <Card className="lg:col-span-4">
+                    <CardHeader>
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <CardTitle>Production Batches</CardTitle>
+                                <CardDescription>
+                                    Manage production batches for this product
+                                </CardDescription>
+                            </div>
+                            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Add Production
                                     </Button>
-                                    <Button onClick={handleAddProduction}>
-                                        Simpan
-                                    </Button>
-                                </div>
-                            </DialogContent>
-                        </Dialog>
-                    </div>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Add New Production Batch</DialogTitle>
+                                        <DialogDescription>
+                                            Create a new production batch for this product
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4 py-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="batch_code">Batch Code</Label>
+                                            <Input
+                                                id="batch_code"
+                                                placeholder="Enter batch code"
+                                                value={newProduction.batch_code}
+                                                onChange={(e) => setNewProduction({ ...newProduction, batch_code: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="target">Target (PCS)</Label>
+                                            <Input
+                                                id="target"
+                                                type="number"
+                                                placeholder="Enter production target"
+                                                value={newProduction.target || ""}
+                                                onChange={(e) => setNewProduction({ ...newProduction, target: Number(e.target.value) })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="notes">Notes</Label>
+                                            <Textarea
+                                                id="notes"
+                                                placeholder="Additional notes (optional)"
+                                                value={newProduction.notes}
+                                                onChange={(e) => setNewProduction({ ...newProduction, notes: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-end gap-2">
+                                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                                            Cancel
+                                        </Button>
+                                        <Button onClick={handleAddProduction}>
+                                            Save
+                                        </Button>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* Search */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search production..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-10"
+                            />
+                        </div>
 
-                    {/* Search */}
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                            placeholder="Cari produksi..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
-                        />
-                    </div>
-                </div>
-
-                {/* Production Table */}
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead
-                                    className="cursor-pointer hover:bg-gray-50"
-                                    onClick={() => handleSort("batch_code")}
-                                >
-                                    <div className="flex items-center">
-                                        Kode Batch
-                                        <ChevronsUpDown className="ml-2 h-4 w-4" />
-                                    </div>
-                                </TableHead>
-                                <TableHead
-                                    className="cursor-pointer hover:bg-gray-50"
-                                    onClick={() => handleSort("created_date")}
-                                >
-                                    <div className="flex items-center">
-                                        Tanggal Dibuat
-                                        <ChevronsUpDown className="ml-2 h-4 w-4" />
-                                    </div>
-                                </TableHead>
-                                <TableHead>Tanggal Selesai</TableHead>
-                                <TableHead
-                                    className="cursor-pointer hover:bg-gray-50"
-                                    onClick={() => handleSort("target")}
-                                >
-                                    <div className="flex items-center">
-                                        Target (PCS)
-                                        <ChevronsUpDown className="ml-2 h-4 w-4" />
-                                    </div>
-                                </TableHead>
-                                <TableHead
-                                    className="cursor-pointer hover:bg-gray-50"
-                                    onClick={() => handleSort("status")}
-                                >
-                                    <div className="flex items-center">
-                                        Status
-                                        <ChevronsUpDown className="ml-2 h-4 w-4" />
-                                    </div>
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {sortedProductions.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                                        Belum ada data produksi
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                sortedProductions.map((production) => (
-                                    <TableRow key={production.id}>
-                                        <TableCell className="font-medium">{production.batch_code}</TableCell>
-                                        <TableCell>{production.created_date}</TableCell>
-                                        <TableCell>{production.finish_date}</TableCell>
-                                        <TableCell>{production.target}</TableCell>
-                                        <TableCell>{getStatusBadge(production.status)}</TableCell>
+                        {/* Production Table */}
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead
+                                            className="cursor-pointer hover:bg-muted"
+                                            onClick={() => handleSort("batch_code")}
+                                        >
+                                            <div className="flex items-center">
+                                                Batch Code
+                                                <ChevronsUpDown className="ml-2 h-4 w-4" />
+                                            </div>
+                                        </TableHead>
+                                        <TableHead
+                                            className="cursor-pointer hover:bg-muted"
+                                            onClick={() => handleSort("created_date")}
+                                        >
+                                            <div className="flex items-center">
+                                                Created Date
+                                                <ChevronsUpDown className="ml-2 h-4 w-4" />
+                                            </div>
+                                        </TableHead>
+                                        <TableHead>Finish Date</TableHead>
+                                        <TableHead
+                                            className="cursor-pointer hover:bg-muted"
+                                            onClick={() => handleSort("target")}
+                                        >
+                                            <div className="flex items-center">
+                                                Target (PCS)
+                                                <ChevronsUpDown className="ml-2 h-4 w-4" />
+                                            </div>
+                                        </TableHead>
+                                        <TableHead
+                                            className="cursor-pointer hover:bg-muted"
+                                            onClick={() => handleSort("status")}
+                                        >
+                                            <div className="flex items-center">
+                                                Status
+                                                <ChevronsUpDown className="ml-2 h-4 w-4" />
+                                            </div>
+                                        </TableHead>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+                                </TableHeader>
+                                <TableBody>
+                                    {sortedProductions.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                                No production data available
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        sortedProductions.map((production) => (
+                                            <TableRow key={production.id}>
+                                                <TableCell className="font-medium">{production.batch_code}</TableCell>
+                                                <TableCell>{production.created_date}</TableCell>
+                                                <TableCell>{production.finish_date}</TableCell>
+                                                <TableCell>{production.target}</TableCell>
+                                                <TableCell>{getStatusBadge(production.status)}</TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
 
-                {/* Pagination */}
-                <div className="p-4 border-t flex justify-between items-center">
-                    <p className="text-sm text-gray-600">
-                        Halaman 1 dari 1
-                    </p>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" disabled>
-                            Previous
-                        </Button>
-                        <Button variant="outline" size="sm" disabled>
-                            Next
-                        </Button>
-                    </div>
-                </div>
+                        {/* Pagination */}
+                        <div className="flex justify-between items-center">
+                            <p className="text-sm text-muted-foreground">
+                                Page 1 of 1
+                            </p>
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" disabled>
+                                    Previous
+                                </Button>
+                                <Button variant="outline" size="sm" disabled>
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );

@@ -1,13 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Plus, ArrowUpDown, Copy } from "lucide-react"
-import { Header } from "@/components/layout/header"
+import { Search, Plus, ArrowUpDown, Copy, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import {
     Table,
     TableBody,
@@ -140,125 +141,136 @@ export default function ProductsPage() {
     })
 
     return (
-        <div className="h-full">
-            <Header breadcrumbs={[{ label: "Produk" }]} />
-
-            <div className="p-6 space-y-4">
-                {/* Search and Add Button */}
-                <div className="flex items-center justify-between gap-4">
-                    <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                            placeholder="Cari Product..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
-                        />
-                    </div>
-
-                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <Plus className="h-4 w-4 mr-2" />
-                                Buat Produk
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                                <DialogTitle>Buat Produk</DialogTitle>
-                                <DialogDescription>
-                                    Silakan masukkan informasi produk.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="sku">SKU</Label>
-                                        <Input
-                                            id="sku"
-                                            value={formData.sku}
-                                            onChange={(e) =>
-                                                setFormData({ ...formData, sku: e.target.value })
-                                            }
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="name">Nama</Label>
-                                        <Input
-                                            id="name"
-                                            value={formData.name}
-                                            onChange={(e) =>
-                                                setFormData({ ...formData, name: e.target.value })
-                                            }
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="price">Harga</Label>
-                                        <Input
-                                            id="price"
-                                            type="number"
-                                            value={formData.price}
-                                            onChange={(e) =>
-                                                setFormData({
-                                                    ...formData,
-                                                    price: parseInt(e.target.value) || 0,
-                                                })
-                                            }
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="status">Status</Label>
-                                        <Select
-                                            id="status"
-                                            value={formData.status}
-                                            onChange={(e) =>
-                                                setFormData({
-                                                    ...formData,
-                                                    status: e.target.value as ProductStatus,
-                                                })
-                                            }
-                                        >
-                                            <option value="active">Active</option>
-                                            <option value="inactive">Inactive</option>
-                                        </Select>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="description">Deskripsi</Label>
-                                    <Textarea
-                                        id="description"
-                                        value={formData.description}
-                                        onChange={(e) =>
-                                            setFormData({ ...formData, description: e.target.value })
-                                        }
-                                        rows={3}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="materials">Bahan</Label>
-                                    <Input
-                                        id="materials"
-                                        value={formData.materials}
-                                        onChange={(e) =>
-                                            setFormData({ ...formData, materials: e.target.value })
-                                        }
-                                    />
-                                </div>
-                                <Button type="submit" className="w-full">
-                                    Simpan
-                                </Button>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
+        <div className="flex-1 space-y-4 p-8 pt-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight">Products</h2>
+                    <p className="text-muted-foreground">
+                        Manage your product catalog
+                    </p>
                 </div>
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Product
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                            <DialogTitle>Create Product</DialogTitle>
+                            <DialogDescription>
+                                Add a new product to your catalog.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="sku">SKU</Label>
+                                    <Input
+                                        id="sku"
+                                        value={formData.sku}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, sku: e.target.value })
+                                        }
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">Name</Label>
+                                    <Input
+                                        id="name"
+                                        value={formData.name}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, name: e.target.value })
+                                        }
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="price">Harga</Label>
+                                    <Input
+                                        id="price"
+                                        type="number"
+                                        value={formData.price}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                price: parseInt(e.target.value) || 0,
+                                            })
+                                        }
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="status">Status</Label>
+                                    <Select
+                                        id="status"
+                                        value={formData.status}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                status: e.target.value as ProductStatus,
+                                            })
+                                        }
+                                    >
+                                        <option value="active">Active</option>
+                                        <option value="inactive">Inactive</option>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="description">Description</Label>
+                                <Textarea
+                                    id="description"
+                                    value={formData.description}
+                                    onChange={(e) =>
+                                        setFormData({ ...formData, description: e.target.value })
+                                    }
+                                    rows={3}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="materials">Materials</Label>
+                                <Input
+                                    id="materials"
+                                    value={formData.materials}
+                                    onChange={(e) =>
+                                        setFormData({ ...formData, materials: e.target.value })
+                                    }
+                                />
+                            </div>
+                            <Button type="submit" className="w-full">
+                                Save Product
+                            </Button>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+            </div>
 
-                {/* Table */}
-                <div className="border rounded-lg">
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle>Product List</CardTitle>
+                            <CardDescription>
+                                Manage your product inventory
+                            </CardDescription>
+                        </div>
+                        <div className="relative w-72">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search products..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-10"
+                            />
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -280,7 +292,7 @@ export default function ProductsPage() {
                                         onClick={() => handleSort("name")}
                                         className="flex items-center gap-1"
                                     >
-                                        Nama
+                                        Name
                                         <ArrowUpDown className="h-3 w-3" />
                                     </Button>
                                 </TableHead>
@@ -291,7 +303,7 @@ export default function ProductsPage() {
                                         onClick={() => handleSort("price")}
                                         className="flex items-center gap-1"
                                     >
-                                        Harga
+                                        Price
                                         <ArrowUpDown className="h-3 w-3" />
                                     </Button>
                                 </TableHead>
@@ -313,9 +325,9 @@ export default function ProductsPage() {
                                 <TableRow>
                                     <TableCell
                                         colSpan={4}
-                                        className="text-center text-muted-foreground"
+                                        className="text-center text-muted-foreground h-24"
                                     >
-                                        Tidak ada data
+                                        No products found
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -324,59 +336,63 @@ export default function ProductsPage() {
                                         <TableCell>
                                             <button
                                                 onClick={() => copySKU(product.sku)}
-                                                className="flex items-center gap-2 hover:text-primary"
-                                                title="Klik untuk menyalin SKU"
+                                                className="flex items-center gap-2 hover:text-primary transition-colors"
+                                                title="Click to copy SKU"
                                             >
-                                                {product.sku}
+                                                <span className="font-mono text-sm">{product.sku}</span>
                                                 <Copy className="h-3 w-3" />
                                             </button>
                                         </TableCell>
                                         <TableCell>
                                             <a
                                                 href={`/owner/products/${product.id}`}
-                                                className="text-primary hover:underline"
+                                                className="text-primary hover:underline font-medium"
                                             >
                                                 {product.name}
                                             </a>
                                         </TableCell>
-                                        <TableCell>{product.price}</TableCell>
-                                        <TableCell>{product.status}</TableCell>
+                                        <TableCell className="font-medium">
+                                            Rp {product.price.toLocaleString('id-ID')}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={product.status === 'active' ? 'default' : 'secondary'}>
+                                                {product.status}
+                                            </Badge>
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             )}
                         </TableBody>
                     </Table>
-                </div>
 
-                {/* Pagination */}
-                <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                        Halaman {currentPage} dari{" "}
-                        {Math.max(1, Math.ceil(sortedProducts.length / 10))}
+                    <div className="flex items-center justify-between mt-4">
+                        <div className="text-sm text-muted-foreground">
+                            Page {currentPage} of {Math.max(1, Math.ceil(sortedProducts.length / 10))}
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(currentPage - 1)}
+                            >
+                                Previous
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={
+                                    currentPage >=
+                                    Math.max(1, Math.ceil(sortedProducts.length / 10))
+                                }
+                                onClick={() => setCurrentPage(currentPage + 1)}
+                            >
+                                Next
+                            </Button>
+                        </div>
                     </div>
-                    <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={currentPage === 1}
-                            onClick={() => setCurrentPage(currentPage - 1)}
-                        >
-                            Prev
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={
-                                currentPage >=
-                                Math.max(1, Math.ceil(sortedProducts.length / 10))
-                            }
-                            onClick={() => setCurrentPage(currentPage + 1)}
-                        >
-                            Next
-                        </Button>
-                    </div>
-                </div>
-            </div>
+                </CardContent>
+            </Card>
         </div>
     )
 }
