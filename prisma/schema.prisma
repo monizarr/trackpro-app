@@ -38,9 +38,12 @@ model User {
   createdMaterials      Material[]          @relation("MaterialCreator")
   createdBatches        ProductionBatch[]   @relation("BatchCreator")
   materialTransactions  MaterialTransaction[]
-  cuttingTasks          CuttingTask[]
-  sewingTasks           SewingTask[]
-  finishingTasks        FinishingTask[]
+  cuttingTasks          CuttingTask[]       @relation("CuttingTaskAssigned")
+  sewingTasks           SewingTask[]        @relation("SewingTaskAssigned")
+  finishingTasks        FinishingTask[]     @relation("FinishingTaskAssigned")
+  verifiedCuttingTasks  CuttingTask[]       @relation("CuttingTaskVerified")
+  verifiedSewingTasks   SewingTask[]        @relation("SewingTaskVerified")
+  verifiedFinishingTasks FinishingTask[]    @relation("FinishingTaskVerified")
   notifications         Notification[]
   auditLogs             AuditLog[]
 
@@ -184,6 +187,7 @@ enum BatchStatus {
   IN_CUTTING        // Currently being cut
   CUTTING_COMPLETED // Cutting done, waiting for verification
   CUTTING_VERIFIED  // Verified by production head
+  ASSIGNED_TO_SEWER // Assigned to sewing department
   IN_SEWING         // Currently being sewn
   SEWING_COMPLETED  // Sewing done, waiting for verification
   SEWING_VERIFIED   // Verified by production head
@@ -282,11 +286,13 @@ model CuttingTask {
   startedAt       DateTime?
   completedAt     DateTime?
   verifiedAt      DateTime?
+  verifiedById    String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
   batch      ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  assignedTo User            @relation(fields: [assignedToId], references: [id])
+  assignedTo User            @relation("CuttingTaskAssigned", fields: [assignedToId], references: [id])
+  verifiedBy User?           @relation("CuttingTaskVerified", fields: [verifiedById], references: [id])
 
   @@index([status])
   @@index([assignedToId])
@@ -306,11 +312,13 @@ model SewingTask {
   startedAt       DateTime?
   completedAt     DateTime?
   verifiedAt      DateTime?
+  verifiedById    String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
   batch      ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  assignedTo User            @relation(fields: [assignedToId], references: [id])
+  assignedTo User            @relation("SewingTaskAssigned", fields: [assignedToId], references: [id])
+  verifiedBy User?           @relation("SewingTaskVerified", fields: [verifiedById], references: [id])
 
   @@index([status])
   @@index([assignedToId])
@@ -329,11 +337,14 @@ model FinishingTask {
   notes           String?
   startedAt       DateTime?
   completedAt     DateTime?
+  verifiedAt      DateTime?
+  verifiedById    String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
   batch      ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  assignedTo User            @relation(fields: [assignedToId], references: [id])
+  assignedTo User            @relation("FinishingTaskAssigned", fields: [assignedToId], references: [id])
+  verifiedBy User?           @relation("FinishingTaskVerified", fields: [verifiedById], references: [id])
 
   @@index([status])
   @@index([assignedToId])

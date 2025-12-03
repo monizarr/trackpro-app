@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "BatchStatus" ADD VALUE 'ASSIGNED_TO_SEWER';

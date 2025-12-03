@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth-helpers";
+import { requireRole, requireAuth } from "@/lib/auth-helpers";
 
 export async function GET() {
   try {
-    await requireRole(["OWNER"]);
+    // Allow all authenticated users to view products
+    const session = await requireAuth();
+
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
     const products = await prisma.product.findMany({
       include: {

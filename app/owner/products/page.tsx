@@ -278,6 +278,8 @@ export default function ProductsPage() {
         const aValue = a[sortConfig.key]
         const bValue = b[sortConfig.key]
 
+        if (aValue === undefined || bValue === undefined) return 0
+
         if (aValue < bValue) {
             return sortConfig.direction === "asc" ? -1 : 1
         }

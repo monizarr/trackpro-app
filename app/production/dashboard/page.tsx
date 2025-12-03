@@ -4,18 +4,150 @@ import { Box, TrendingUp, AlertCircle, CheckCircle, Clock, Users } from "lucide-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { useEffect, useState } from "react"
+
+interface Statistics {
+    activeBatches: number
+    pendingVerification: number
+    completedToday: number
+    productivity: number
+}
+
+interface ActiveBatch {
+    id: string
+    code: string
+    product: string
+    target: number
+    stage: string
+    progress: number
+    status: string
+}
+
+interface PendingVerification {
+    id: string
+    type: string
+    code: string
+    stage: string
+    worker: string
+    product: string
+    qty: number
+    time: Date
+}
+
+interface WorkerSummary {
+    cutting: number
+    sewing: number
+    finishing: number
+}
 
 export default function ProductionDashboard() {
-    const activeBatches = [
-        { id: 1, code: "PROD-20241202-001", product: "Kaos Premium", target: 100, completed: 35, stage: "Pemotongan", status: "on_track" },
-        { id: 2, code: "PROD-20241202-002", product: "Kemeja Formal", target: 50, completed: 20, stage: "Penjahitan", status: "on_track" },
-        { id: 3, code: "PROD-20241201-005", product: "Jaket Hoodie", target: 75, completed: 50, stage: "Finishing", status: "on_track" },
-    ]
+    const [statistics, setStatistics] = useState<Statistics>({
+        activeBatches: 0,
+        pendingVerification: 0,
+        completedToday: 0,
+        productivity: 0,
+    })
+    const [activeBatches, setActiveBatches] = useState<ActiveBatch[]>([])
+    const [pendingVerification, setPendingVerification] = useState<PendingVerification[]>([])
+    const [workerSummary, setWorkerSummary] = useState<WorkerSummary>({
+        cutting: 0,
+        sewing: 0,
+        finishing: 0,
+    })
+    const [loading, setLoading] = useState(true)
 
-    const pendingVerification = [
-        { id: 1, code: "PROD-20241201-004", stage: "Pemotongan", worker: "Ahmad", time: "10 menit lalu" },
-        { id: 2, code: "PROD-20241201-003", stage: "Penjahitan", worker: "Siti", time: "25 menit lalu" },
-    ]
+    useEffect(() => {
+        fetchDashboardData()
+    }, [])
+
+    const fetchDashboardData = async () => {
+        try {
+            const response = await fetch("/api/production/statistics")
+            const result = await response.json()
+
+            if (result.success && result.data) {
+                // Map API response to statistics object
+                setStatistics({
+                    activeBatches: result.data.activeBatchesCount || 0,
+                    pendingVerification: result.data.pendingVerificationCount || 0,
+                    completedToday: result.data.completedBatchesThisMonth || 0,
+                    productivity: result.data.activeBatchesCount > 0
+                        ? Math.round((result.data.completedBatchesThisMonth / result.data.activeBatchesCount) * 100)
+                        : 0
+                })
+
+                // Map active batches with stage detection
+                const mappedBatches = (result.data.activeBatches || []).map((batch: any) => {
+                    const progress = batch.progress || { cutting: 0, sewing: 0, finishing: 0 }
+                    let stage = "Persiapan"
+                    let totalProgress = 0
+
+                    if (progress.finishing > 0) {
+                        stage = "Finishing"
+                        totalProgress = progress.finishing
+                    } else if (progress.sewing > 0) {
+                        stage = "Penjahitan"
+                        totalProgress = progress.sewing
+                    } else if (progress.cutting > 0) {
+                        stage = "Pemotongan"
+                        totalProgress = progress.cutting
+                    }
+
+                    return {
+                        id: batch.id,
+                        code: batch.code,
+                        product: batch.product,
+                        target: batch.targetQuantity,
+                        stage,
+                        progress: totalProgress,
+                        status: batch.status
+                    }
+                })
+                setActiveBatches(mappedBatches)
+
+                setPendingVerification(result.data.pendingVerification || [])
+
+                // Calculate worker summary from worker array
+                const workers = result.data.workerSummary || []
+                const cuttingCount = workers.filter((w: any) => w.role === "PEMOTONG" && w.activeTasks > 0).length
+                const sewingCount = workers.filter((w: any) => w.role === "PENJAHIT" && w.activeTasks > 0).length
+                const finishingCount = workers.filter((w: any) => w.role === "FINISHING" && w.activeTasks > 0).length
+
+                setWorkerSummary({
+                    cutting: cuttingCount,
+                    sewing: sewingCount,
+                    finishing: finishingCount
+                })
+            }
+        } catch (error) {
+            console.error("Error fetching dashboard data:", error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const getTimeAgo = (date: Date) => {
+        const now = new Date()
+        const diff = now.getTime() - new Date(date).getTime()
+        const minutes = Math.floor(diff / 60000)
+
+        if (minutes < 1) return "baru saja"
+        if (minutes < 60) return `${minutes} menit lalu`
+
+        const hours = Math.floor(minutes / 60)
+        if (hours < 24) return `${hours} jam lalu`
+
+        const days = Math.floor(hours / 24)
+        return `${days} hari lalu`
+    }
+
+    if (loading) {
+        return (
+            <div className="flex-1 space-y-4 p-8 pt-6">
+                <div className="text-center">Loading...</div>
+            </div>
+        )
+    }
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
@@ -38,7 +170,7 @@ export default function ProductionDashboard() {
                         <Box className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">8</div>
+                        <div className="text-2xl font-bold">{statistics.activeBatches}</div>
                         <p className="text-xs text-muted-foreground">
                             Dalam proses produksi
                         </p>
@@ -53,7 +185,7 @@ export default function ProductionDashboard() {
                         <AlertCircle className="h-4 w-4 text-orange-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-orange-500">{pendingVerification.length}</div>
+                        <div className="text-2xl font-bold text-orange-500">{statistics.pendingVerification}</div>
                         <p className="text-xs text-muted-foreground">
                             Menunggu approval
                         </p>
@@ -68,7 +200,7 @@ export default function ProductionDashboard() {
                         <CheckCircle className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">12</div>
+                        <div className="text-2xl font-bold">{statistics.completedToday}</div>
                         <p className="text-xs text-muted-foreground">
                             Batch completed
                         </p>
@@ -83,9 +215,9 @@ export default function ProductionDashboard() {
                         <TrendingUp className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">94%</div>
+                        <div className="text-2xl font-bold">{statistics.productivity}%</div>
                         <p className="text-xs text-muted-foreground">
-                            +5% dari minggu lalu
+                            On track batches
                         </p>
                     </CardContent>
                 </Card>
@@ -102,23 +234,27 @@ export default function ProductionDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-6">
-                            {activeBatches.map((batch) => (
-                                <div key={batch.id} className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="font-mono text-sm font-medium">{batch.code}</p>
-                                            <p className="text-sm text-muted-foreground">{batch.product}</p>
+                            {activeBatches.length === 0 ? (
+                                <p className="text-center text-sm text-muted-foreground py-4">Tidak ada batch aktif</p>
+                            ) : (
+                                activeBatches.map((batch) => (
+                                    <div key={batch.id} className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="font-mono text-sm font-medium">{batch.code}</p>
+                                                <p className="text-sm text-muted-foreground">{batch.product}</p>
+                                            </div>
+                                            <Badge>{batch.stage}</Badge>
                                         </div>
-                                        <Badge>{batch.stage}</Badge>
+                                        <div className="flex items-center gap-2">
+                                            <Progress value={batch.progress} className="flex-1" />
+                                            <span className="text-sm text-muted-foreground">
+                                                {batch.progress}%
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <Progress value={(batch.completed / batch.target) * 100} className="flex-1" />
-                                        <span className="text-sm text-muted-foreground">
-                                            {batch.completed}/{batch.target}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -133,20 +269,24 @@ export default function ProductionDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
-                            {pendingVerification.map((item) => (
-                                <div key={item.id} className="flex items-start gap-3 p-3 rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-900">
-                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900">
-                                        <Clock className="h-4 w-4 text-orange-600" />
+                            {pendingVerification.length === 0 ? (
+                                <p className="text-center text-sm text-muted-foreground py-4">Tidak ada verifikasi pending</p>
+                            ) : (
+                                pendingVerification.map((item) => (
+                                    <div key={`${item.type}-${item.id}`} className="flex items-start gap-3 p-3 rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-900">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900">
+                                            <Clock className="h-4 w-4 text-orange-600" />
+                                        </div>
+                                        <div className="flex-1 space-y-1">
+                                            <p className="font-mono text-sm font-medium">{item.code}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {item.stage} • {item.worker}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">{getTimeAgo(item.time)}</p>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 space-y-1">
-                                        <p className="font-mono text-sm font-medium">{item.code}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {item.stage} • {item.worker}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">{item.time}</p>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -165,7 +305,7 @@ export default function ProductionDashboard() {
                                 <Users className="h-5 w-5 text-blue-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">5</p>
+                                <p className="text-2xl font-bold">{workerSummary.cutting}</p>
                                 <p className="text-sm text-muted-foreground">Pemotong Aktif</p>
                             </div>
                         </div>
@@ -174,7 +314,7 @@ export default function ProductionDashboard() {
                                 <Users className="h-5 w-5 text-green-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">8</p>
+                                <p className="text-2xl font-bold">{workerSummary.sewing}</p>
                                 <p className="text-sm text-muted-foreground">Penjahit Aktif</p>
                             </div>
                         </div>
@@ -183,7 +323,7 @@ export default function ProductionDashboard() {
                                 <Users className="h-5 w-5 text-purple-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">3</p>
+                                <p className="text-2xl font-bold">{workerSummary.finishing}</p>
                                 <p className="text-sm text-muted-foreground">Finishing Aktif</p>
                             </div>
                         </div>
