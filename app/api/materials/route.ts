@@ -1,16 +1,27 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/auth-helpers";
 
 export async function GET() {
   try {
+    await requireRole(["OWNER", "KEPALA_GUDANG", "KEPALA_PRODUKSI"]);
+
     const materials = await prisma.material.findMany({
       select: {
         id: true,
         code: true,
         name: true,
-        // category: true,
+        description: true,
         unit: true,
         currentStock: true,
+        minimumStock: true,
+        price: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      where: {
+        isActive: true,
       },
       orderBy: {
         name: "asc",
@@ -27,6 +38,75 @@ export async function GET() {
       {
         success: false,
         error: "Failed to fetch materials",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const session = await requireRole(["OWNER", "KEPALA_GUDANG"]);
+    const body = await request.json();
+    const { code, name, description, unit, currentStock, minimumStock, price } =
+      body;
+
+    // Validate required fields
+    if (
+      !code ||
+      !name ||
+      !unit ||
+      currentStock === undefined ||
+      minimumStock === undefined ||
+      price === undefined
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required fields",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check if code already exists
+    const existing = await prisma.material.findUnique({
+      where: { code },
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Material code already exists",
+        },
+        { status: 409 }
+      );
+    }
+
+    const material = await prisma.material.create({
+      data: {
+        code,
+        name,
+        description,
+        unit,
+        currentStock: parseFloat(currentStock),
+        minimumStock: parseFloat(minimumStock),
+        price: parseFloat(price),
+        createdById: session.user.id,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: material,
+    });
+  } catch (error) {
+    console.error("Error creating material:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to create material",
       },
       { status: 500 }
     );

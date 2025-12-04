@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -32,7 +32,7 @@ export async function PATCH(
       );
     }
 
-    const taskId = params.id;
+    const { id: taskId } = await params;
 
     // Check if task exists and belongs to this user
     const task = await prisma.finishingTask.findUnique({

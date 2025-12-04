@@ -1,21 +1,112 @@
 "use client"
 
-import { Scissors, CheckCircle, Clock } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Scissors, CheckCircle, Clock, Loader2, AlertCircle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+
+interface Stats {
+    activeTasks: number
+    completedToday: number
+    completedYesterday: number
+    progressPercentage: number
+}
+
+interface ActiveTask {
+    id: string
+    batchId: string
+    piecesReceived: number
+    piecesCompleted: number
+    rejectPieces: number
+    status: string
+    createdAt: string
+    batch: {
+        batchSku: string
+        targetQuantity: number
+        startDate: string
+        product: {
+            name: string
+        }
+    }
+}
 
 export default function TailorDashboard() {
-    const stats = [
-        { title: "Batch Aktif", value: "3", subtitle: "Sedang dikerjakan", icon: Scissors },
-        { title: "Selesai Hari Ini", value: "2", subtitle: "+1 dari kemarin", icon: CheckCircle },
-        { title: "Total Progress", value: "72%", subtitle: "Target hari ini", icon: Clock },
-    ]
+    const [stats, setStats] = useState<Stats | null>(null)
+    const [activeTasks, setActiveTasks] = useState<ActiveTask[]>([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
 
-    const activeBatches = [
-        { code: "PROD-20241202-002", product: "Kemeja Formal", target: 50, completed: 20, deadline: "3 Des 2024 - 14:00" },
-        { code: "PROD-20241201-006", product: "Celana Panjang", target: 30, completed: 15, deadline: "2 Des 2024 - 16:00" },
-    ]
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setLoading(true)
+
+                // Fetch stats
+                const statsRes = await fetch('/api/sewing-tasks/stats')
+                if (!statsRes.ok) throw new Error('Failed to fetch stats')
+                const statsData = await statsRes.json()
+                setStats(statsData)
+
+                // Fetch active tasks
+                const tasksRes = await fetch('/api/sewing-tasks/active')
+                if (!tasksRes.ok) throw new Error('Failed to fetch tasks')
+                const tasksData = await tasksRes.json()
+                setActiveTasks(tasksData)
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to load data')
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchData()
+    }, [])
+
+    if (loading) {
+        return (
+            <div className="flex-1 flex items-center justify-center min-h-screen">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        )
+    }
+
+    if (error) {
+        return (
+            <div className="flex-1 space-y-4 p-8 pt-6">
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+            </div>
+        )
+    }
+
+    const statsCards = stats ? [
+        {
+            title: "Batch Aktif",
+            value: stats.activeTasks.toString(),
+            subtitle: "Sedang dikerjakan",
+            icon: Scissors
+        },
+        {
+            title: "Selesai Hari Ini",
+            value: stats.completedToday.toString(),
+            subtitle: stats.completedToday > stats.completedYesterday
+                ? `+${stats.completedToday - stats.completedYesterday} dari kemarin`
+                : stats.completedToday < stats.completedYesterday
+                    ? `-${stats.completedYesterday - stats.completedToday} dari kemarin`
+                    : "Sama dengan kemarin",
+            icon: CheckCircle
+        },
+        {
+            title: "Total Progress",
+            value: `${stats.progressPercentage}%`,
+            subtitle: "Dari semua task",
+            icon: Clock
+        },
+    ] : []
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
@@ -30,7 +121,7 @@ export default function TailorDashboard() {
 
             {/* Stats */}
             <div className="grid gap-4 md:grid-cols-3">
-                {stats.map((stat) => {
+                {statsCards.map((stat) => {
                     const Icon = stat.icon
                     return (
                         <Card key={stat.title}>
@@ -54,23 +145,52 @@ export default function TailorDashboard() {
                     <CardDescription>Pekerjaan penjahitan yang sedang berlangsung</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {activeBatches.map((batch) => (
-                        <div key={batch.code} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="font-mono text-sm font-medium">{batch.code}</p>
-                                    <p className="text-sm text-muted-foreground">{batch.product}</p>
+                    {activeTasks.length === 0 ? (
+                        <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                                Tidak ada task aktif saat ini.
+                            </AlertDescription>
+                        </Alert>
+                    ) : (
+                        activeTasks.map((task) => {
+                            const progress = (task.piecesCompleted / task.piecesReceived) * 100
+                            const getStatusLabel = (status: string) => {
+                                const labels: Record<string, string> = {
+                                    'PENDING': 'Menunggu',
+                                    'IN_PROGRESS': 'Sedang Proses',
+                                    'COMPLETED': 'Selesai',
+                                    'VERIFIED': 'Terverifikasi'
+                                }
+                                return labels[status] || status
+                            }
+
+                            return (
+                                <div key={task.id} className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="font-mono text-sm font-medium">{task.batch.batchSku}</p>
+                                            <p className="text-sm text-muted-foreground">{task.batch.product.name}</p>
+                                        </div>
+                                        <Badge variant={task.status === 'IN_PROGRESS' ? 'default' : 'outline'}>
+                                            {getStatusLabel(task.status)}
+                                        </Badge>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-muted-foreground">
+                                            Progress: {task.piecesCompleted}/{task.piecesReceived} pcs
+                                            {task.rejectPieces > 0 && ` • Reject: ${task.rejectPieces}`}
+                                        </span>
+                                        <span className="text-muted-foreground">{Math.round(progress)}%</span>
+                                    </div>
+                                    <Progress value={progress} />
+                                    <p className="text-xs text-muted-foreground">
+                                        Target batch: {task.batch.targetQuantity} pcs
+                                    </p>
                                 </div>
-                                <Badge variant="secondary">Penjahitan</Badge>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Progress: {batch.completed}/{batch.target} pcs</span>
-                                <span className="text-muted-foreground">{Math.round((batch.completed / batch.target) * 100)}%</span>
-                            </div>
-                            <Progress value={(batch.completed / batch.target) * 100} />
-                            <p className="text-xs text-muted-foreground">Deadline: {batch.deadline}</p>
-                        </div>
-                    ))}
+                            )
+                        })
+                    )}
                 </CardContent>
             </Card>
 

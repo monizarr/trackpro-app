@@ -5,7 +5,11 @@ import { requireRole } from "@/lib/auth-helpers";
 // GET all production batches (with filters)
 export async function GET(request: Request) {
   try {
-    const session = await requireRole(["OWNER", "KEPALA_PRODUKSI"]);
+    const session = await requireRole([
+      "OWNER",
+      "KEPALA_PRODUKSI",
+      "KEPALA_GUDANG",
+    ]);
     const { searchParams } = new URL(request.url);
     const productId = searchParams.get("productId");
     const status = searchParams.get("status");
@@ -38,6 +42,14 @@ export async function GET(request: Request) {
                 unit: true,
               },
             },
+          },
+        },
+        finishingTask: {
+          select: {
+            piecesCompleted: true,
+            rejectPieces: true,
+            notes: true,
+            completedAt: true,
           },
         },
       },

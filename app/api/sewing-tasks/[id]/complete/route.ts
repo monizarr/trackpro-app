@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -32,7 +32,7 @@ export async function PATCH(
       );
     }
 
-    const taskId = params.id;
+    const { id: taskId } = await params;
     const body = await request.json();
     const { piecesCompleted, rejectPieces, notes } = body;
 
@@ -52,7 +52,7 @@ export async function PATCH(
       );
     }
 
-    if (task.status !== "IN_PROGRESS") {
+    if (task.status !== "IN_PROGRESS" && task.status !== "REJECTED") {
       return NextResponse.json(
         { error: `Cannot complete task with status ${task.status}` },
         { status: 400 }
@@ -76,6 +76,17 @@ export async function PATCH(
       where: { id: task.batchId },
       data: {
         status: "SEWING_COMPLETED",
+      },
+    });
+
+    // Create timeline event
+    await prisma.batchTimeline.create({
+      data: {
+        batchId: task.batchId,
+        event: "SEWING_COMPLETED",
+        details: `Penjahitan selesai. Total: ${piecesCompleted} selesai, ${rejectPieces} reject${
+          notes ? `. Catatan: ${notes}` : ""
+        }`,
       },
     });
 

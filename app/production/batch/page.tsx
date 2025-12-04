@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useEffect, useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useRouter } from "next/navigation"
 
 interface Material {
     id: string
@@ -92,7 +93,33 @@ interface Sewer {
     }
 }
 
+interface SewingTask {
+    id: string
+    batchId: string
+    assignedToId: string
+    piecesReceived: number
+    piecesCompleted: number
+    rejectPieces: number
+    status: string
+    notes: string | null
+    startedAt: string | null
+    completedAt: string | null
+    assignedTo: {
+        name: string
+    }
+}
+
+interface Finisher {
+    id: string
+    name: string
+    email: string
+    _count: {
+        finishingTasks: number
+    }
+}
+
 export default function BatchManagementPage() {
+    const router = useRouter()
     const [batches, setBatches] = useState<Batch[]>([])
     const [products, setProducts] = useState<Product[]>([])
     const [loading, setLoading] = useState(true)
@@ -122,6 +149,18 @@ export default function BatchManagementPage() {
     const [selectedSewerId, setSelectedSewerId] = useState("")
     const [assignSewerNotes, setAssignSewerNotes] = useState("")
     const [assigningSewer, setAssigningSewer] = useState(false)
+    const [showVerifySewingDialog, setShowVerifySewingDialog] = useState(false)
+    const [verifySewingBatch, setVerifySewingBatch] = useState<Batch | null>(null)
+    const [sewingTask, setSewingTask] = useState<SewingTask | null>(null)
+    const [verifySewingAction, setVerifySewingAction] = useState<"approve" | "reject">("approve")
+    const [verifySewingNotes, setVerifySewingNotes] = useState("")
+    const [verifyingSewing, setVerifyingSewing] = useState(false)
+    const [showAssignFinisherDialog, setShowAssignFinisherDialog] = useState(false)
+    const [assignFinisherBatch, setAssignFinisherBatch] = useState<Batch | null>(null)
+    const [finishers, setFinishers] = useState<Finisher[]>([])
+    const [selectedFinisherId, setSelectedFinisherId] = useState("")
+    const [assignFinisherNotes, setAssignFinisherNotes] = useState("")
+    const [assigningFinisher, setAssigningFinisher] = useState(false)
     const { toast } = useToast()
 
     // Form state
@@ -580,6 +619,161 @@ export default function BatchManagementPage() {
         }
     }
 
+    const openVerifySewingDialog = async (batch: Batch) => {
+        setVerifySewingBatch(batch)
+        setVerifySewingAction("approve")
+        setVerifySewingNotes("")
+
+        // Fetch sewing task details
+        try {
+            const response = await fetch(`/api/production-batches/${batch.id}/sewing-task`)
+            const result = await response.json()
+
+            if (result.success && result.data) {
+                setSewingTask(result.data)
+                setShowVerifySewingDialog(true)
+            } else {
+                toast({
+                    title: "Error",
+                    description: "Gagal memuat detail sewing task",
+                    variant: "destructive",
+                })
+            }
+        } catch (error) {
+            console.error("Error fetching sewing task:", error)
+            toast({
+                title: "Error",
+                description: "Gagal memuat detail sewing task",
+                variant: "destructive",
+            })
+        }
+    }
+
+    const handleVerifySewing = async () => {
+        if (!sewingTask) return
+
+        setVerifyingSewing(true)
+        try {
+            const response = await fetch(`/api/sewing-tasks/${sewingTask.id}/verify`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    action: verifySewingAction,
+                    notes: verifySewingNotes,
+                }),
+            })
+
+            const result = await response.json()
+
+            if (result.success) {
+                toast({
+                    title: "Berhasil",
+                    description: result.message || "Verifikasi berhasil",
+                })
+                setShowVerifySewingDialog(false)
+                setVerifySewingBatch(null)
+                setSewingTask(null)
+                setVerifySewingNotes("")
+                fetchBatches()
+            } else {
+                toast({
+                    title: "Error",
+                    description: result.error || "Gagal verifikasi",
+                    variant: "destructive",
+                })
+            }
+        } catch (error) {
+            console.error("Error verifying sewing:", error)
+            toast({
+                title: "Error",
+                description: "Terjadi kesalahan saat verifikasi",
+                variant: "destructive",
+            })
+        } finally {
+            setVerifyingSewing(false)
+        }
+    }
+
+    const openAssignFinisherDialog = async (batch: Batch) => {
+        setAssignFinisherBatch(batch)
+        setSelectedFinisherId("")
+        setAssignFinisherNotes("")
+
+        // Fetch finishers
+        try {
+            const response = await fetch("/api/users/finishers")
+            const result = await response.json()
+
+            if (result.success) {
+                setFinishers(result.data)
+                setShowAssignFinisherDialog(true)
+            }
+        } catch (error) {
+            console.error("Error fetching finishers:", error)
+            toast({
+                title: "Error",
+                description: "Gagal memuat daftar finisher",
+                variant: "destructive",
+            })
+        }
+    }
+
+    const handleAssignToFinisher = async () => {
+        if (!assignFinisherBatch || !selectedFinisherId) {
+            toast({
+                title: "Error",
+                description: "Pilih finisher terlebih dahulu",
+                variant: "destructive",
+            })
+            return
+        }
+
+        setAssigningFinisher(true)
+        try {
+            const response = await fetch(`/api/production-batches/${assignFinisherBatch.id}/assign-finisher`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    assignedToId: selectedFinisherId,
+                    notes: assignFinisherNotes,
+                }),
+            })
+
+            const result = await response.json()
+
+            if (result.success) {
+                toast({
+                    title: "Berhasil",
+                    description: result.message || "Batch berhasil di-assign ke finisher",
+                })
+                setShowAssignFinisherDialog(false)
+                setAssignFinisherBatch(null)
+                setSelectedFinisherId("")
+                setAssignFinisherNotes("")
+                fetchBatches()
+            } else {
+                toast({
+                    title: "Error",
+                    description: result.error || "Gagal assign batch",
+                    variant: "destructive",
+                })
+            }
+        } catch (error) {
+            console.error("Error assigning batch to finisher:", error)
+            toast({
+                title: "Error",
+                description: "Terjadi kesalahan saat assign batch",
+                variant: "destructive",
+            })
+        } finally {
+            setAssigningFinisher(false)
+        }
+    }
+
     const getStatusLabel = (status: string) => {
         const statusMap: Record<string, string> = {
             PENDING: "Menunggu",
@@ -595,6 +789,7 @@ export default function BatchManagementPage() {
             SEWING_VERIFIED: "Jahitan Terverifikasi",
             IN_FINISHING: "Proses Finishing",
             FINISHING_COMPLETED: "Finishing Selesai",
+            WAREHOUSE_VERIFIED: "Terverifikasi Gudang",
             COMPLETED: "Selesai",
             CANCELLED: "Dibatalkan",
         }
@@ -606,17 +801,18 @@ export default function BatchManagementPage() {
         if (["ASSIGNED_TO_CUTTER", "IN_CUTTING", "CUTTING_COMPLETED", "CUTTING_VERIFIED"].includes(status)) return "Pemotongan"
         if (["ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED", "SEWING_VERIFIED"].includes(status)) return "Penjahitan"
         if (["IN_FINISHING", "FINISHING_COMPLETED"].includes(status)) return "Finishing"
+        if (status === "WAREHOUSE_VERIFIED") return "Gudang"
         if (status === "COMPLETED") return "Selesai"
         if (status === "CANCELLED") return "Dibatalkan"
         return status
     }
 
     const isActive = (batch: Batch) => {
-        return !["COMPLETED", "CANCELLED"].includes(batch.status)
+        return !["COMPLETED", "CANCELLED", "WAREHOUSE_VERIFIED"].includes(batch.status)
     }
 
     const isCompleted = (batch: Batch) => {
-        return batch.status === "COMPLETED"
+        return batch.status === "COMPLETED" || batch.status === "WAREHOUSE_VERIFIED"
     }
 
     const formatDate = (dateString: string) => {
@@ -1259,6 +1455,254 @@ export default function BatchManagementPage() {
                 </DialogContent>
             </Dialog>
 
+            {/* Verify Sewing Dialog */}
+            <Dialog open={showVerifySewingDialog} onOpenChange={setShowVerifySewingDialog}>
+                <DialogContent className="max-w-2xl bg-white">
+                    <DialogHeader>
+                        <DialogTitle>Verifikasi Jahitan</DialogTitle>
+                        <DialogDescription>
+                            Periksa hasil penjahitan dan approve atau tolak
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {verifySewingBatch && sewingTask && (
+                        <div className="space-y-4 py-4">
+                            {/* Batch Info */}
+                            <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/50">
+                                <div>
+                                    <Label className="text-muted-foreground">Kode Batch</Label>
+                                    <p className="font-mono font-medium">{verifySewingBatch.batchSku}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">Produk</Label>
+                                    <p className="font-medium">{verifySewingBatch.product.name}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">Target Quantity</Label>
+                                    <p className="font-medium">{verifySewingBatch.targetQuantity} pcs</p>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">Penjahit</Label>
+                                    <p className="font-medium">{sewingTask.assignedTo.name}</p>
+                                </div>
+                            </div>
+
+                            {/* Sewing Results */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Hasil Penjahitan</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div>
+                                            <Label className="text-muted-foreground">Pieces Diterima</Label>
+                                            <p className="text-2xl font-bold">{sewingTask.piecesReceived}</p>
+                                        </div>
+                                        <div>
+                                            <Label className="text-muted-foreground">Pieces Completed</Label>
+                                            <p className="text-2xl font-bold text-green-600">{sewingTask.piecesCompleted}</p>
+                                        </div>
+                                        <div>
+                                            <Label className="text-muted-foreground">Reject Pieces</Label>
+                                            <p className="text-2xl font-bold text-red-600">{sewingTask.rejectPieces}</p>
+                                        </div>
+                                    </div>
+                                    {sewingTask.notes && (
+                                        <div>
+                                            <Label className="text-muted-foreground">Catatan dari Penjahit</Label>
+                                            <p className="text-sm mt-1">{sewingTask.notes}</p>
+                                        </div>
+                                    )}
+                                    {sewingTask.completedAt && (
+                                        <div>
+                                            <Label className="text-muted-foreground">Selesai pada</Label>
+                                            <p className="text-sm mt-1">{formatDate(sewingTask.completedAt)}</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* Verification Action */}
+                            <div className="space-y-3">
+                                <Label>Aksi Verifikasi *</Label>
+                                <div className="flex gap-4">
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="verifySewingAction"
+                                            value="approve"
+                                            checked={verifySewingAction === "approve"}
+                                            onChange={(e) => setVerifySewingAction(e.target.value as "approve" | "reject")}
+                                            className="w-4 h-4"
+                                        />
+                                        <span className="text-green-600 font-medium">Approve</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="verifySewingAction"
+                                            value="reject"
+                                            checked={verifySewingAction === "reject"}
+                                            onChange={(e) => setVerifySewingAction(e.target.value as "approve" | "reject")}
+                                            className="w-4 h-4"
+                                        />
+                                        <span className="text-red-600 font-medium">Reject</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Notes */}
+                            <div className="space-y-2">
+                                <Label htmlFor="verifySewingNotes">
+                                    Catatan Verifikasi {verifySewingAction === "reject" && <span className="text-red-500">*</span>}
+                                </Label>
+                                <Textarea
+                                    id="verifySewingNotes"
+                                    placeholder={verifySewingAction === "reject"
+                                        ? "Jelaskan alasan penolakan..."
+                                        : "Tambahkan catatan (opsional)..."
+                                    }
+                                    value={verifySewingNotes}
+                                    onChange={(e) => setVerifySewingNotes(e.target.value)}
+                                    rows={3}
+                                />
+                            </div>
+
+                            {verifySewingAction === "approve" ? (
+                                <Alert>
+                                    <CheckCircle className="h-4 w-4" />
+                                    <AlertDescription>
+                                        Dengan approve, batch akan berstatus SEWING_VERIFIED dan siap untuk tahap selanjutnya (finishing).
+                                    </AlertDescription>
+                                </Alert>
+                            ) : (
+                                <Alert variant="destructive">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertDescription>
+                                        Dengan reject, batch akan dikembalikan ke status IN_SEWING untuk diperbaiki oleh penjahit.
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowVerifySewingDialog(false)
+                                setVerifySewingBatch(null)
+                                setSewingTask(null)
+                                setVerifySewingNotes("")
+                            }}
+                            disabled={verifyingSewing}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            onClick={handleVerifySewing}
+                            disabled={verifyingSewing || (verifySewingAction === "reject" && !verifySewingNotes.trim())}
+                            variant={verifySewingAction === "approve" ? "default" : "destructive"}
+                        >
+                            {verifyingSewing ? "Memverifikasi..." : verifySewingAction === "approve" ? "Approve" : "Reject"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Assign to Finisher Dialog */}
+            <Dialog open={showAssignFinisherDialog} onOpenChange={setShowAssignFinisherDialog}>
+                <DialogContent className="max-w-2xl bg-white">
+                    <DialogHeader>
+                        <DialogTitle>Assign ke Finisher</DialogTitle>
+                        <DialogDescription>
+                            Pilih finisher untuk mengerjakan batch ini
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {assignFinisherBatch && (
+                        <div className="space-y-4 py-4">
+                            {/* Batch Info */}
+                            <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/50">
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Batch SKU</p>
+                                    <p className="font-medium font-mono">{assignFinisherBatch.batchSku}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Produk</p>
+                                    <p className="font-medium">{assignFinisherBatch.product.name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Target Quantity</p>
+                                    <p className="font-medium">{assignFinisherBatch.targetQuantity} pcs</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Status</p>
+                                    <p className="font-medium">{getStatusLabel(assignFinisherBatch.status)}</p>
+                                </div>
+                            </div>
+
+                            {/* Finisher Selection */}
+                            <div className="space-y-2">
+                                <Label htmlFor="finisher">Pilih Finisher *</Label>
+                                <Select
+                                    id="finisher"
+                                    value={selectedFinisherId}
+                                    onChange={(e) => setSelectedFinisherId(e.target.value)}
+                                >
+                                    <option value="">Pilih finisher</option>
+                                    {finishers.map((finisher) => (
+                                        <option key={finisher.id} value={finisher.id}>
+                                            {finisher.name} ({finisher._count.finishingTasks} active tasks)
+                                        </option>
+                                    ))}
+                                </Select>
+                            </div>
+
+                            {/* Notes */}
+                            <div className="space-y-2">
+                                <Label htmlFor="assignFinisherNotes">Catatan (Opsional)</Label>
+                                <Textarea
+                                    id="assignFinisherNotes"
+                                    placeholder="Tambahkan catatan untuk finisher..."
+                                    value={assignFinisherNotes}
+                                    onChange={(e) => setAssignFinisherNotes(e.target.value)}
+                                    rows={3}
+                                />
+                            </div>
+
+                            <Alert>
+                                <UserPlus className="h-4 w-4" />
+                                <AlertDescription>
+                                    Setelah di-assign, finisher akan menerima notifikasi dan dapat mulai mengerjakan batch ini.
+                                </AlertDescription>
+                            </Alert>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowAssignFinisherDialog(false)
+                                setAssignFinisherBatch(null)
+                                setSelectedFinisherId("")
+                                setAssignFinisherNotes("")
+                            }}
+                            disabled={assigningFinisher}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            onClick={handleAssignToFinisher}
+                            disabled={assigningFinisher || !selectedFinisherId}
+                        >
+                            {assigningFinisher ? "Mengassign..." : "Assign ke Finisher"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Detail Batch Dialog */}
             <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
@@ -1526,10 +1970,30 @@ export default function BatchManagementPage() {
                                                                     Assign Penjahit
                                                                 </Button>
                                                             )}
+                                                            {batch.status === "SEWING_COMPLETED" && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="default"
+                                                                    onClick={() => openVerifySewingDialog(batch)}
+                                                                >
+                                                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                                                    Verifikasi Jahitan
+                                                                </Button>
+                                                            )}
+                                                            {batch.status === "SEWING_VERIFIED" && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="default"
+                                                                    onClick={() => openAssignFinisherDialog(batch)}
+                                                                >
+                                                                    <UserPlus className="h-4 w-4 mr-1" />
+                                                                    Assign Finisher
+                                                                </Button>
+                                                            )}
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                onClick={() => openDetailDialog(batch)}
+                                                                onClick={() => router.push(`/production/batch/${batch.id}`)}
                                                             >
                                                                 <Eye className="h-4 w-4" />
                                                             </Button>
@@ -1575,13 +2039,13 @@ export default function BatchManagementPage() {
                                                 <TableRow key={batch.id}>
                                                     <TableCell
                                                         className="font-mono text-sm font-medium cursor-pointer hover:text-primary hover:underline"
-                                                        onClick={() => openDetailDialog(batch)}
+                                                        onClick={() => router.push(`/production/batch/${batch.id}`)}
                                                     >
                                                         {batch.batchSku}
                                                     </TableCell>
                                                     <TableCell
                                                         className="cursor-pointer hover:text-primary hover:underline"
-                                                        onClick={() => openDetailDialog(batch)}
+                                                        onClick={() => router.push(`/production/batch/${batch.id}`)}
                                                     >
                                                         {batch.product.name}
                                                     </TableCell>
@@ -1632,13 +2096,13 @@ export default function BatchManagementPage() {
                                                 <TableRow key={batch.id}>
                                                     <TableCell
                                                         className="font-mono text-sm font-medium cursor-pointer hover:text-primary hover:underline"
-                                                        onClick={() => openDetailDialog(batch)}
+                                                        onClick={() => router.push(`/production/batch/${batch.id}`)}
                                                     >
                                                         {batch.batchSku}
                                                     </TableCell>
                                                     <TableCell
                                                         className="cursor-pointer hover:text-primary hover:underline"
-                                                        onClick={() => openDetailDialog(batch)}
+                                                        onClick={() => router.push(`/production/batch/${batch.id}`)}
                                                     >
                                                         {batch.product.name}
                                                     </TableCell>

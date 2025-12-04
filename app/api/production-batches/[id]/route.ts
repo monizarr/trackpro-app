@@ -41,9 +41,39 @@ export async function GET(
             },
           },
         },
-        cuttingTask: true,
-        sewingTask: true,
-        finishingTask: true,
+        cuttingTask: {
+          include: {
+            assignedTo: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        sewingTask: {
+          include: {
+            assignedTo: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        finishingTask: {
+          include: {
+            assignedTo: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
         timeline: {
           orderBy: {
             createdAt: "desc",

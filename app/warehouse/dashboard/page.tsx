@@ -1,20 +1,107 @@
 "use client"
 
-import { Package, TrendingDown, TrendingUp, AlertTriangle, Box } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Package, TrendingDown, TrendingUp, AlertTriangle, Box, CheckCircle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+
+interface PendingVerification {
+    count: number
+    totalPieces: number
+}
+
+interface Material {
+    id: string
+    name: string
+    currentStock: number
+    minimumStock: number
+}
+
+interface Transaction {
+    id: string
+    type: string
+    quantity: number
+    createdAt: Date
+    material: {
+        code: string
+        name: string
+        unit: string
+    }
+    batch?: {
+        batchSku: string
+    }
+}
 
 export default function WarehouseDashboard() {
-    const alerts = [
-        { id: 1, material: "Kain Katun Premium", stock: 15, min: 50, status: "critical" },
-        { id: 2, material: "Benang Jahit", stock: 45, min: 100, status: "low" },
-    ]
+    const [pendingVerification, setPendingVerification] = useState<PendingVerification>({ count: 0, totalPieces: 0 })
+    const [materials, setMaterials] = useState<Material[]>([])
+    const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([])
+    const [loading, setLoading] = useState(true)
 
-    const recentActivity = [
-        { id: 1, action: "Stok Masuk", material: "Kain Polyester", qty: 200, date: "2 Des 2024, 10:30" },
-        { id: 2, action: "Alokasi Batch", material: "Kancing Plastik", qty: 500, batch: "PROD-20241202-001", date: "2 Des 2024, 09:15" },
-        { id: 3, action: "Stok Keluar", material: "Benang Jahit", qty: 50, batch: "PROD-20241201-003", date: "1 Des 2024, 15:45" },
-    ]
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                // Fetch pending verification batches
+                const verificationRes = await fetch('/api/production-batches?status=FINISHING_COMPLETED')
+                if (verificationRes.ok) {
+                    const result = await verificationRes.json()
+                    const batches = result.data || []
+                    const totalPieces = batches.reduce((sum: number, batch: { finishingTask?: { piecesCompleted: number } }) => {
+                        return sum + (batch.finishingTask?.piecesCompleted || 0)
+                    }, 0)
+                    setPendingVerification({ count: batches.length, totalPieces })
+                }
+
+                // Fetch materials for stock alerts
+                const materialsRes = await fetch('/api/materials')
+                if (materialsRes.ok) {
+                    const result = await materialsRes.json()
+                    setMaterials(result.data || [])
+                }
+
+                // Fetch recent transactions
+                const transactionsRes = await fetch('/api/material-transactions?limit=5')
+                if (transactionsRes.ok) {
+                    const result = await transactionsRes.json()
+                    setRecentTransactions(result.data || [])
+                }
+            } catch (error) {
+                console.error('Failed to fetch dashboard data:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchData()
+    }, [])
+
+    const getCriticalMaterials = () => {
+        return materials.filter(m => {
+            const stock = parseFloat(m.currentStock.toString())
+            const min = parseFloat(m.minimumStock.toString())
+            return stock <= min * 0.5
+        })
+    }
+
+    const getLowStockMaterials = () => {
+        return materials.filter(m => {
+            const stock = parseFloat(m.currentStock.toString())
+            const min = parseFloat(m.minimumStock.toString())
+            return stock > min * 0.5 && stock <= min
+        })
+    }
+
+    const getTodayTransactions = () => {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        return recentTransactions.filter(t => new Date(t.createdAt) >= today && t.type === 'IN')
+    }
+
+    const criticalMaterials = getCriticalMaterials()
+    const lowStockMaterials = getLowStockMaterials()
+    const todayStockIn = getTodayTransactions()
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
@@ -25,11 +112,33 @@ export default function WarehouseDashboard() {
                         Monitor dan kelola stok bahan baku
                     </p>
                 </div>
-                {/* Color Test Badge */}
-                <Badge className="bg-primary text-primary-foreground">
-                    New Theme Active
-                </Badge>
             </div>
+
+            {/* Pending Verification Alert */}
+            {!loading && pendingVerification.count > 0 && (
+                <Card className="border-yellow-200 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-900">
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <CheckCircle className="h-8 w-8 text-yellow-600" />
+                                <div>
+                                    <p className="font-bold text-lg">
+                                        {pendingVerification.count} Batch Menunggu Verifikasi
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Total {pendingVerification.totalPieces} pieces barang jadi siap disimpan
+                                    </p>
+                                </div>
+                            </div>
+                            <Link href="/warehouse/verification">
+                                <Button size="lg">
+                                    Verifikasi Sekarang
+                                </Button>
+                            </Link>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Stats Cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -41,7 +150,7 @@ export default function WarehouseDashboard() {
                         <Package className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">24</div>
+                        <div className="text-2xl font-bold">{materials.length}</div>
                         <p className="text-xs text-muted-foreground">
                             Jenis bahan aktif
                         </p>
@@ -56,7 +165,7 @@ export default function WarehouseDashboard() {
                         <AlertTriangle className="h-4 w-4 text-orange-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-orange-500">2</div>
+                        <div className="text-2xl font-bold text-orange-500">{criticalMaterials.length}</div>
                         <p className="text-xs text-muted-foreground">
                             Perlu segera restock
                         </p>
@@ -71,7 +180,7 @@ export default function WarehouseDashboard() {
                         <TrendingUp className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">8</div>
+                        <div className="text-2xl font-bold">{todayStockIn.length}</div>
                         <p className="text-xs text-muted-foreground">
                             Transaksi masuk
                         </p>
@@ -81,14 +190,14 @@ export default function WarehouseDashboard() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Alokasi Pending
+                            Verifikasi Pending
                         </CardTitle>
-                        <Box className="h-4 w-4 text-blue-500" />
+                        <CheckCircle className="h-4 w-4 text-blue-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">3</div>
+                        <div className="text-2xl font-bold">{pendingVerification.count}</div>
                         <p className="text-xs text-muted-foreground">
-                            Permintaan menunggu
+                            Batch menunggu verifikasi
                         </p>
                     </CardContent>
                 </Card>
@@ -104,27 +213,50 @@ export default function WarehouseDashboard() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-4">
-                            {alerts.map((alert) => (
-                                <div
-                                    key={alert.id}
-                                    className="flex items-center justify-between p-4 rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-900"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <AlertTriangle className="h-5 w-5 text-orange-500" />
-                                        <div>
-                                            <p className="font-medium">{alert.material}</p>
-                                            <p className="text-sm text-muted-foreground">
-                                                Stok: {alert.stock} | Minimum: {alert.min}
-                                            </p>
+                        {loading ? (
+                            <p className="text-center py-8 text-muted-foreground">Memuat...</p>
+                        ) : criticalMaterials.length === 0 && lowStockMaterials.length === 0 ? (
+                            <p className="text-center py-8 text-muted-foreground">
+                                Tidak ada alert stok saat ini
+                            </p>
+                        ) : (
+                            <div className="space-y-4">
+                                {criticalMaterials.map((material) => (
+                                    <div
+                                        key={material.id}
+                                        className="flex items-center justify-between p-4 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-900"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <AlertTriangle className="h-5 w-5 text-red-500" />
+                                            <div>
+                                                <p className="font-medium">{material.name}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Stok: {parseFloat(material.currentStock.toString()).toFixed(2)} | Minimum: {parseFloat(material.minimumStock.toString()).toFixed(2)}
+                                                </p>
+                                            </div>
                                         </div>
+                                        <Badge variant="destructive">Kritis</Badge>
                                     </div>
-                                    <Badge variant="destructive">
-                                        {alert.status === "critical" ? "Kritis" : "Rendah"}
-                                    </Badge>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                                {lowStockMaterials.slice(0, 3 - criticalMaterials.length).map((material) => (
+                                    <div
+                                        key={material.id}
+                                        className="flex items-center justify-between p-4 rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-900"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <TrendingDown className="h-5 w-5 text-orange-500" />
+                                            <div>
+                                                <p className="font-medium">{material.name}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Stok: {parseFloat(material.currentStock.toString()).toFixed(2)} | Minimum: {parseFloat(material.minimumStock.toString()).toFixed(2)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Badge variant="secondary">Rendah</Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -137,27 +269,50 @@ export default function WarehouseDashboard() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-4">
-                            {recentActivity.map((activity) => (
-                                <div key={activity.id} className="flex items-start gap-3">
-                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                                        <Package className="h-4 w-4 text-primary" />
-                                    </div>
-                                    <div className="flex-1 space-y-1">
-                                        <p className="text-sm font-medium">{activity.action}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {activity.material} • {activity.qty} unit
-                                        </p>
-                                        {activity.batch && (
-                                            <p className="text-xs text-muted-foreground">
-                                                Batch: {activity.batch}
+                        {loading ? (
+                            <p className="text-center py-8 text-muted-foreground">Memuat...</p>
+                        ) : recentTransactions.length === 0 ? (
+                            <p className="text-center py-8 text-muted-foreground">
+                                Belum ada transaksi
+                            </p>
+                        ) : (
+                            <div className="space-y-4">
+                                {recentTransactions.map((transaction) => (
+                                    <div key={transaction.id} className="flex items-start gap-3">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                                            {transaction.type === 'IN' ? (
+                                                <TrendingUp className="h-4 w-4 text-green-500" />
+                                            ) : (
+                                                <TrendingDown className="h-4 w-4 text-red-500" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 space-y-1">
+                                            <p className="text-sm font-medium">
+                                                {transaction.type === 'IN' ? 'Stok Masuk' :
+                                                    transaction.type === 'OUT' ? 'Stok Keluar' :
+                                                        transaction.type === 'RETURN' ? 'Return' : 'Adjustment'}
                                             </p>
-                                        )}
-                                        <p className="text-xs text-muted-foreground">{activity.date}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {transaction.material.name} • {parseFloat(transaction.quantity.toString()).toFixed(2)} {transaction.material.unit}
+                                            </p>
+                                            {transaction.batch && (
+                                                <p className="text-xs text-muted-foreground">
+                                                    Batch: {transaction.batch.batchSku}
+                                                </p>
+                                            )}
+                                            <p className="text-xs text-muted-foreground">
+                                                {new Date(transaction.createdAt).toLocaleDateString('id-ID', {
+                                                    day: 'numeric',
+                                                    month: 'short',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>

@@ -1,20 +1,174 @@
 "use client"
 
-import { Package, Search, Plus, Edit, TrendingDown, AlertTriangle } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Package, Search, Plus, Edit, TrendingDown, AlertTriangle, Loader2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
+import { Select } from "@/components/ui/select"
+import { useToast } from "@/hooks/use-toast"
+
+interface Material {
+    id: string
+    code: string
+    name: string
+    description: string | null
+    unit: string
+    currentStock: number
+    minimumStock: number
+    price: number
+    isActive: boolean
+}
 
 export default function StockManagementPage() {
-    const materials = [
-        { id: 1, name: "Kain Katun Premium", code: "KKP-001", stock: 250, unit: "Roll", min: 50, status: "good", location: "Rak A1" },
-        { id: 2, name: "Kain Polyester", code: "KPL-002", stock: 180, unit: "Roll", min: 50, status: "good", location: "Rak A2" },
-        { id: 3, name: "Benang Jahit", code: "BNJ-003", stock: 45, unit: "Cone", min: 100, status: "low", location: "Rak B1" },
-        { id: 4, name: "Kancing Plastik", code: "KNC-004", stock: 15, unit: "Pack", min: 50, status: "critical", location: "Rak C1" },
-        { id: 5, name: "Resleting", code: "RSL-005", stock: 120, unit: "Pack", min: 30, status: "good", location: "Rak C2" },
-    ]
+    const [materials, setMaterials] = useState<Material[]>([])
+    const [filteredMaterials, setFilteredMaterials] = useState<Material[]>([])
+    const [loading, setLoading] = useState(true)
+    const [searchQuery, setSearchQuery] = useState("")
+    const [showStockInDialog, setShowStockInDialog] = useState(false)
+    const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null)
+    const [submitting, setSubmitting] = useState(false)
+    const { toast } = useToast()
+
+    // Stock in form
+    const [stockInForm, setStockInForm] = useState({
+        materialId: "",
+        quantity: "",
+        notes: ""
+    })
+
+    const fetchMaterials = async () => {
+        try {
+            const response = await fetch('/api/materials')
+            if (response.ok) {
+                const result = await response.json()
+                const mats = result.data || []
+                setMaterials(mats)
+                setFilteredMaterials(mats)
+            }
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Gagal memuat data bahan baku"
+            })
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchMaterials()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    useEffect(() => {
+        if (searchQuery.trim() === "") {
+            setFilteredMaterials(materials)
+        } else {
+            const query = searchQuery.toLowerCase()
+            const filtered = materials.filter(m =>
+                m.name.toLowerCase().includes(query) ||
+                m.code.toLowerCase().includes(query)
+            )
+            setFilteredMaterials(filtered)
+        }
+    }, [searchQuery, materials])
+
+    const getStockStatus = (material: Material) => {
+        const stock = parseFloat(material.currentStock.toString())
+        const min = parseFloat(material.minimumStock.toString())
+
+        if (stock <= min * 0.5) return "critical"
+        if (stock <= min) return "low"
+        return "good"
+    }
+
+    const openStockInDialog = (material?: Material) => {
+        if (material) {
+            setSelectedMaterial(material)
+            setStockInForm({
+                materialId: material.id,
+                quantity: "",
+                notes: ""
+            })
+        } else {
+            setSelectedMaterial(null)
+            setStockInForm({
+                materialId: "",
+                quantity: "",
+                notes: ""
+            })
+        }
+        setShowStockInDialog(true)
+    }
+
+    const handleStockIn = async () => {
+        if (!stockInForm.materialId || !stockInForm.quantity) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Pilih bahan dan masukkan jumlah"
+            })
+            return
+        }
+
+        setSubmitting(true)
+        try {
+            const response = await fetch('/api/material-transactions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    materialId: stockInForm.materialId,
+                    type: 'IN',
+                    quantity: parseFloat(stockInForm.quantity),
+                    notes: stockInForm.notes
+                })
+            })
+
+            if (response.ok) {
+                toast({
+                    title: "Berhasil",
+                    description: "Stok berhasil ditambahkan"
+                })
+                setShowStockInDialog(false)
+                fetchMaterials()
+            } else {
+                const error = await response.json()
+                throw new Error(error.error || 'Failed to add stock')
+            }
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error instanceof Error ? error.message : "Gagal menambah stok"
+            })
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    const lowStockCount = filteredMaterials.filter(m => getStockStatus(m) === "low").length
+    const criticalStockCount = filteredMaterials.filter(m => getStockStatus(m) === "critical").length
+
+    if (loading) {
+        return (
+            <div className="flex-1 flex items-center justify-center min-h-screen">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        )
+    }
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
@@ -25,7 +179,7 @@ export default function StockManagementPage() {
                         Kelola stok bahan baku gudang
                     </p>
                 </div>
-                <Button>
+                <Button onClick={() => openStockInDialog()}>
                     <Plus className="h-4 w-4 mr-2" />
                     Input Stok Masuk
                 </Button>
@@ -51,7 +205,7 @@ export default function StockManagementPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-orange-500">
-                            {materials.filter(m => m.status === "low").length}
+                            {lowStockCount}
                         </div>
                         <p className="text-xs text-muted-foreground">Perlu monitoring</p>
                     </CardContent>
@@ -64,7 +218,7 @@ export default function StockManagementPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-red-500">
-                            {materials.filter(m => m.status === "critical").length}
+                            {criticalStockCount}
                         </div>
                         <p className="text-xs text-muted-foreground">Segera restock</p>
                     </CardContent>
@@ -85,6 +239,8 @@ export default function StockManagementPage() {
                         <Input
                             placeholder="Cari bahan baku..."
                             className="pl-10"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                 </CardHeader>
@@ -98,47 +254,170 @@ export default function StockManagementPage() {
                                     <TableHead>Stok</TableHead>
                                     <TableHead>Unit</TableHead>
                                     <TableHead>Min. Stok</TableHead>
-                                    <TableHead>Lokasi</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead className="text-right">Aksi</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {materials.map((material) => (
-                                    <TableRow key={material.id}>
-                                        <TableCell className="font-mono text-sm">{material.code}</TableCell>
-                                        <TableCell className="font-medium">{material.name}</TableCell>
-                                        <TableCell className="font-bold">{material.stock}</TableCell>
-                                        <TableCell>{material.unit}</TableCell>
-                                        <TableCell>{material.min}</TableCell>
-                                        <TableCell>{material.location}</TableCell>
-                                        <TableCell>
-                                            {material.status === "good" && <Badge>Aman</Badge>}
-                                            {material.status === "low" && (
-                                                <Badge variant="secondary">
-                                                    <TrendingDown className="h-3 w-3 mr-1" />
-                                                    Rendah
-                                                </Badge>
-                                            )}
-                                            {material.status === "critical" && (
-                                                <Badge variant="destructive">
-                                                    <AlertTriangle className="h-3 w-3 mr-1" />
-                                                    Kritis
-                                                </Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm">
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
+                                {filteredMaterials.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                            {searchQuery ? "Tidak ada bahan yang sesuai pencarian" : "Belum ada data bahan baku"}
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                ) : (
+                                    filteredMaterials.map((material) => {
+                                        const status = getStockStatus(material)
+                                        return (
+                                            <TableRow key={material.id}>
+                                                <TableCell className="font-mono text-sm">{material.code}</TableCell>
+                                                <TableCell className="font-medium">{material.name}</TableCell>
+                                                <TableCell className="font-bold">
+                                                    {parseFloat(material.currentStock.toString()).toFixed(2)}
+                                                </TableCell>
+                                                <TableCell>{material.unit}</TableCell>
+                                                <TableCell>
+                                                    {parseFloat(material.minimumStock.toString()).toFixed(2)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {status === "good" && <Badge>Aman</Badge>}
+                                                    {status === "low" && (
+                                                        <Badge variant="secondary">
+                                                            <TrendingDown className="h-3 w-3 mr-1" />
+                                                            Rendah
+                                                        </Badge>
+                                                    )}
+                                                    {status === "critical" && (
+                                                        <Badge variant="destructive">
+                                                            <AlertTriangle className="h-3 w-3 mr-1" />
+                                                            Kritis
+                                                        </Badge>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => openStockInDialog(material)}
+                                                    >
+                                                        <Plus className="h-4 w-4 mr-1" />
+                                                        Tambah
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })
+                                )}
                             </TableBody>
                         </Table>
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Stock In Dialog */}
+            <Dialog open={showStockInDialog} onOpenChange={setShowStockInDialog}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>Input Stok Masuk</DialogTitle>
+                        <DialogDescription>
+                            Tambahkan stok bahan baku ke gudang
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="material">Bahan Baku <span className="text-red-500">*</span></Label>
+                            <Select
+                                id="material"
+                                value={stockInForm.materialId}
+                                onChange={(e) => {
+                                    const value = e.target.value
+                                    const mat = materials.find(m => m.id === value)
+                                    setStockInForm({ ...stockInForm, materialId: value })
+                                    setSelectedMaterial(mat || null)
+                                }}
+                                disabled={!!selectedMaterial}
+                            >
+                                <option value="">Pilih bahan baku</option>
+                                {materials.map((material) => (
+                                    <option key={material.id} value={material.id}>
+                                        {material.code} - {material.name}
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+
+                        {selectedMaterial && (
+                            <div className="p-4 border rounded-lg space-y-1 bg-muted/50">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Stok Saat Ini:</span>
+                                    <span className="font-bold">
+                                        {parseFloat(selectedMaterial.currentStock.toString()).toFixed(2)} {selectedMaterial.unit}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Min. Stok:</span>
+                                    <span>
+                                        {parseFloat(selectedMaterial.minimumStock.toString()).toFixed(2)} {selectedMaterial.unit}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="space-y-2">
+                            <Label htmlFor="quantity">
+                                Jumlah {selectedMaterial ? `(${selectedMaterial.unit})` : ""} <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                                id="quantity"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={stockInForm.quantity}
+                                onChange={(e) => setStockInForm({ ...stockInForm, quantity: e.target.value })}
+                                placeholder="Masukkan jumlah"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="notes">Catatan</Label>
+                            <Textarea
+                                id="notes"
+                                value={stockInForm.notes}
+                                onChange={(e) => setStockInForm({ ...stockInForm, notes: e.target.value })}
+                                placeholder="Tambahkan catatan (opsional)"
+                                rows={3}
+                            />
+                        </div>
+
+                        <div className="flex gap-2 justify-end pt-4 border-t">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowStockInDialog(false)}
+                                disabled={submitting}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                onClick={handleStockIn}
+                                disabled={submitting || !stockInForm.materialId || !stockInForm.quantity}
+                            >
+                                {submitting ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        Menyimpan...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Simpan
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

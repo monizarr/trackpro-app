@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -32,7 +32,7 @@ export async function PATCH(
       );
     }
 
-    const taskId = params.id;
+    const { id: taskId } = await params;
     const body = await request.json();
     const { piecesCompleted, rejectPieces, notes } = body;
 
@@ -59,12 +59,16 @@ export async function PATCH(
       );
     }
 
-    // Update task progress
+    // Update task progress (incremental)
     const updatedTask = await prisma.finishingTask.update({
       where: { id: taskId },
       data: {
-        ...(piecesCompleted !== undefined && { piecesCompleted }),
-        ...(rejectPieces !== undefined && { rejectPieces }),
+        piecesCompleted: {
+          increment: piecesCompleted || 0,
+        },
+        rejectPieces: {
+          increment: rejectPieces || 0,
+        },
         ...(notes && { notes }),
       },
     });

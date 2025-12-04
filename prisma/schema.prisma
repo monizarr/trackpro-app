@@ -44,6 +44,7 @@ model User {
   verifiedCuttingTasks  CuttingTask[]       @relation("CuttingTaskVerified")
   verifiedSewingTasks   SewingTask[]        @relation("SewingTaskVerified")
   verifiedFinishingTasks FinishingTask[]    @relation("FinishingTaskVerified")
+  verifiedFinishedGoods FinishedGood[]
   notifications         Notification[]
   auditLogs             AuditLog[]
 
@@ -192,7 +193,8 @@ enum BatchStatus {
   SEWING_COMPLETED  // Sewing done, waiting for verification
   SEWING_VERIFIED   // Verified by production head
   IN_FINISHING      // Currently in finishing
-  FINISHING_COMPLETED // Finishing done
+  FINISHING_COMPLETED // Finishing done, waiting for warehouse verification
+  WAREHOUSE_VERIFIED // Verified by warehouse head, stored as finished goods
   COMPLETED         // All processes completed
   CANCELLED         // Batch cancelled
 }
@@ -222,6 +224,7 @@ model ProductionBatch {
   finishingTask        FinishingTask?
   qualityChecks        QualityCheck[]
   timeline             BatchTimeline[]
+  finishedGoods        FinishedGood[]
 
   @@index([batchSku])
   @@index([status])
@@ -352,6 +355,38 @@ model FinishingTask {
 }
 
 // ============================================
+// FINISHED GOODS (BARANG JADI)
+// ============================================
+
+enum GoodType {
+  FINISHED    // Barang jadi (produk berhasil)
+  REJECT      // Barang gagal/reject
+}
+
+model FinishedGood {
+  id              String     @id @default(cuid())
+  batchId         String
+  productId       String
+  type            GoodType
+  quantity        Int
+  location        String?    // Lokasi penyimpanan di gudang
+  notes           String?
+  verifiedById    String     // Kepala gudang yang verifikasi
+  verifiedAt      DateTime   @default(now())
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  batch        ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  verifiedBy   User            @relation(fields: [verifiedById], references: [id])
+
+  @@index([batchId])
+  @@index([productId])
+  @@index([type])
+  @@index([verifiedAt])
+  @@map("finished_goods")
+}
+
+// ============================================
 // QUALITY CONTROL
 // ============================================
 
@@ -405,6 +440,7 @@ enum TimelineEvent {
   ASSIGNED_TO_FINISHING
   FINISHING_STARTED
   FINISHING_COMPLETED
+  WAREHOUSE_VERIFIED
   BATCH_COMPLETED
   BATCH_CANCELLED
 }

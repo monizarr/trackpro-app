@@ -6,6 +6,8 @@ import {
     Box,
     FileText,
     Warehouse,
+    CheckCircle,
+    Archive,
 } from "lucide-react"
 import { AppSidebar, NavGroup } from "./app-sidebar"
 
@@ -27,6 +29,21 @@ const navigation: NavGroup[] = [
                 title: "Alokasi Bahan",
                 href: "/warehouse/allocation",
                 icon: Box,
+            },
+        ],
+    },
+    {
+        title: "Produksi",
+        items: [
+            {
+                title: "Verifikasi Batch",
+                href: "/warehouse/verification",
+                icon: CheckCircle,
+            },
+            {
+                title: "Barang Jadi",
+                href: "/warehouse/finished-goods",
+                icon: Archive,
             },
         ],
     },

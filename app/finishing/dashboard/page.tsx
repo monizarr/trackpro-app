@@ -1,20 +1,78 @@
 "use client"
 
-import { Sparkles, CheckCircle, Clock } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Sparkles, CheckCircle, Clock, Loader2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 
-export default function FinishingDashboard() {
-    const stats = [
-        { title: "Batch Aktif", value: "2", subtitle: "Sedang dikerjakan", icon: Sparkles },
-        { title: "Selesai Hari Ini", value: "4", subtitle: "+2 dari kemarin", icon: CheckCircle },
-        { title: "Total Progress", value: "80%", subtitle: "Target hari ini", icon: Clock },
-    ]
+interface FinishingTask {
+    id: string
+    batchId: string
+    piecesReceived: number
+    piecesCompleted: number
+    rejectPieces: number
+    status: string
+    notes: string | null
+    startedAt: Date | null
+    completedAt: Date | null
+    batch: {
+        batchSku: string
+        targetQuantity: number
+        product: {
+            name: string
+        }
+    }
+}
 
-    const activeBatches = [
-        { code: "PROD-20241201-005", product: "Jaket Hoodie", target: 75, completed: 50, deadline: "2 Des 2024 - 18:00" },
-        { code: "PROD-20241201-007", product: "Dress Casual", target: 40, completed: 25, deadline: "3 Des 2024 - 10:00" },
+export default function FinishingDashboard() {
+    const [tasks, setTasks] = useState<FinishingTask[]>([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        const fetchTasks = async () => {
+            try {
+                const response = await fetch('/api/finishing-tasks/me')
+                if (response.ok) {
+                    const data = await response.json()
+                    setTasks(data)
+                }
+            } catch (error) {
+                console.error('Error fetching tasks:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchTasks()
+    }, [])
+
+    if (loading) {
+        return (
+            <div className="flex-1 flex items-center justify-center min-h-screen">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        )
+    }
+
+    const activeTasks = tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'PENDING')
+    const completedToday = tasks.filter(t => {
+        if (t.status !== 'COMPLETED' || !t.completedAt) return false
+        const today = new Date()
+        const completedDate = new Date(t.completedAt)
+        return completedDate.toDateString() === today.toDateString()
+    })
+
+    const totalProgress = activeTasks.length > 0
+        ? Math.round(activeTasks.reduce((acc, task) => {
+            return acc + ((task.piecesCompleted / task.piecesReceived) * 100)
+        }, 0) / activeTasks.length)
+        : 0
+
+    const stats = [
+        { title: "Batch Aktif", value: activeTasks.length.toString(), subtitle: "Sedang dikerjakan", icon: Sparkles },
+        { title: "Selesai Hari Ini", value: completedToday.length.toString(), subtitle: `${completedToday.reduce((acc, t) => acc + t.piecesCompleted, 0)} pcs total`, icon: CheckCircle },
+        { title: "Total Progress", value: `${totalProgress}%`, subtitle: "Rata-rata progress", icon: Clock },
     ]
 
     return (
@@ -54,23 +112,28 @@ export default function FinishingDashboard() {
                     <CardDescription>Pekerjaan finishing yang sedang berlangsung</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {activeBatches.map((batch) => (
-                        <div key={batch.code} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="font-mono text-sm font-medium">{batch.code}</p>
-                                    <p className="text-sm text-muted-foreground">{batch.product}</p>
+                    {activeTasks.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">Tidak ada batch aktif</p>
+                    ) : (
+                        activeTasks.map((task) => (
+                            <div key={task.id} className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="font-mono text-sm font-medium">{task.batch.batchSku}</p>
+                                        <p className="text-sm text-muted-foreground">{task.batch.product.name}</p>
+                                    </div>
+                                    <Badge variant={task.status === 'IN_PROGRESS' ? 'default' : 'secondary'}>
+                                        {task.status === 'IN_PROGRESS' ? 'Finishing' : 'Menunggu'}
+                                    </Badge>
                                 </div>
-                                <Badge variant="secondary">Finishing</Badge>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">Progress: {task.piecesCompleted}/{task.piecesReceived} pcs</span>
+                                    <span className="text-muted-foreground">{Math.round((task.piecesCompleted / task.piecesReceived) * 100)}%</span>
+                                </div>
+                                <Progress value={(task.piecesCompleted / task.piecesReceived) * 100} />
                             </div>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Progress: {batch.completed}/{batch.target} pcs</span>
-                                <span className="text-muted-foreground">{Math.round((batch.completed / batch.target) * 100)}%</span>
-                            </div>
-                            <Progress value={(batch.completed / batch.target) * 100} />
-                            <p className="text-xs text-muted-foreground">Deadline: {batch.deadline}</p>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </CardContent>
             </Card>
 

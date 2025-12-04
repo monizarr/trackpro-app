@@ -24,6 +24,7 @@ export async function GET() {
                 code: true,
                 name: true,
                 unit: true,
+                currentStock: true,
               },
             },
           },
@@ -34,9 +35,34 @@ export async function GET() {
       },
     });
 
+    // Calculate available stock for each product by querying FinishedGood separately
+    const productsWithStock = await Promise.all(
+      products.map(async (product) => {
+        const finishedGoods = await prisma.finishedGood.findMany({
+          where: {
+            productId: product.id,
+            type: "FINISHED",
+          },
+          select: {
+            quantity: true,
+          },
+        });
+
+        const availableStock = finishedGoods.reduce(
+          (sum, fg) => sum + fg.quantity,
+          0
+        );
+
+        return {
+          ...product,
+          availableStock,
+        };
+      })
+    );
+
     return NextResponse.json({
       success: true,
-      data: products,
+      data: productsWithStock,
     });
   } catch (error) {
     console.error("Error fetching products:", error);

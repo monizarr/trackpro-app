@@ -31,10 +31,20 @@ interface CuttingTask {
     }
 }
 
+interface TimelineEvent {
+    id: string
+    batchId: string
+    event: string
+    details: string | null
+    createdAt: string
+}
+
 export default function CuttingProcessPage() {
     const [tasks, setTasks] = useState<CuttingTask[]>([])
     const [selectedTask, setSelectedTask] = useState<CuttingTask | null>(null)
+    const [timeline, setTimeline] = useState<TimelineEvent[]>([])
     const [loading, setLoading] = useState(true)
+    const [loadingTimeline, setLoadingTimeline] = useState(false)
     const [submitting, setSubmitting] = useState(false)
     const [piecesCompleted, setPiecesCompleted] = useState("")
     const [rejectPieces, setRejectPieces] = useState("")
@@ -59,6 +69,8 @@ export default function CuttingProcessPage() {
                         setRejectPieces(updatedSelectedTask.rejectPieces?.toString() || "0")
                         setWasteQty(updatedSelectedTask.wasteQty?.toString() || "0")
                         setNotes(updatedSelectedTask.notes || "")
+                        // Fetch timeline for the selected task
+                        fetchTimeline(updatedSelectedTask.batchId)
                         return
                     }
                 }
@@ -74,6 +86,8 @@ export default function CuttingProcessPage() {
                     setRejectPieces(activeTask.rejectPieces?.toString() || "0")
                     setWasteQty(activeTask.wasteQty?.toString() || "0")
                     setNotes(activeTask.notes || "")
+                    // Fetch timeline for the active task
+                    fetchTimeline(activeTask.batchId)
                 }
             }
         } catch (err) {
@@ -84,6 +98,24 @@ export default function CuttingProcessPage() {
             })
         } finally {
             setLoading(false)
+        }
+    }
+
+    const fetchTimeline = async (batchId: string) => {
+        try {
+            setLoadingTimeline(true)
+            const response = await fetch(`/api/production-batches/${batchId}/timeline`)
+
+            if (response.ok) {
+                const data = await response.json()
+                if (data.success) {
+                    setTimeline(data.data || [])
+                }
+            }
+        } catch (err) {
+            console.error("Error fetching timeline:", err)
+        } finally {
+            setLoadingTimeline(false)
         }
     }
 
@@ -277,6 +309,58 @@ export default function CuttingProcessPage() {
         return <Badge variant={config.variant}>{config.label}</Badge>
     }
 
+    const getEventLabel = (event: string) => {
+        const labels: Record<string, string> = {
+            'BATCH_CREATED': 'Batch Dibuat',
+            'MATERIAL_REQUESTED': 'Material Diminta',
+            'MATERIAL_ALLOCATED': 'Material Dialokasikan',
+            'ASSIGNED_TO_CUTTER': 'Ditugaskan ke Pemotong',
+            'CUTTING_STARTED': 'Pemotongan Dimulai',
+            'CUTTING_COMPLETED': 'Pemotongan Selesai',
+            'CUTTING_VERIFIED': 'Pemotongan Diverifikasi',
+            'ASSIGNED_TO_SEWER': 'Ditugaskan ke Penjahit',
+            'SEWING_STARTED': 'Penjahitan Dimulai',
+            'SEWING_COMPLETED': 'Penjahitan Selesai',
+            'SEWING_VERIFIED': 'Penjahitan Diverifikasi',
+            'ASSIGNED_TO_FINISHING': 'Ditugaskan ke Finishing',
+            'FINISHING_STARTED': 'Finishing Dimulai',
+            'FINISHING_COMPLETED': 'Finishing Selesai',
+            'WAREHOUSE_VERIFIED': 'Diverifikasi Gudang',
+            'BATCH_COMPLETED': 'Batch Selesai',
+            'BATCH_CANCELLED': 'Batch Dibatalkan',
+        }
+        return labels[event] || event
+    }
+
+    const getEventIcon = (event: string) => {
+        if (event.includes('CUTTING')) {
+            return '✂️'
+        } else if (event.includes('SEWING')) {
+            return '🧵'
+        } else if (event.includes('FINISHING')) {
+            return '✨'
+        } else if (event.includes('MATERIAL')) {
+            return '📦'
+        } else if (event.includes('VERIFIED')) {
+            return '✅'
+        } else if (event.includes('COMPLETED')) {
+            return '🎉'
+        } else if (event.includes('CANCELLED')) {
+            return '❌'
+        }
+        return '📌'
+    }
+
+    const formatDateTime = (dateString: string) => {
+        return new Date(dateString).toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        })
+    }
+
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
             <div className="flex items-center justify-between">
@@ -307,6 +391,7 @@ export default function CuttingProcessPage() {
                                         setRejectPieces(task.rejectPieces?.toString() || "0")
                                         setWasteQty(task.wasteQty?.toString() || "0")
                                         setNotes(task.notes || "")
+                                        fetchTimeline(task.batchId)
                                     }}
                                 >
                                     <div className="flex items-center justify-between w-full">
@@ -524,6 +609,60 @@ export default function CuttingProcessPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Timeline History */}
+            {selectedTask && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Riwayat Progress Pemotongan</CardTitle>
+                        <CardDescription>
+                            Timeline aktivitas untuk batch {selectedTask.batch.batchSku}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {loadingTimeline ? (
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 className="h-6 w-6 animate-spin" />
+                            </div>
+                        ) : timeline.length > 0 ? (
+                            <div className="space-y-4">
+                                {timeline.map((event, index) => (
+                                    <div key={event.id} className="flex gap-4">
+                                        <div className="flex flex-col items-center">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-lg">
+                                                {getEventIcon(event.event)}
+                                            </div>
+                                            {index < timeline.length - 1 && (
+                                                <div className="w-px h-full bg-border mt-2" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 pb-6">
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <p className="font-medium">{getEventLabel(event.event)}</p>
+                                                    {event.details && (
+                                                        <p className="text-sm text-muted-foreground mt-1">
+                                                            {event.details}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mt-2">
+                                                {formatDateTime(event.createdAt)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 text-muted-foreground">
+                                <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                                <p className="text-sm">Belum ada riwayat untuk batch ini</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
         </div>
     )
 }

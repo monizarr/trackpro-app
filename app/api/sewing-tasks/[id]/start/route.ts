@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -32,7 +32,7 @@ export async function PATCH(
       );
     }
 
-    const taskId = params.id;
+    const { id: taskId } = await params;
 
     // Check if task exists and belongs to this user
     const task = await prisma.sewingTask.findUnique({
@@ -57,16 +57,35 @@ export async function PATCH(
       );
     }
 
-    // Update task status to IN_PROGRESS
-    const updatedTask = await prisma.sewingTask.update({
-      where: { id: taskId },
-      data: {
-        status: "IN_PROGRESS",
-        startedAt: new Date(),
-      },
-    });
+    // Update task status to IN_PROGRESS and batch status to IN_SEWING
+    const updatedTask = await prisma.$transaction(async (tx) => {
+      const task = await tx.sewingTask.update({
+        where: { id: taskId },
+        data: {
+          status: "IN_PROGRESS",
+          startedAt: new Date(),
+        },
+      });
 
-    // Note: Batch status already IN_SEWING from assignment
+      // Update batch status to IN_SEWING
+      await tx.productionBatch.update({
+        where: { id: task.batchId },
+        data: {
+          status: "IN_SEWING",
+        },
+      });
+
+      // Create timeline event
+      await tx.batchTimeline.create({
+        data: {
+          batchId: task.batchId,
+          event: "SEWING_STARTED",
+          details: `Penjahitan dimulai oleh ${user.name}`,
+        },
+      });
+
+      return task;
+    });
 
     return NextResponse.json(updatedTask);
   } catch (error) {

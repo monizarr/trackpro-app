@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -32,7 +32,7 @@ export async function PATCH(
       );
     }
 
-    const taskId = params.id;
+    const { id: taskId } = await params;
     const body = await request.json();
     const { piecesCompleted, rejectPieces, notes } = body;
 
@@ -59,13 +59,34 @@ export async function PATCH(
       );
     }
 
-    // Update task progress
+    // Update task progress by incrementing (adding to current values)
     const updatedTask = await prisma.sewingTask.update({
       where: { id: taskId },
       data: {
-        ...(piecesCompleted !== undefined && { piecesCompleted }),
-        ...(rejectPieces !== undefined && { rejectPieces }),
+        ...(piecesCompleted !== undefined && {
+          piecesCompleted: { increment: piecesCompleted },
+        }),
+        ...(rejectPieces !== undefined && {
+          rejectPieces: { increment: rejectPieces },
+        }),
         ...(notes && { notes }),
+      },
+    });
+
+    // Create timeline event for progress update
+    const completedCount = piecesCompleted || 0;
+    const rejectCount = rejectPieces || 0;
+    const details = `+${completedCount} selesai, +${rejectCount} reject. Total: ${
+      updatedTask.piecesCompleted
+    } selesai, ${updatedTask.rejectPieces} reject${
+      notes ? `. Catatan: ${notes}` : ""
+    }`;
+
+    await prisma.batchTimeline.create({
+      data: {
+        batchId: task.batchId,
+        event: "SEWING_PROGRESS",
+        details,
       },
     });
 

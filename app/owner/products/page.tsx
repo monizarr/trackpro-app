@@ -62,6 +62,7 @@ interface Product {
         quantity: number
     }>
     status: ProductStatus
+    availableStock?: number
 }
 
 export default function ProductsPage() {
@@ -110,8 +111,11 @@ export default function ProductsPage() {
             setIsLoading(true)
             const response = await fetch("/api/products")
             const data = await response.json()
+            console.log('API Response:', data)
             if (data.success) {
                 setProducts(data.data)
+            } else {
+                console.error('API Error:', data.error)
             }
         } catch (error) {
             console.error("Error fetching products:", error)
@@ -529,6 +533,7 @@ export default function ProductsPage() {
                                         <ArrowUpDown className="h-3 w-3" />
                                     </Button>
                                 </TableHead>
+                                <TableHead>Stock</TableHead>
                                 <TableHead>
                                     <Button
                                         variant="ghost"
@@ -547,7 +552,7 @@ export default function ProductsPage() {
                             {isLoading ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={5}
+                                        colSpan={6}
                                         className="text-center text-muted-foreground h-24"
                                     >
                                         Loading products...
@@ -556,7 +561,7 @@ export default function ProductsPage() {
                             ) : sortedProducts.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={5}
+                                        colSpan={6}
                                         className="text-center text-muted-foreground h-24"
                                     >
                                         No products found
@@ -590,6 +595,15 @@ export default function ProductsPage() {
                                         </TableCell>
                                         <TableCell className="font-medium">
                                             Rp {product.price.toLocaleString('id-ID')}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <Package className="h-4 w-4 text-muted-foreground" />
+                                                <span className="font-medium">
+                                                    {product.availableStock || 0}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground">pcs</span>
+                                            </div>
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={product.status === 'active' ? 'default' : 'secondary'}>

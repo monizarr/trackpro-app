@@ -104,7 +104,7 @@ export async function POST(
       await tx.batchTimeline.create({
         data: {
           batchId,
-          event: "ASSIGNED_TO_SEWER",
+          event: "SEWING_ASSIGNED",
           details: `Batch di-assign ke penjahit ${sewer.name} oleh ${
             session.user.name
           }. Pieces received: ${batch.cuttingTask?.piecesCompleted || 0}`,

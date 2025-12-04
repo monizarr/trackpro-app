@@ -8,11 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
-import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
-interface FinishingTask {
+interface SewingTask {
     id: string
     batchId: string
     piecesReceived: number
@@ -31,29 +30,19 @@ interface FinishingTask {
     }
 }
 
-export default function FinishingProcessPage() {
-    const [tasks, setTasks] = useState<FinishingTask[]>([])
-    const [selectedTask, setSelectedTask] = useState<FinishingTask | null>(null)
+export default function SewingProcessPage() {
+    const [tasks, setTasks] = useState<SewingTask[]>([])
+    const [selectedTask, setSelectedTask] = useState<SewingTask | null>(null)
     const [loading, setLoading] = useState(true)
     const [submitting, setSubmitting] = useState(false)
     const [piecesCompleted, setPiecesCompleted] = useState("")
     const [rejectPieces, setRejectPieces] = useState("")
     const [notes, setNotes] = useState("")
-    const [qualityChecks, setQualityChecks] = useState<Record<string, boolean>>({})
     const { toast } = useToast()
-
-    const qualityCheckList = [
-        { id: "qc1", label: "Cek jahitan rapi dan kuat" },
-        { id: "qc2", label: "Cek ukuran sesuai spesifikasi" },
-        { id: "qc3", label: "Cek warna tidak luntur" },
-        { id: "qc4", label: "Setrika dengan rapi" },
-        { id: "qc5", label: "Pasang label dan tag" },
-        { id: "qc6", label: "Packaging dengan plastik" },
-    ]
 
     const fetchTasks = async () => {
         try {
-            const response = await fetch('/api/finishing-tasks/me')
+            const response = await fetch('/api/sewing-tasks/me')
 
             if (response.ok) {
                 const data = await response.json()
@@ -61,28 +50,25 @@ export default function FinishingProcessPage() {
 
                 // If we have a currently selected task, try to find it in the new data
                 if (selectedTask) {
-                    const updatedSelectedTask = data.find((t: FinishingTask) => t.id === selectedTask.id)
+                    const updatedSelectedTask = data.find((t: SewingTask) => t.id === selectedTask.id)
                     if (updatedSelectedTask) {
                         setSelectedTask(updatedSelectedTask)
-                        // Only reset fields if status actually changed
-                        if (updatedSelectedTask.status !== selectedTask.status) {
-                            setPiecesCompleted("0")
-                            setRejectPieces("0")
-                            setNotes(updatedSelectedTask.notes || "")
-                        }
+                        setPiecesCompleted(updatedSelectedTask.piecesCompleted?.toString() || "0")
+                        setRejectPieces(updatedSelectedTask.rejectPieces?.toString() || "0")
+                        setNotes(updatedSelectedTask.notes || "")
                         return
                     }
                 }
 
-                // Auto-select first task in progress or pending
-                const activeTask = data.find((t: FinishingTask) =>
+                // Auto-select first task in progress or pending, or just the first task
+                const activeTask = data.find((t: SewingTask) =>
                     t.status === 'IN_PROGRESS' || t.status === 'PENDING'
                 ) || data[0]
 
                 if (activeTask) {
                     setSelectedTask(activeTask)
-                    setPiecesCompleted("0")
-                    setRejectPieces("0")
+                    setPiecesCompleted(activeTask.piecesCompleted?.toString() || "0")
+                    setRejectPieces(activeTask.rejectPieces?.toString() || "0")
                     setNotes(activeTask.notes || "")
                 }
             }
@@ -107,14 +93,14 @@ export default function FinishingProcessPage() {
 
         setSubmitting(true)
         try {
-            const response = await fetch(`/api/finishing-tasks/${selectedTask.id}/start`, {
+            const response = await fetch(`/api/sewing-tasks/${selectedTask.id}/start`, {
                 method: 'PATCH'
             })
 
             if (response.ok) {
                 toast({
                     title: "Berhasil",
-                    description: "Task finishing dimulai"
+                    description: "Task penjahitan dimulai"
                 })
                 fetchTasks()
             } else {
@@ -148,7 +134,7 @@ export default function FinishingProcessPage() {
 
         setSubmitting(true)
         try {
-            const response = await fetch(`/api/finishing-tasks/${selectedTask.id}/progress`, {
+            const response = await fetch(`/api/sewing-tasks/${selectedTask.id}/progress`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -163,6 +149,7 @@ export default function FinishingProcessPage() {
                     title: "Berhasil",
                     description: `Progress ditambahkan: +${completedToAdd} completed, +${rejectToAdd} reject`
                 })
+                // Reset input fields after save
                 setPiecesCompleted("0")
                 setRejectPieces("0")
                 fetchTasks()
@@ -202,7 +189,7 @@ export default function FinishingProcessPage() {
 
         setSubmitting(true)
         try {
-            const response = await fetch(`/api/finishing-tasks/${selectedTask.id}/complete`, {
+            const response = await fetch(`/api/sewing-tasks/${selectedTask.id}/complete`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -218,10 +205,10 @@ export default function FinishingProcessPage() {
                     description: `Task selesai. Total: ${finalCompleted} completed, ${finalReject} reject`
                 })
                 fetchTasks()
+                // Reset form
                 setPiecesCompleted("0")
                 setRejectPieces("0")
                 setNotes("")
-                setQualityChecks({})
             } else {
                 const error = await response.json()
                 throw new Error(error.error || 'Failed to complete task')
@@ -237,16 +224,6 @@ export default function FinishingProcessPage() {
         }
     }
 
-    const getStatusBadge = (status: string) => {
-        const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", label: string }> = {
-            'PENDING': { variant: 'outline', label: 'Menunggu' },
-            'IN_PROGRESS': { variant: 'default', label: 'Sedang Proses' },
-            'COMPLETED': { variant: 'secondary', label: 'Selesai' },
-        }
-        const config = variants[status] || { variant: 'outline', label: status }
-        return <Badge variant={config.variant}>{config.label}</Badge>
-    }
-
     if (loading) {
         return (
             <div className="flex-1 flex items-center justify-center min-h-screen">
@@ -255,19 +232,20 @@ export default function FinishingProcessPage() {
         )
     }
 
+
     if (tasks.length === 0) {
         return (
             <div className="flex-1 space-y-4 p-8 pt-6">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Proses Finishing</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">Proses Penjahitan</h2>
                     <p className="text-muted-foreground">
-                        Quality check dan finishing produk
+                        Update progress pekerjaan penjahitan
                     </p>
                 </div>
                 <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                        Tidak ada task finishing yang ditugaskan saat ini.
+                        Tidak ada task penjahitan yang ditugaskan saat ini.
                     </AlertDescription>
                 </Alert>
             </div>
@@ -280,7 +258,7 @@ export default function FinishingProcessPage() {
         target: selectedTask.batch.targetQuantity,
         completed: selectedTask.piecesCompleted || 0,
         reject: selectedTask.rejectPieces || 0,
-        received: selectedTask.piecesReceived,
+        piecesReceived: selectedTask.piecesReceived,
         status: selectedTask.status
     } : null
 
@@ -288,9 +266,9 @@ export default function FinishingProcessPage() {
         return (
             <div className="flex-1 space-y-4 p-8 pt-6">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Proses Finishing</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">Proses Penjahitan</h2>
                     <p className="text-muted-foreground">
-                        Quality check dan finishing produk
+                        Update progress pekerjaan penjahitan
                     </p>
                 </div>
                 <Alert>
@@ -303,19 +281,30 @@ export default function FinishingProcessPage() {
         )
     }
 
+    const getStatusBadge = (status: string) => {
+        const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", label: string }> = {
+            'PENDING': { variant: 'outline', label: 'Menunggu' },
+            'IN_PROGRESS': { variant: 'default', label: 'Sedang Proses' },
+            'COMPLETED': { variant: 'secondary', label: 'Selesai' },
+            'VERIFIED': { variant: 'secondary', label: 'Terverifikasi' }
+        }
+        const config = variants[status] || { variant: 'outline', label: status }
+        return <Badge variant={config.variant}>{config.label}</Badge>
+    }
+
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Proses Finishing</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">Proses Penjahitan</h2>
                     <p className="text-muted-foreground">
-                        Quality check dan finishing produk
+                        Update progress pekerjaan penjahitan
                     </p>
                 </div>
             </div>
 
             {/* Task Selection */}
-            {tasks.length > 1 && (
+            {tasks.length >= 1 && (
                 <Card>
                     <CardHeader>
                         <CardTitle>Pilih Task</CardTitle>
@@ -329,8 +318,8 @@ export default function FinishingProcessPage() {
                                     className="justify-start"
                                     onClick={() => {
                                         setSelectedTask(task)
-                                        setPiecesCompleted("0")
-                                        setRejectPieces("0")
+                                        setPiecesCompleted(task.piecesCompleted?.toString() || "0")
+                                        setRejectPieces(task.rejectPieces?.toString() || "0")
                                         setNotes(task.notes || "")
                                     }}
                                 >
@@ -360,15 +349,15 @@ export default function FinishingProcessPage() {
                     <div>
                         <div className="flex justify-between text-sm mb-2">
                             <span className="text-muted-foreground">Progress</span>
-                            <span className="font-medium">{currentBatch.completed}/{currentBatch.received} pcs ({Math.round((currentBatch.completed / currentBatch.received) * 100)}%)</span>
+                            <span className="font-medium">{currentBatch.completed}/{currentBatch.piecesReceived} pcs ({Math.round((currentBatch.completed / currentBatch.piecesReceived) * 100)}%)</span>
                         </div>
-                        <Progress value={(currentBatch.completed / currentBatch.received) * 100} />
+                        <Progress value={(currentBatch.completed / currentBatch.piecesReceived) * 100} />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                             <p className="text-sm text-muted-foreground">Pieces Diterima</p>
-                            <p className="text-2xl font-bold">{currentBatch.received} pcs</p>
+                            <p className="text-2xl font-bold">{currentBatch.piecesReceived} pcs</p>
                         </div>
                         <div className="space-y-1">
                             <p className="text-sm text-muted-foreground">Target Asli</p>
@@ -393,8 +382,8 @@ export default function FinishingProcessPage() {
             {currentBatch.status === 'PENDING' && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Mulai Finishing</CardTitle>
-                        <CardDescription>Klik tombol di bawah untuk memulai proses finishing</CardDescription>
+                        <CardTitle>Mulai Penjahitan</CardTitle>
+                        <CardDescription>Klik tombol di bawah untuk memulai proses penjahitan</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Button
@@ -410,7 +399,7 @@ export default function FinishingProcessPage() {
                             ) : (
                                 <>
                                     <Plus className="h-4 w-4 mr-2" />
-                                    Mulai Finishing
+                                    Mulai Penjahitan
                                 </>
                             )}
                         </Button>
@@ -418,127 +407,97 @@ export default function FinishingProcessPage() {
                 </Card>
             )}
 
-            {/* Quality Check & Update Progress (if IN_PROGRESS) */}
+            {/* Update Progress (if IN_PROGRESS) */}
             {currentBatch.status === 'IN_PROGRESS' && (
-                <>
-                    {/* Quality Check */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Quality Check</CardTitle>
-                            <CardDescription>Pastikan semua checklist terpenuhi sebelum finishing</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {qualityCheckList.map((check) => (
-                                <div key={check.id} className="flex items-center space-x-2">
-                                    <Checkbox
-                                        id={check.id}
-                                        checked={qualityChecks[check.id] || false}
-                                        onCheckedChange={(checked) =>
-                                            setQualityChecks(prev => ({ ...prev, [check.id]: checked as boolean }))
-                                        }
-                                    />
-                                    <label
-                                        htmlFor={check.id}
-                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                    >
-                                        {check.label}
-                                    </label>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-
-                    {/* Update Progress */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Update Progress</CardTitle>
-                            <CardDescription>Catat progress finishing yang telah diselesaikan</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="piecesCompleted">Tambah Selesai</Label>
-                                    <Input
-                                        id="piecesCompleted"
-                                        type="number"
-                                        value={piecesCompleted}
-                                        onChange={(e) => setPiecesCompleted(e.target.value)}
-                                        placeholder="0"
-                                    />
-                                    <p className="text-xs text-muted-foreground">Total saat ini: {currentBatch.completed} pcs</p>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="rejectPieces">Tambah Reject</Label>
-                                    <Input
-                                        id="rejectPieces"
-                                        type="number"
-                                        value={rejectPieces}
-                                        onChange={(e) => setRejectPieces(e.target.value)}
-                                        placeholder="0"
-                                    />
-                                    <p className="text-xs text-muted-foreground">Total saat ini: {currentBatch.reject} pcs</p>
-                                </div>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Update Progress</CardTitle>
+                        <CardDescription>Catat progress penjahitan yang telah diselesaikan</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="piecesCompleted">Tambah Selesai</Label>
+                                <Input
+                                    id="piecesCompleted"
+                                    type="number"
+                                    value={piecesCompleted}
+                                    onChange={(e) => setPiecesCompleted(e.target.value)}
+                                    placeholder="0"
+                                />
+                                <p className="text-xs text-muted-foreground">Total saat ini: {currentBatch.completed} pcs</p>
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="notes">Catatan</Label>
+                                <Label htmlFor="rejectPieces">Tambah Reject</Label>
                                 <Input
-                                    id="notes"
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    placeholder="Tambahkan catatan jika ada kendala atau informasi penting"
+                                    id="rejectPieces"
+                                    type="number"
+                                    value={rejectPieces}
+                                    onChange={(e) => setRejectPieces(e.target.value)}
+                                    placeholder="0"
                                 />
+                                <p className="text-xs text-muted-foreground">Total saat ini: {currentBatch.reject} pcs</p>
                             </div>
+                        </div>
 
-                            <div className="flex gap-2">
-                                <Button
-                                    onClick={handleUpdateProgress}
-                                    disabled={submitting}
-                                    className="flex-1"
-                                >
-                                    {submitting ? (
-                                        <>
-                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                            Menyimpan...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Simpan Progress
-                                        </>
-                                    )}
-                                </Button>
-                                <Button
-                                    variant="default"
-                                    onClick={handleComplete}
-                                    disabled={submitting}
-                                    className="flex-1 bg-green-600 hover:bg-green-700"
-                                >
-                                    {submitting ? (
-                                        <>
-                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                            Submitting...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <CheckCircle className="h-4 w-4 mr-2" />
-                                            Submit Selesai
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </>
+                        <div className="space-y-2">
+                            <Label htmlFor="notes">Catatan</Label>
+                            <Input
+                                id="notes"
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                placeholder="Tambahkan catatan jika ada kendala atau informasi penting"
+                            />
+                        </div>
+
+                        <div className="flex gap-2">
+                            <Button
+                                onClick={handleUpdateProgress}
+                                disabled={submitting}
+                                className="flex-1"
+                            >
+                                {submitting ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        Menyimpan...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Simpan Progress
+                                    </>
+                                )}
+                            </Button>
+                            <Button
+                                variant="default"
+                                onClick={handleComplete}
+                                disabled={submitting}
+                                className="flex-1 bg-green-600 hover:bg-green-700"
+                            >
+                                {submitting ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        Submitting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle className="h-4 w-4 mr-2" />
+                                        Submit untuk Verifikasi
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
             )}
 
             {/* Task Completed */}
-            {currentBatch.status === 'COMPLETED' && (
+            {(currentBatch.status === 'COMPLETED' || currentBatch.status === 'VERIFIED') && (
                 <Alert>
                     <CheckCircle className="h-4 w-4" />
                     <AlertDescription>
-                        Task ini sudah selesai.
+                        Task ini sudah selesai dan {currentBatch.status === 'VERIFIED' ? 'telah diverifikasi' : 'menunggu verifikasi'}.
                     </AlertDescription>
                 </Alert>
             )}
