@@ -15,13 +15,10 @@ interface QRCodeGeneratorProps {
 export function QRCodeGenerator({ batchSku, productName, targetQuantity, batchId }: QRCodeGeneratorProps) {
     const qrRef = useRef<HTMLDivElement>(null);
 
-    // Data yang akan di-encode di QR Code
-    const qrData = JSON.stringify({
-        id: batchId,
-        sku: batchSku,
-        type: "production-batch",
-        timestamp: new Date().toISOString(),
-    });
+    // Generate URL untuk direct access ke batch detail
+    // User bisa scan dan langsung membuka halaman detail batch
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    const qrData = `${baseUrl}/batch/${batchId}`;
 
     const handleDownload = () => {
         if (!qrRef.current) return;

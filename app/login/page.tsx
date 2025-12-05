@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +12,8 @@ import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function LoginPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const callbackUrl = searchParams.get("callbackUrl") || "/"
     const [username, setUsername] = useState("")
     const [password, setPassword] = useState("")
     const [showPassword, setShowPassword] = useState(false)
@@ -37,8 +39,8 @@ export default function LoginPage() {
                 return
             }
 
-            // Redirect based on role will be handled by middleware
-            router.push("/")
+            // Redirect to callbackUrl after successful login
+            router.push(callbackUrl)
             router.refresh()
         } catch (error) {
             setError("Terjadi kesalahan. Silakan coba lagi.")
@@ -67,6 +69,14 @@ export default function LoginPage() {
                             Masuk dengan username dan password Anda
                         </p>
                     </div>
+
+                    {/* Barcode Scan Info */}
+                    {callbackUrl !== "/" && callbackUrl.includes("/batch/") && (
+                        <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 px-4 py-3 rounded-lg text-sm">
+                            <p className="font-medium mb-1">📱 Scan Barcode Terdeteksi</p>
+                            <p className="text-xs">Setelah login, Anda akan diarahkan ke halaman batch produksi.</p>
+                        </div>
+                    )}
 
                     {error && (
                         <div className="bg-destructive/10 border border-destructive/50 text-destructive px-4 py-3 rounded-lg text-sm">
