@@ -3,25 +3,23 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm from standalone binary
-RUN apk add --no-cache curl && \
-    curl -fsSL https://github.com/pnpm/pnpm/releases/download/v9.1.0/pnpm-linuxstatic-x64 -o /usr/local/bin/pnpm && \
-    chmod +x /usr/local/bin/pnpm
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
-
-# Copy prisma schema first
+# Copy prisma schema first (needed before install for generate)
 COPY prisma ./prisma
 
-# Generate Prisma Client
-RUN pnpm db:generate
+# Install dependencies (this will also run postinstall which generates Prisma)
+RUN pnpm install --frozen-lockfile
 
 # Copy source code
-COPY .  .
+COPY . .
+
+# Set environment for build
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build application
 RUN pnpm build
@@ -34,17 +32,21 @@ WORKDIR /app
 # Set environment to production
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy standalone build
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy necessary files from builder
 COPY --from=builder /app/next.config.ts ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/. next/static . /.next/static
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 
-# Copy node_modules for Prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+# Install only prisma cli and generate client
+COPY --from=builder /app/package.json ./package.json
+RUN pnpm add -P prisma @prisma/client && pnpm prisma generate
 
 EXPOSE 3000
 
