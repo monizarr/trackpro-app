@@ -77,7 +77,18 @@ export default function ProductionDashboard() {
                 })
 
                 // Map active batches with stage detection
-                const mappedBatches = (result.data.activeBatches || []).map((batch: any) => {
+                const mappedBatches = (result.data.activeBatches || []).map((batch: {
+                    id: string
+                    code: string
+                    product: string
+                    targetQuantity: number
+                    status: string
+                    progress: {
+                        cutting: number
+                        sewing: number
+                        finishing: number
+                    }
+                }) => {
                     const progress = batch.progress || { cutting: 0, sewing: 0, finishing: 0 }
                     let stage = "Persiapan"
                     let totalProgress = 0
@@ -109,9 +120,9 @@ export default function ProductionDashboard() {
 
                 // Calculate worker summary from worker array
                 const workers = result.data.workerSummary || []
-                const cuttingCount = workers.filter((w: any) => w.role === "PEMOTONG" && w.activeTasks > 0).length
-                const sewingCount = workers.filter((w: any) => w.role === "PENJAHIT" && w.activeTasks > 0).length
-                const finishingCount = workers.filter((w: any) => w.role === "FINISHING" && w.activeTasks > 0).length
+                const cuttingCount = workers.filter((w: { role: string, activeTasks: number }) => w.role === "PEMOTONG" && w.activeTasks > 0).length
+                const sewingCount = workers.filter((w: { role: string, activeTasks: number }) => w.role === "PENJAHIT" && w.activeTasks > 0).length
+                const finishingCount = workers.filter((w: { role: string, activeTasks: number }) => w.role === "FINISHING" && w.activeTasks > 0).length
 
                 setWorkerSummary({
                     cutting: cuttingCount,

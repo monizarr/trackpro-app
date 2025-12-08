@@ -216,7 +216,7 @@ export default function ProductDetailPage() {
             if (data.success) {
                 await fetchProduct();
                 setIsEditDialogOpen(false);
-                toast.success("Produk Diperbarui", `${editFormData.name} berhasil diperbarui`);
+                toast.success("Produk Diperbarui", `${formData.name} berhasil diperbarui`);
             } else {
                 toast.error("Gagal Memperbarui", data.error || "Tidak dapat memperbarui produk");
             }
@@ -1025,7 +1025,7 @@ export default function ProductDetailPage() {
                         <AlertDialogDescription>
                             Are you sure you want to delete batch <strong>{batchToDelete?.batchSku}</strong>?
                             <span className="block mt-2 text-muted-foreground">
-                                This action cannot be undone. Only batches that haven't started production can be deleted.
+                                This action cannot be undone. Only batches that havent started production can be deleted.
                             </span>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
