@@ -11,7 +11,7 @@ ARG DATABASE_URL
 ENV DATABASE_URL=${DATABASE_URL}
 
 # Copy package files
-COPY package. json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml ./
 
 # Copy prisma files (schema + config)
 COPY prisma ./prisma
