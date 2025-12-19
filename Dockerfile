@@ -6,20 +6,25 @@ WORKDIR /app
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
+# Build argument for DATABASE_URL (needed for Prisma 7 migrations)
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
+
 # Copy package files
-COPY package.json pnpm-lock.yaml ./
+COPY package. json pnpm-lock.yaml ./
 
-# Copy prisma schema first (needed before install for generate)
+# Copy prisma files (schema + config)
 COPY prisma ./prisma
+COPY prisma.config.ts ./
 
-# Install dependencies (this will also run postinstall which generates Prisma)
+# Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Explicitly generate Prisma client to ensure types are available
+# Generate Prisma client
 RUN pnpm prisma generate
 
 # Copy source code
-COPY . .
+COPY . . 
 
 # Set environment for build
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -46,12 +51,13 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./
 
-# Install only prisma cli and generate client
+# Copy package. json for prisma CLI
 COPY --from=builder /app/package.json ./package.json
-RUN pnpm add -P prisma @prisma/client && pnpm prisma generate
+COPY --from=builder /app/node_modules ./node_modules
 
 EXPOSE 3000
 
-# Start the application
-CMD ["node", "server.js"]
+# Start script - run migrations then start app
+CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
