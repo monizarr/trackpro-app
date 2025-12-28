@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Package2, TrendingDown, TrendingUp, AlertTriangle, Plus, ArrowUpDown, History, Edit, Trash2, X } from "lucide-react"
+import { Package2, TrendingDown, TrendingUp, AlertTriangle, Plus, ArrowUpDown, History, Edit, Trash2 } from "lucide-react"
 import { toast } from "@/lib/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -47,7 +47,13 @@ interface Material {
     unit: string
     currentStock: number
     minimumStock: number
+    rollQuantity?: number | null
+    meterPerRoll?: number | null
     price: number
+    purchaseOrderNumber?: string | null
+    supplier?: string | null
+    purchaseDate?: string | null
+    purchaseNotes?: string | null
 }
 
 interface MaterialDetail extends Material {
@@ -145,6 +151,30 @@ export default function StocksPage() {
         unit: "METER" as string,
         minimumStock: 0,
         price: 0,
+        rollQuantity: 0,
+        meterPerRoll: 0,
+        purchaseOrderNumber: "",
+        supplier: "",
+        purchaseDate: "",
+        purchaseNotes: "",
+    })
+
+    // Create material state
+    const [isCreateMaterialOpen, setIsCreateMaterialOpen] = useState(false)
+    const [createForm, setCreateForm] = useState({
+        code: "",
+        name: "",
+        description: "",
+        unit: "METER" as string,
+        minimumStock: 0,
+        price: 0,
+        initialStock: 0,
+        rollQuantity: 0,
+        meterPerRoll: 0,
+        purchaseOrderNumber: "",
+        supplier: "",
+        purchaseDate: "",
+        purchaseNotes: "",
     })
 
     // Transaction form
@@ -153,7 +183,13 @@ export default function StocksPage() {
         type: "IN" as "IN" | "OUT" | "ADJUSTMENT" | "RETURN",
         quantity: 0,
         notes: "",
-        unit: "ROLL" as string,
+        unit: "METER" as string,
+        rollQuantity: 0,
+        meterPerRoll: 0,
+        purchaseOrderNumber: "",
+        supplier: "",
+        purchaseDate: "",
+        purchaseNotes: "",
     })
 
     useEffect(() => {
@@ -222,13 +258,50 @@ export default function StocksPage() {
         e.preventDefault()
         setIsSaving(true)
 
+        // Remove unit field and clean data
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { unit, ...formData } = transactionForm
+
+        // Clean and validate data - convert empty strings to null and ensure numbers are valid
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const transactionData: Record<string, any> = {
+            materialId: formData.materialId,
+            type: formData.type,
+            quantity: Number(formData.quantity),
+            notes: formData.notes || null,
+        };
+
+        // Only add purchase info fields if type is IN and they have values
+        if (formData.type === "IN") {
+            if (formData.rollQuantity && Number(formData.rollQuantity) > 0) {
+                transactionData.rollQuantity = Number(formData.rollQuantity);
+            }
+            if (formData.meterPerRoll && Number(formData.meterPerRoll) > 0) {
+                transactionData.meterPerRoll = Number(formData.meterPerRoll);
+            }
+            if (formData.purchaseOrderNumber && formData.purchaseOrderNumber.trim()) {
+                transactionData.purchaseOrderNumber = formData.purchaseOrderNumber.trim();
+            }
+            if (formData.supplier && formData.supplier.trim()) {
+                transactionData.supplier = formData.supplier.trim();
+            }
+            if (formData.purchaseDate && formData.purchaseDate.trim()) {
+                transactionData.purchaseDate = formData.purchaseDate.trim();
+            }
+            if (formData.purchaseNotes && formData.purchaseNotes.trim()) {
+                transactionData.purchaseNotes = formData.purchaseNotes.trim();
+            }
+        }
+
+        console.log("Transaction data:", JSON.stringify(transactionData, null, 2))
+
         try {
             const response = await fetch("/api/material-transactions", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(transactionForm),
+                body: JSON.stringify(transactionData),
             })
 
             const data = await response.json()
@@ -242,9 +315,15 @@ export default function StocksPage() {
                     type: "IN",
                     quantity: 0,
                     notes: "",
-                    unit: "",
+                    unit: "METER",
+                    rollQuantity: 0,
+                    meterPerRoll: 0,
+                    purchaseOrderNumber: "",
+                    supplier: "",
+                    purchaseDate: "",
+                    purchaseNotes: "",
                 })
-                toast.success("Transaksi Berhasil", `${transactionForm.type === 'IN' ? 'Penambahan' : 'Pengurangan'} stok berhasil dicatat`);
+                toast.success("Transaksi Berhasil", `${formData.type === 'IN' ? 'Penambahan' : 'Pengurangan'} stok berhasil dicatat`);
             } else {
                 toast.error("Gagal Membuat Transaksi", data.error || "Tidak dapat membuat transaksi");
             }
@@ -288,6 +367,12 @@ export default function StocksPage() {
             unit: selectedMaterial.unit,
             minimumStock: Number(selectedMaterial.minimumStock),
             price: Number(selectedMaterial.price),
+            rollQuantity: Number(selectedMaterial.rollQuantity) || 0,
+            meterPerRoll: Number(selectedMaterial.meterPerRoll) || 0,
+            purchaseOrderNumber: selectedMaterial.purchaseOrderNumber || "",
+            supplier: selectedMaterial.supplier || "",
+            purchaseDate: selectedMaterial.purchaseDate ? new Date(selectedMaterial.purchaseDate).toISOString().split('T')[0] : "",
+            purchaseNotes: selectedMaterial.purchaseNotes || "",
         })
 
         setIsMaterialDetailOpen(false)
@@ -299,13 +384,47 @@ export default function StocksPage() {
         if (!selectedMaterial) return
 
         setIsSaving(true)
+
+        // Clean and validate data
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const updateData: Record<string, any> = {
+            code: editForm.code.trim(),
+            name: editForm.name.trim(),
+            description: editForm.description.trim() || null,
+            unit: "METER",
+            minimumStock: Number(editForm.minimumStock),
+            price: Number(editForm.price),
+        };
+
+        // Add optional fields only if they have values
+        if (editForm.rollQuantity && Number(editForm.rollQuantity) > 0) {
+            updateData.rollQuantity = Number(editForm.rollQuantity);
+        }
+        if (editForm.meterPerRoll && Number(editForm.meterPerRoll) > 0) {
+            updateData.meterPerRoll = Number(editForm.meterPerRoll);
+        }
+        if (editForm.purchaseOrderNumber && editForm.purchaseOrderNumber.trim()) {
+            updateData.purchaseOrderNumber = editForm.purchaseOrderNumber.trim();
+        }
+        if (editForm.supplier && editForm.supplier.trim()) {
+            updateData.supplier = editForm.supplier.trim();
+        }
+        if (editForm.purchaseDate && editForm.purchaseDate.trim()) {
+            updateData.purchaseDate = editForm.purchaseDate.trim();
+        }
+        if (editForm.purchaseNotes && editForm.purchaseNotes.trim()) {
+            updateData.purchaseNotes = editForm.purchaseNotes.trim();
+        }
+
+        console.log("Update data:", JSON.stringify(updateData, null, 2));
+
         try {
             const response = await fetch(`/api/materials/${selectedMaterial.id}`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(editForm),
+                body: JSON.stringify(updateData),
             })
 
             const data = await response.json()
@@ -355,6 +474,85 @@ export default function StocksPage() {
             toast.error("Error", "Gagal menghapus material");
         } finally {
             setIsDeleting(false)
+        }
+    }
+
+    const handleCreateMaterial = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setIsSaving(true)
+
+        // Clean and validate data
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const materialData: Record<string, any> = {
+            code: createForm.code.trim(),
+            name: createForm.name.trim(),
+            description: createForm.description.trim() || null,
+            unit: "METER",
+            minimumStock: Number(createForm.minimumStock),
+            price: Number(createForm.price),
+            initialStock: Number(createForm.initialStock) || 0,
+        };
+
+        // Add optional fields only if they have values
+        if (createForm.rollQuantity && Number(createForm.rollQuantity) > 0) {
+            materialData.rollQuantity = Number(createForm.rollQuantity);
+        }
+        if (createForm.meterPerRoll && Number(createForm.meterPerRoll) > 0) {
+            materialData.meterPerRoll = Number(createForm.meterPerRoll);
+        }
+        if (createForm.purchaseOrderNumber && createForm.purchaseOrderNumber.trim()) {
+            materialData.purchaseOrderNumber = createForm.purchaseOrderNumber.trim();
+        }
+        if (createForm.supplier && createForm.supplier.trim()) {
+            materialData.supplier = createForm.supplier.trim();
+        }
+        if (createForm.purchaseDate && createForm.purchaseDate.trim()) {
+            materialData.purchaseDate = createForm.purchaseDate.trim();
+        }
+        if (createForm.purchaseNotes && createForm.purchaseNotes.trim()) {
+            materialData.purchaseNotes = createForm.purchaseNotes.trim();
+        }
+
+        console.log("Material data:", JSON.stringify(materialData, null, 2));
+
+        try {
+            const response = await fetch("/api/materials", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(materialData),
+            })
+
+            const data = await response.json()
+
+            if (data.success) {
+                await fetchMaterials()
+                setIsCreateMaterialOpen(false)
+                setCreateForm({
+                    code: "",
+                    name: "",
+                    description: "",
+                    unit: "METER",
+                    minimumStock: 0,
+                    price: 0,
+                    initialStock: 0,
+                    rollQuantity: 0,
+                    meterPerRoll: 0,
+                    purchaseOrderNumber: "",
+                    supplier: "",
+                    purchaseDate: "",
+                    purchaseNotes: "",
+                })
+                toast.success("Material Ditambahkan", `${createForm.name} berhasil ditambahkan ke inventory`);
+            } else {
+                toast.error("Gagal Menambahkan", data.error || "Tidak dapat menambahkan material");
+            }
+        } catch (error) {
+            console.error("Error creating material:", error)
+            toast.error("Error", "Gagal menambahkan material");
+        } finally {
+            setIsSaving(false)
         }
     }
 
@@ -425,7 +623,243 @@ export default function StocksPage() {
                         Monitor your stock levels and materials
                     </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap justify-end">
+                    <Dialog open={isCreateMaterialOpen} onOpenChange={setIsCreateMaterialOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="outline">
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Material
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                                <DialogTitle>Add New Material</DialogTitle>
+                                <DialogDescription>
+                                    Add new raw material to inventory (satuan dalam METER)
+                                </DialogDescription>
+                            </DialogHeader>
+                            <form onSubmit={handleCreateMaterial} className="space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-code">Material Code</Label>
+                                        <Input
+                                            id="create-code"
+                                            placeholder="MAT-XXX-001"
+                                            value={createForm.code}
+                                            onChange={(e) =>
+                                                setCreateForm({ ...createForm, code: e.target.value })
+                                            }
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-name">Material Name</Label>
+                                        <Input
+                                            id="create-name"
+                                            placeholder="Material name"
+                                            value={createForm.name}
+                                            onChange={(e) =>
+                                                setCreateForm({ ...createForm, name: e.target.value })
+                                            }
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="create-description">Description</Label>
+                                    <Textarea
+                                        id="create-description"
+                                        placeholder="Material description"
+                                        value={createForm.description}
+                                        onChange={(e) =>
+                                            setCreateForm({ ...createForm, description: e.target.value })
+                                        }
+                                        rows={2}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-unit">Unit (Satuan Utama)</Label>
+                                        <Input
+                                            id="create-unit"
+                                            value="METER"
+                                            disabled
+                                            className="bg-muted"
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Semua material menggunakan METER sebagai satuan utama
+                                        </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-min-stock">Minimum Stock (meter)</Label>
+                                        <Input
+                                            id="create-min-stock"
+                                            type="number"
+                                            step="0.001"
+                                            min="0"
+                                            placeholder="Min stock"
+                                            value={createForm.minimumStock || ""}
+                                            onChange={(e) =>
+                                                setCreateForm({
+                                                    ...createForm,
+                                                    minimumStock: parseFloat(e.target.value) || 0,
+                                                })
+                                            }
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-price">Price per Meter</Label>
+                                        <Input
+                                            id="create-price"
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            placeholder="Price"
+                                            value={createForm.price || ""}
+                                            onChange={(e) =>
+                                                setCreateForm({
+                                                    ...createForm,
+                                                    price: parseFloat(e.target.value) || 0,
+                                                })
+                                            }
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-initial-stock">Initial Stock (meter)</Label>
+                                        <Input
+                                            id="create-initial-stock"
+                                            type="number"
+                                            step="0.001"
+                                            min="0"
+                                            placeholder="Initial stock"
+                                            value={createForm.initialStock || ""}
+                                            onChange={(e) =>
+                                                setCreateForm({
+                                                    ...createForm,
+                                                    initialStock: parseFloat(e.target.value) || 0,
+                                                })
+                                            }
+                                        />
+                                    </div>
+                                </div>
+
+                                <Separator />
+                                <p className="text-sm font-medium">Informasi Roll (Opsional)</p>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-roll-qty">Jumlah Roll</Label>
+                                        <Input
+                                            id="create-roll-qty"
+                                            type="number"
+                                            step="0.001"
+                                            min="0"
+                                            placeholder="Jumlah roll"
+                                            value={createForm.rollQuantity || ""}
+                                            onChange={(e) =>
+                                                setCreateForm({
+                                                    ...createForm,
+                                                    rollQuantity: parseFloat(e.target.value) || 0,
+                                                })
+                                            }
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-meter-per-roll">Meter per Roll</Label>
+                                        <Input
+                                            id="create-meter-per-roll"
+                                            type="number"
+                                            step="0.001"
+                                            min="0"
+                                            placeholder="Meter/roll"
+                                            value={createForm.meterPerRoll || ""}
+                                            onChange={(e) =>
+                                                setCreateForm({
+                                                    ...createForm,
+                                                    meterPerRoll: parseFloat(e.target.value) || 0,
+                                                })
+                                            }
+                                        />
+                                    </div>
+                                </div>
+
+                                <Separator />
+                                <p className="text-sm font-medium">Informasi Pembelian (Opsional)</p>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-po-number">Kode Nota Pemesanan</Label>
+                                        <Input
+                                            id="create-po-number"
+                                            placeholder="PO-XXX-001"
+                                            value={createForm.purchaseOrderNumber}
+                                            onChange={(e) =>
+                                                setCreateForm({ ...createForm, purchaseOrderNumber: e.target.value })
+                                            }
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-supplier">Supplier</Label>
+                                        <Input
+                                            id="create-supplier"
+                                            placeholder="Nama supplier"
+                                            value={createForm.supplier}
+                                            onChange={(e) =>
+                                                setCreateForm({ ...createForm, supplier: e.target.value })
+                                            }
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-purchase-date">Tanggal Pembelian</Label>
+                                        <Input
+                                            id="create-purchase-date"
+                                            type="date"
+                                            value={createForm.purchaseDate}
+                                            onChange={(e) =>
+                                                setCreateForm({ ...createForm, purchaseDate: e.target.value })
+                                            }
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-purchase-notes">Catatan Pembelian</Label>
+                                        <Input
+                                            id="create-purchase-notes"
+                                            placeholder="Catatan"
+                                            value={createForm.purchaseNotes}
+                                            onChange={(e) =>
+                                                setCreateForm({ ...createForm, purchaseNotes: e.target.value })
+                                            }
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setIsCreateMaterialOpen(false)}
+                                        disabled={isSaving}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button type="submit" disabled={isSaving}>
+                                        {isSaving ? "Adding..." : "Add Material"}
+                                    </Button>
+                                </div>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+
                     <Dialog open={isTransactionHistoryOpen} onOpenChange={setIsTransactionHistoryOpen}>
                         <DialogTrigger asChild>
                             <Button variant="outline">
@@ -506,11 +940,11 @@ export default function StocksPage() {
                                 Add Transaction
                             </Button>
                         </DialogTrigger>
-                        <DialogContent>
+                        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
                                 <DialogTitle>Add Stock Transaction</DialogTitle>
                                 <DialogDescription>
-                                    Record material stock in/out transaction
+                                    Record material stock in/out transaction (satuan dalam METER)
                                 </DialogDescription>
                             </DialogHeader>
                             <form onSubmit={handleAddTransaction} className="space-y-4">
@@ -530,7 +964,7 @@ export default function StocksPage() {
                                         <option value="">Select Material...</option>
                                         {materials.map((material) => (
                                             <option key={material.id} value={material.id}>
-                                                {material.name} ({material.code}) - Stock: {Number(material.currentStock).toFixed(2)} {material.unit}
+                                                {material.name} ({material.code}) - Stock: {Number(material.currentStock).toFixed(2)} meter
                                             </option>
                                         ))}
                                     </Select>
@@ -557,51 +991,122 @@ export default function StocksPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <div className="flex gap-4">
-                                        <div className="flex-1">
-                                            <Label htmlFor="quantity">Quantity</Label>
-                                            <Input
-                                                id="quantity"
-                                                type="number"
-                                                step="1"
-                                                min="1"
-                                                placeholder="Enter quantity"
-                                                value={transactionForm.quantity || ""}
-                                                onChange={(e) =>
-                                                    setTransactionForm({
-                                                        ...transactionForm,
-                                                        quantity: parseFloat(e.target.value) || 0,
-                                                    })
-                                                }
-                                                required
-                                            />
-                                        </div>
-                                        <div className="flex-1">
-                                            <Label htmlFor="unit">Unit</Label>
-                                            <Select
-                                                id="unit"
-                                                value={transactionForm.unit}
-                                                onChange={(e) =>
-                                                    setTransactionForm({
-                                                        ...transactionForm,
-                                                        unit: e.target.value,
-                                                    })
-                                                }
-                                                disabled
-                                                required
-                                            >
-                                                <option value="">Select Unit...</option>
-                                                <option value="METER">METER</option>
-                                                <option value="ROLL">ROLL</option>
-                                                <option value="PIECE">PIECE</option>
-                                            </Select>
-                                        </div>
-                                    </div>
+                                    <Label htmlFor="quantity">Quantity (meter)</Label>
+                                    <Input
+                                        id="quantity"
+                                        type="number"
+                                        step="0.001"
+                                        min="0.001"
+                                        placeholder="Enter quantity in meters"
+                                        value={transactionForm.quantity || ""}
+                                        onChange={(e) =>
+                                            setTransactionForm({
+                                                ...transactionForm,
+                                                quantity: parseFloat(e.target.value) || 0,
+                                            })
+                                        }
+                                        required
+                                    />
                                 </div>
 
-                                <div className="space-y-2">
+                                {transactionForm.type === "IN" && (
+                                    <>
+                                        <Separator />
+                                        <p className="text-sm font-medium">Informasi Roll (Opsional)</p>
 
-                                </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="trans-roll-qty">Jumlah Roll</Label>
+                                                <Input
+                                                    id="trans-roll-qty"
+                                                    type="number"
+                                                    step="0.001"
+                                                    min="0"
+                                                    placeholder="Jumlah roll"
+                                                    value={transactionForm.rollQuantity || ""}
+                                                    onChange={(e) =>
+                                                        setTransactionForm({
+                                                            ...transactionForm,
+                                                            rollQuantity: parseFloat(e.target.value) || 0,
+                                                        })
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="trans-meter-per-roll">Meter per Roll</Label>
+                                                <Input
+                                                    id="trans-meter-per-roll"
+                                                    type="number"
+                                                    step="0.001"
+                                                    min="0"
+                                                    placeholder="Meter/roll"
+                                                    value={transactionForm.meterPerRoll || ""}
+                                                    onChange={(e) =>
+                                                        setTransactionForm({
+                                                            ...transactionForm,
+                                                            meterPerRoll: parseFloat(e.target.value) || 0,
+                                                        })
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <Separator />
+                                        <p className="text-sm font-medium">Informasi Pembelian (Opsional)</p>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="trans-po-number">Kode Nota Pemesanan</Label>
+                                                <Input
+                                                    id="trans-po-number"
+                                                    placeholder="PO-XXX-001"
+                                                    value={transactionForm.purchaseOrderNumber}
+                                                    onChange={(e) =>
+                                                        setTransactionForm({ ...transactionForm, purchaseOrderNumber: e.target.value })
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="trans-supplier">Supplier</Label>
+                                                <Input
+                                                    id="trans-supplier"
+                                                    placeholder="Nama supplier"
+                                                    value={transactionForm.supplier}
+                                                    onChange={(e) =>
+                                                        setTransactionForm({ ...transactionForm, supplier: e.target.value })
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="trans-purchase-date">Tanggal Pembelian</Label>
+                                                <Input
+                                                    id="trans-purchase-date"
+                                                    type="date"
+                                                    value={transactionForm.purchaseDate}
+                                                    onChange={(e) =>
+                                                        setTransactionForm({ ...transactionForm, purchaseDate: e.target.value })
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="trans-purchase-notes">Catatan Pembelian</Label>
+                                                <Input
+                                                    id="trans-purchase-notes"
+                                                    placeholder="Catatan"
+                                                    value={transactionForm.purchaseNotes}
+                                                    onChange={(e) =>
+                                                        setTransactionForm({ ...transactionForm, purchaseNotes: e.target.value })
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <Separator />
+                                    </>
+                                )}
 
                                 <div className="space-y-2">
                                     <Label htmlFor="notes">Notes (Optional)</Label>
@@ -619,7 +1124,7 @@ export default function StocksPage() {
                                     />
                                 </div>
 
-                                <div className="flex justify-end gap-2">
+                                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -711,20 +1216,24 @@ export default function StocksPage() {
                 <TabsContent value="materials" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <div className="flex justify-between items-center">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div>
                                     <CardTitle>Raw Materials Inventory</CardTitle>
                                     <CardDescription>
                                         Materials available for production
                                     </CardDescription>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                                     <Input
                                         placeholder="Search materials..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-64"
+                                        className="w-full sm:w-64"
                                     />
+                                    <Button variant="outline" onClick={() => handleSort("currentStock")} className="w-full sm:w-auto">
+                                        <ArrowUpDown className="h-4 w-4 mr-2" />
+                                        Sort by Stock
+                                    </Button>
                                 </div>
                             </div>
                         </CardHeader>
@@ -750,30 +1259,35 @@ export default function StocksPage() {
                                         return (
                                             <div
                                                 key={material.id}
-                                                className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
+                                                className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors gap-4"
                                                 onClick={() => handleMaterialClick(material.id)}
                                             >
-                                                <div className="flex items-center gap-4 flex-1">
-                                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+                                                <div className="flex items-center gap-4 flex-1 w-full">
+                                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 shrink-0">
                                                         <Package2 className="h-5 w-5 text-blue-600" />
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <p className="font-medium">{material.name}</p>
-                                                        <p className="text-sm text-muted-foreground">
-                                                            {material.code} • Min: {Number(material.minimumStock).toFixed(2)} {material.unit}
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-medium truncate">{material.name}</p>
+                                                        <p className="text-sm text-muted-foreground truncate">
+                                                            {material.code} • Min: {Number(material.minimumStock).toFixed(2)} meter
                                                         </p>
+                                                        {material.rollQuantity && material.rollQuantity > 0 && (
+                                                            <p className="text-xs text-muted-foreground">
+                                                                📦 {Number(material.rollQuantity).toFixed(2)} roll
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-4">
-                                                    <div className="text-right">
+                                                <div className="flex items-center gap-4 w-full sm:w-auto">
+                                                    <div className="text-left sm:text-right flex-1 sm:flex-none">
                                                         <p className="text-2xl font-bold">
                                                             {Number(material.currentStock).toFixed(2)}
                                                         </p>
                                                         <p className="text-sm text-muted-foreground">
-                                                            {material.unit}
+                                                            meter
                                                         </p>
                                                     </div>
-                                                    <div className="w-32">
+                                                    <div className="w-full sm:w-32">
                                                         {status === "good" && (
                                                             <Badge className="w-full justify-center">In Stock</Badge>
                                                         )}
@@ -856,23 +1370,23 @@ export default function StocksPage() {
 
             {/* Material Detail Dialog */}
             <Dialog open={isMaterialDetailOpen} onOpenChange={setIsMaterialDetailOpen}>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                     {selectedMaterial && (
                         <>
                             <DialogHeader>
-                                <div className="flex justify-between items-start">
+                                <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                                     <div>
                                         <DialogTitle>{selectedMaterial.name}</DialogTitle>
                                         <DialogDescription>
                                             {selectedMaterial.code}
                                         </DialogDescription>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <Button variant="outline" size="sm" onClick={handleEditClick}>
+                                    <div className="flex gap-2 w-full sm:w-auto">
+                                        <Button variant="outline" size="sm" onClick={handleEditClick} className="flex-1 sm:flex-none">
                                             <Edit className="h-4 w-4 mr-2" />
                                             Edit
                                         </Button>
-                                        <Button variant="outline" size="sm" onClick={handleDeleteClick}>
+                                        <Button variant="outline" size="sm" onClick={handleDeleteClick} className="flex-1 sm:flex-none">
                                             <Trash2 className="h-4 w-4 mr-2 text-destructive" />
                                             Delete
                                         </Button>
@@ -881,21 +1395,39 @@ export default function StocksPage() {
                             </DialogHeader>
 
                             <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <Label className="text-sm text-muted-foreground">Current Stock</Label>
                                         <p className="text-2xl font-bold">
-                                            {Number(selectedMaterial.currentStock).toFixed(2)} {selectedMaterial.unit}
+                                            {Number(selectedMaterial.currentStock).toFixed(2)} meter
                                         </p>
                                     </div>
                                     <div>
                                         <Label className="text-sm text-muted-foreground">Minimum Stock</Label>
                                         <p className="text-2xl font-bold">
-                                            {Number(selectedMaterial.minimumStock).toFixed(2)} {selectedMaterial.unit}
+                                            {Number(selectedMaterial.minimumStock).toFixed(2)} meter
                                         </p>
                                     </div>
+                                    {selectedMaterial.rollQuantity && selectedMaterial.rollQuantity > 0 && (
+                                        <>
+                                            <div>
+                                                <Label className="text-sm text-muted-foreground">Jumlah Roll</Label>
+                                                <p className="text-xl font-bold">
+                                                    {Number(selectedMaterial.rollQuantity).toFixed(2)} roll
+                                                </p>
+                                            </div>
+                                            {selectedMaterial.meterPerRoll && (
+                                                <div>
+                                                    <Label className="text-sm text-muted-foreground">Meter per Roll</Label>
+                                                    <p className="text-xl font-bold">
+                                                        {Number(selectedMaterial.meterPerRoll).toFixed(2)} m/roll
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
                                     <div>
-                                        <Label className="text-sm text-muted-foreground">Price per Unit</Label>
+                                        <Label className="text-sm text-muted-foreground">Price per Meter</Label>
                                         <p className="text-xl font-bold">
                                             {formatPrice(Number(selectedMaterial.price))}
                                         </p>
@@ -913,6 +1445,38 @@ export default function StocksPage() {
                                         <Label className="text-sm text-muted-foreground">Description</Label>
                                         <p className="text-sm">{selectedMaterial.description}</p>
                                     </div>
+                                )}
+
+                                {(selectedMaterial.purchaseOrderNumber || selectedMaterial.supplier) && (
+                                    <>
+                                        <Separator />
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {selectedMaterial.purchaseOrderNumber && (
+                                                <div>
+                                                    <Label className="text-sm text-muted-foreground">Kode Nota Pemesanan</Label>
+                                                    <p className="text-sm font-medium">{selectedMaterial.purchaseOrderNumber}</p>
+                                                </div>
+                                            )}
+                                            {selectedMaterial.supplier && (
+                                                <div>
+                                                    <Label className="text-sm text-muted-foreground">Supplier</Label>
+                                                    <p className="text-sm font-medium">{selectedMaterial.supplier}</p>
+                                                </div>
+                                            )}
+                                            {selectedMaterial.purchaseDate && (
+                                                <div>
+                                                    <Label className="text-sm text-muted-foreground">Tanggal Pembelian</Label>
+                                                    <p className="text-sm font-medium">{new Date(selectedMaterial.purchaseDate).toLocaleDateString('id-ID')}</p>
+                                                </div>
+                                            )}
+                                            {selectedMaterial.purchaseNotes && (
+                                                <div>
+                                                    <Label className="text-sm text-muted-foreground">Catatan Pembelian</Label>
+                                                    <p className="text-sm font-medium">{selectedMaterial.purchaseNotes}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
                                 )}
 
                                 <Separator />
@@ -960,15 +1524,15 @@ export default function StocksPage() {
 
             {/* Edit Material Dialog */}
             <Dialog open={isEditMaterialOpen} onOpenChange={setIsEditMaterialOpen}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Edit Material</DialogTitle>
                         <DialogDescription>
-                            Update material information
+                            Update material information (satuan dalam METER)
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleUpdateMaterial} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="edit-code">Material Code</Label>
                                 <Input
@@ -1008,28 +1572,18 @@ export default function StocksPage() {
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="edit-unit">Unit</Label>
-                                <Select
+                                <Label htmlFor="edit-unit">Unit (Satuan Utama)</Label>
+                                <Input
                                     id="edit-unit"
-                                    value={editForm.unit}
-                                    onChange={(e) =>
-                                        setEditForm({ ...editForm, unit: e.target.value })
-                                    }
-                                    required
-                                >
-                                    <option value="METER">Meter</option>
-                                    <option value="YARD">Yard</option>
-                                    <option value="KILOGRAM">Kilogram</option>
-                                    <option value="GRAM">Gram</option>
-                                    <option value="PIECE">Piece</option>
-                                    <option value="ROLL">Roll</option>
-                                    <option value="BOX">Box</option>
-                                </Select>
+                                    value="METER"
+                                    disabled
+                                    className="bg-muted"
+                                />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="edit-min-stock">Minimum Stock</Label>
+                                <Label htmlFor="edit-min-stock">Minimum Stock (meter)</Label>
                                 <Input
                                     id="edit-min-stock"
                                     type="number"
@@ -1049,7 +1603,7 @@ export default function StocksPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="edit-price">Price per Unit</Label>
+                            <Label htmlFor="edit-price">Price per Meter</Label>
                             <Input
                                 id="edit-price"
                                 type="number"
@@ -1067,7 +1621,100 @@ export default function StocksPage() {
                             />
                         </div>
 
-                        <div className="flex justify-end gap-2">
+                        <Separator />
+                        <p className="text-sm font-medium">Informasi Roll (Opsional)</p>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-roll-qty">Jumlah Roll</Label>
+                                <Input
+                                    id="edit-roll-qty"
+                                    type="number"
+                                    step="0.001"
+                                    min="0"
+                                    placeholder="Jumlah roll"
+                                    value={editForm.rollQuantity || ""}
+                                    onChange={(e) =>
+                                        setEditForm({
+                                            ...editForm,
+                                            rollQuantity: parseFloat(e.target.value) || 0,
+                                        })
+                                    }
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-meter-per-roll">Meter per Roll</Label>
+                                <Input
+                                    id="edit-meter-per-roll"
+                                    type="number"
+                                    step="0.001"
+                                    min="0"
+                                    placeholder="Meter/roll"
+                                    value={editForm.meterPerRoll || ""}
+                                    onChange={(e) =>
+                                        setEditForm({
+                                            ...editForm,
+                                            meterPerRoll: parseFloat(e.target.value) || 0,
+                                        })
+                                    }
+                                />
+                            </div>
+                        </div>
+
+                        <Separator />
+                        <p className="text-sm font-medium">Informasi Pembelian (Opsional)</p>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-po-number">Kode Nota Pemesanan</Label>
+                                <Input
+                                    id="edit-po-number"
+                                    placeholder="PO-XXX-001"
+                                    value={editForm.purchaseOrderNumber}
+                                    onChange={(e) =>
+                                        setEditForm({ ...editForm, purchaseOrderNumber: e.target.value })
+                                    }
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-supplier">Supplier</Label>
+                                <Input
+                                    id="edit-supplier"
+                                    placeholder="Nama supplier"
+                                    value={editForm.supplier}
+                                    onChange={(e) =>
+                                        setEditForm({ ...editForm, supplier: e.target.value })
+                                    }
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-purchase-date">Tanggal Pembelian</Label>
+                                <Input
+                                    id="edit-purchase-date"
+                                    type="date"
+                                    value={editForm.purchaseDate}
+                                    onChange={(e) =>
+                                        setEditForm({ ...editForm, purchaseDate: e.target.value })
+                                    }
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-purchase-notes">Catatan Pembelian</Label>
+                                <Input
+                                    id="edit-purchase-notes"
+                                    placeholder="Catatan"
+                                    value={editForm.purchaseNotes}
+                                    onChange={(e) =>
+                                        setEditForm({ ...editForm, purchaseNotes: e.target.value })
+                                    }
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
                             <Button
                                 type="button"
                                 variant="outline"

@@ -82,7 +82,20 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { materialId, type, quantity, notes } = body;
+    // console.log("Received request body:", JSON.stringify(body, null, 2));
+
+    const {
+      materialId,
+      type,
+      quantity,
+      notes,
+      rollQuantity,
+      meterPerRoll,
+      purchaseOrderNumber,
+      supplier,
+      purchaseDate,
+      purchaseNotes,
+    } = body;
 
     // Validate required fields
     if (!materialId || !type || !quantity) {
@@ -95,10 +108,23 @@ export async function POST(request: Request) {
       );
     }
 
+    // Validate quantity is a valid number
+    if (isNaN(Number(quantity)) || Number(quantity) <= 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Quantity must be a valid positive number",
+        },
+        { status: 400 }
+      );
+    }
+
     // Get material to check stock and unit
     const material = await prisma.material.findUnique({
       where: { id: materialId },
     });
+
+    console.log("Material fetched for transaction:", material);
 
     if (!material) {
       return NextResponse.json(
@@ -123,16 +149,54 @@ export async function POST(request: Request) {
 
     // Create transaction and update stock in a transaction
     const result = await prisma.$transaction(async (tx) => {
+      // Prepare transaction data
+      const transactionData: any = {
+        materialId,
+        type,
+        quantity: parseFloat(quantity.toString()),
+        unit: material.unit,
+        notes: notes || null,
+        userId: session.user.id,
+      };
+
+      // Add purchase info only for type IN
+      if (type === "IN") {
+        if (
+          rollQuantity !== undefined &&
+          rollQuantity !== null &&
+          rollQuantity !== ""
+        ) {
+          transactionData.rollQuantity = parseFloat(rollQuantity.toString());
+        }
+        if (
+          meterPerRoll !== undefined &&
+          meterPerRoll !== null &&
+          meterPerRoll !== ""
+        ) {
+          transactionData.meterPerRoll = parseFloat(meterPerRoll.toString());
+        }
+        if (purchaseOrderNumber) {
+          transactionData.purchaseOrderNumber = purchaseOrderNumber;
+        }
+        if (supplier) {
+          transactionData.supplier = supplier;
+        }
+        if (purchaseDate) {
+          transactionData.purchaseDate = new Date(purchaseDate);
+        }
+        if (purchaseNotes) {
+          transactionData.purchaseNotes = purchaseNotes;
+        }
+      }
+
+      console.log(
+        "Creating transaction with data:",
+        JSON.stringify(transactionData, null, 2)
+      );
+
       // Create transaction record
       const transaction = await tx.materialTransaction.create({
-        data: {
-          materialId,
-          type,
-          quantity,
-          unit: material.unit,
-          notes,
-          userId: session.user.id,
-        },
+        data: transactionData,
         include: {
           material: {
             select: {
@@ -161,11 +225,31 @@ export async function POST(request: Request) {
         newStock += Number(quantity);
       }
 
+      // Update material - also update roll quantity and purchase info if type is IN
+      const updateData: any = {
+        currentStock: newStock,
+      };
+
+      // If this is a stock IN transaction, update material's purchase info
+      if (type === "IN") {
+        if (rollQuantity) {
+          updateData.rollQuantity = material.rollQuantity
+            ? Number(material.rollQuantity) +
+              parseFloat(rollQuantity.toString())
+            : parseFloat(rollQuantity.toString());
+        }
+        if (meterPerRoll)
+          updateData.meterPerRoll = parseFloat(meterPerRoll.toString());
+        if (purchaseOrderNumber)
+          updateData.purchaseOrderNumber = purchaseOrderNumber;
+        if (supplier) updateData.supplier = supplier;
+        if (purchaseDate) updateData.purchaseDate = new Date(purchaseDate);
+        if (purchaseNotes) updateData.purchaseNotes = purchaseNotes;
+      }
+
       await tx.material.update({
         where: { id: materialId },
-        data: {
-          currentStock: newStock,
-        },
+        data: updateData,
       });
 
       return transaction;

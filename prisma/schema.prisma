@@ -107,10 +107,19 @@ model Material {
   code            String       @unique
   name            String
   description     String?
-  unit            MaterialUnit
-  currentStock    Decimal      @db.Decimal(15, 3)
-  minimumStock    Decimal      @db.Decimal(15, 3)
+  unit            MaterialUnit @default(METER) // Unit utama dalam METER
+  currentStock    Decimal      @db.Decimal(15, 3) // Total dalam METER
+  minimumStock    Decimal      @db.Decimal(15, 3) // Minimum dalam METER
+  rollQuantity    Decimal?     @db.Decimal(15, 3) // Jumlah roll (informasi tambahan)
+  meterPerRoll    Decimal?     @db.Decimal(15, 3) // Meter per roll (untuk kalkulasi)
   price           Decimal      @db.Decimal(15, 2)
+  
+  // Informasi Pembelian
+  purchaseOrderNumber String?  // Kode nota pemesanan
+  supplier            String?  // Nama supplier
+  purchaseDate        DateTime? // Tanggal pembelian
+  purchaseNotes       String?  // Catatan pembelian
+  
   isActive        Boolean      @default(true)
   createdById     String
   createdAt       DateTime     @default(now())
@@ -125,6 +134,7 @@ model Material {
   @@index([code])
   @@index([currentStock])
   @@index([minimumStock])
+  @@index([purchaseOrderNumber])
   @@map("materials")
 }
 
@@ -135,7 +145,8 @@ model ProductMaterial {
   materialId String
   quantity   Decimal @db.Decimal(15, 3)
   unit       MaterialUnit
-
+  color      String?
+  
   product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
 
@@ -162,6 +173,15 @@ model MaterialTransaction {
   unit        MaterialUnit
   notes       String?
   batchId     String?         // Reference to production batch if OUT
+  
+  // Purchase Information (for type IN)
+  rollQuantity            Decimal?  @db.Decimal(15, 3)
+  meterPerRoll            Decimal?  @db.Decimal(15, 3)
+  purchaseOrderNumber     String?
+  supplier                String?
+  purchaseDate            DateTime?
+  purchaseNotes           String?
+  
   userId      String
   createdAt   DateTime        @default(now())
 
@@ -173,6 +193,7 @@ model MaterialTransaction {
   @@index([type])
   @@index([createdAt])
   @@index([batchId])
+  @@index([purchaseOrderNumber])
   @@map("material_transactions")
 }
 

@@ -75,14 +75,27 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { code, name, description, unit, minimumStock, price } = body;
+    const {
+      code,
+      name,
+      description,
+      unit,
+      minimumStock,
+      price,
+      rollQuantity,
+      meterPerRoll,
+      purchaseOrderNumber,
+      supplier,
+      purchaseDate,
+      purchaseNotes,
+    } = body;
 
     // Validate required fields
-    if (!code || !name || !unit || !minimumStock || !price) {
+    if (!code || !name || !minimumStock || !price) {
       return NextResponse.json(
         {
           success: false,
-          error: "Code, name, unit, minimum stock, and price are required",
+          error: "Code, name, minimum stock, and price are required",
         },
         { status: 400 }
       );
@@ -132,9 +145,15 @@ export async function PATCH(
         code,
         name,
         description,
-        unit,
-        minimumStock,
-        price,
+        unit: "METER", // Force METER as unit
+        minimumStock: parseFloat(minimumStock.toString()),
+        price: parseFloat(price.toString()),
+        rollQuantity: rollQuantity ? parseFloat(rollQuantity.toString()) : null,
+        meterPerRoll: meterPerRoll ? parseFloat(meterPerRoll.toString()) : null,
+        purchaseOrderNumber: purchaseOrderNumber || null,
+        supplier: supplier || null,
+        purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
+        purchaseNotes: purchaseNotes || null,
       },
     });
 

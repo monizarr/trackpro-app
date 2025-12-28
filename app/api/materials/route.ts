@@ -15,7 +15,13 @@ export async function GET() {
         unit: true,
         currentStock: true,
         minimumStock: true,
+        rollQuantity: true,
+        meterPerRoll: true,
         price: true,
+        purchaseOrderNumber: true,
+        supplier: true,
+        purchaseDate: true,
+        purchaseNotes: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -48,18 +54,24 @@ export async function POST(request: Request) {
   try {
     const session = await requireRole(["OWNER", "KEPALA_GUDANG"]);
     const body = await request.json();
-    const { code, name, description, unit, currentStock, minimumStock, price } =
-      body;
+    const {
+      code,
+      name,
+      description,
+      unit,
+      initialStock,
+      minimumStock,
+      price,
+      rollQuantity,
+      meterPerRoll,
+      purchaseOrderNumber,
+      supplier,
+      purchaseDate,
+      purchaseNotes,
+    } = body;
 
     // Validate required fields
-    if (
-      !code ||
-      !name ||
-      !unit ||
-      currentStock === undefined ||
-      minimumStock === undefined ||
-      price === undefined
-    ) {
+    if (!code || !name || minimumStock === undefined || price === undefined) {
       return NextResponse.json(
         {
           success: false,
@@ -89,10 +101,16 @@ export async function POST(request: Request) {
         code,
         name,
         description,
-        unit,
-        currentStock: parseFloat(currentStock),
-        minimumStock: parseFloat(minimumStock),
-        price: parseFloat(price),
+        unit: "METER", // Force METER as default unit
+        currentStock: initialStock ? parseFloat(initialStock.toString()) : 0,
+        minimumStock: parseFloat(minimumStock.toString()),
+        price: parseFloat(price.toString()),
+        rollQuantity: rollQuantity ? parseFloat(rollQuantity.toString()) : null,
+        meterPerRoll: meterPerRoll ? parseFloat(meterPerRoll.toString()) : null,
+        purchaseOrderNumber: purchaseOrderNumber || null,
+        supplier: supplier || null,
+        purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
+        purchaseNotes: purchaseNotes || null,
         createdById: session.user.id,
       },
     });
