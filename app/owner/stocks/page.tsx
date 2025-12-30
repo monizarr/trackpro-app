@@ -618,9 +618,9 @@ export default function StocksPage() {
         <div className="flex-1 space-y-4 p-8 pt-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Inventory</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">Inventaris Bahan Baku</h2>
                     <p className="text-muted-foreground">
-                        Monitor your stock levels and materials
+                        Pantau tingkat stok dan bahan baku
                     </p>
                 </div>
                 <div className="flex gap-2 flex-wrap justify-end">
@@ -628,20 +628,20 @@ export default function StocksPage() {
                         <DialogTrigger asChild>
                             <Button variant="outline">
                                 <Plus className="h-4 w-4 mr-2" />
-                                Add Material
+                                Tambah Bahan Baku
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
-                                <DialogTitle>Add New Material</DialogTitle>
+                                <DialogTitle>Tambah Bahan Baku</DialogTitle>
                                 <DialogDescription>
-                                    Add new raw material to inventory (satuan dalam METER)
+                                    Tambah bahan baku baru ke inventaris (satuan dalam METER)
                                 </DialogDescription>
                             </DialogHeader>
                             <form onSubmit={handleCreateMaterial} className="space-y-4">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="create-code">Material Code</Label>
+                                        <Label htmlFor="create-code">Kode Bahan Baku</Label>
                                         <Input
                                             id="create-code"
                                             placeholder="MAT-XXX-001"
@@ -653,10 +653,10 @@ export default function StocksPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="create-name">Material Name</Label>
+                                        <Label htmlFor="create-name">Nama Bahan Baku</Label>
                                         <Input
                                             id="create-name"
-                                            placeholder="Material name"
+                                            placeholder="Nama bahan baku"
                                             value={createForm.name}
                                             onChange={(e) =>
                                                 setCreateForm({ ...createForm, name: e.target.value })
@@ -667,10 +667,10 @@ export default function StocksPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="create-description">Description</Label>
+                                    <Label htmlFor="create-description">Deskripsi</Label>
                                     <Textarea
                                         id="create-description"
-                                        placeholder="Material description"
+                                        placeholder="Deskripsi bahan baku"
                                         value={createForm.description}
                                         onChange={(e) =>
                                             setCreateForm({ ...createForm, description: e.target.value })
@@ -714,13 +714,13 @@ export default function StocksPage() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="create-price">Price per Meter</Label>
+                                        <Label htmlFor="create-price">Harga per Meter</Label>
                                         <Input
                                             id="create-price"
                                             type="number"
                                             step="0.01"
                                             min="0"
-                                            placeholder="Price"
+                                            placeholder="Harga"
                                             value={createForm.price || ""}
                                             onChange={(e) =>
                                                 setCreateForm({
@@ -732,13 +732,13 @@ export default function StocksPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="create-initial-stock">Initial Stock (meter)</Label>
+                                        <Label htmlFor="create-initial-stock">Stok Awal (meter)</Label>
                                         <Input
                                             id="create-initial-stock"
                                             type="number"
                                             step="0.001"
                                             min="0"
-                                            placeholder="Initial stock"
+                                            placeholder="Stok awal"
                                             value={createForm.initialStock || ""}
                                             onChange={(e) =>
                                                 setCreateForm({
@@ -771,7 +771,7 @@ export default function StocksPage() {
                                             }
                                         />
                                     </div>
-                                    <div className="space-y-2">
+                                    <div className="space-y-2 hidden">
                                         <Label htmlFor="create-meter-per-roll">Meter per Roll</Label>
                                         <Input
                                             id="create-meter-per-roll"
@@ -790,7 +790,7 @@ export default function StocksPage() {
                                     </div>
                                 </div>
 
-                                <Separator />
+                                {/* <Separator />
                                 <p className="text-sm font-medium">Informasi Pembelian (Opsional)</p>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -841,7 +841,7 @@ export default function StocksPage() {
                                             }
                                         />
                                     </div>
-                                </div>
+                                </div> */}
 
                                 <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
                                     <Button
@@ -853,7 +853,7 @@ export default function StocksPage() {
                                         Cancel
                                     </Button>
                                     <Button type="submit" disabled={isSaving}>
-                                        {isSaving ? "Adding..." : "Add Material"}
+                                        {isSaving ? "Menambahkan..." : "Simpan"}
                                     </Button>
                                 </div>
                             </form>
@@ -937,19 +937,19 @@ export default function StocksPage() {
                         <DialogTrigger asChild>
                             <Button>
                                 <Plus className="h-4 w-4 mr-2" />
-                                Add Transaction
+                                Transaksi Bahan
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
-                                <DialogTitle>Add Stock Transaction</DialogTitle>
+                                <DialogTitle>Tambah Transaksi Stok</DialogTitle>
                                 <DialogDescription>
-                                    Record material stock in/out transaction (satuan dalam METER)
+                                    Catat transaksi masuk/keluar stok bahan baku (satuan dalam METER)
                                 </DialogDescription>
                             </DialogHeader>
                             <form onSubmit={handleAddTransaction} className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="material">Material</Label>
+                                    <Label htmlFor="material">Bahan Baku</Label>
                                     <Select
                                         id="material"
                                         value={transactionForm.materialId}
@@ -971,7 +971,7 @@ export default function StocksPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="type">Transaction Type</Label>
+                                    <Label htmlFor="type">Jenis Transaksi</Label>
                                     <Select
                                         id="type"
                                         value={transactionForm.type}
@@ -985,36 +985,55 @@ export default function StocksPage() {
                                     >
                                         <option value="IN">Stock In</option>
                                         <option value="OUT">Stock Out</option>
-                                        <option value="ADJUSTMENT">Adjustment</option>
+                                        <option value="ADJUSTMENT">Penyesuaian</option>
                                         <option value="RETURN">Return</option>
                                     </Select>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="quantity">Quantity (meter)</Label>
-                                    <Input
-                                        id="quantity"
-                                        type="number"
-                                        step="0.001"
-                                        min="0.001"
-                                        placeholder="Enter quantity in meters"
-                                        value={transactionForm.quantity || ""}
-                                        onChange={(e) =>
-                                            setTransactionForm({
-                                                ...transactionForm,
-                                                quantity: parseFloat(e.target.value) || 0,
-                                            })
-                                        }
-                                        required
-                                    />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="quantity">Quantity (meter)</Label>
+                                        <Input
+                                            id="quantity"
+                                            type="number"
+                                            step="0.001"
+                                            min="0.001"
+                                            placeholder="Enter quantity in meters"
+                                            value={transactionForm.quantity || ""}
+                                            onChange={(e) =>
+                                                setTransactionForm({
+                                                    ...transactionForm,
+                                                    quantity: parseFloat(e.target.value) || 0,
+                                                })
+                                            }
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="trans-roll-qty">Jumlah Roll</Label>
+                                        <Input
+                                            id="trans-roll-qty"
+                                            type="number"
+                                            step="0.001"
+                                            min="0"
+                                            placeholder="Jumlah roll"
+                                            value={transactionForm.rollQuantity || ""}
+                                            onChange={(e) =>
+                                                setTransactionForm({
+                                                    ...transactionForm,
+                                                    rollQuantity: parseFloat(e.target.value) || 0,
+                                                })
+                                            }
+                                        />
+                                    </div>
                                 </div>
 
                                 {transactionForm.type === "IN" && (
                                     <>
-                                        <Separator />
-                                        <p className="text-sm font-medium">Informasi Roll (Opsional)</p>
+                                        {/* <Separator />
+                                        <p className="text-sm font-medium">Informasi Roll (Opsional)</p> */}
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="space-y-2">
                                                 <Label htmlFor="trans-roll-qty">Jumlah Roll</Label>
                                                 <Input
@@ -1049,7 +1068,7 @@ export default function StocksPage() {
                                                     }
                                                 />
                                             </div>
-                                        </div>
+                                        </div> */}
 
                                         <Separator />
                                         <p className="text-sm font-medium">Informasi Pembelian (Opsional)</p>
@@ -1091,7 +1110,7 @@ export default function StocksPage() {
                                                     }
                                                 />
                                             </div>
-                                            <div className="space-y-2">
+                                            {/* <div className="space-y-2">
                                                 <Label htmlFor="trans-purchase-notes">Catatan Pembelian</Label>
                                                 <Input
                                                     id="trans-purchase-notes"
@@ -1101,7 +1120,7 @@ export default function StocksPage() {
                                                         setTransactionForm({ ...transactionForm, purchaseNotes: e.target.value })
                                                     }
                                                 />
-                                            </div>
+                                            </div> */}
                                         </div>
 
                                         <Separator />
@@ -1109,10 +1128,10 @@ export default function StocksPage() {
                                 )}
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="notes">Notes (Optional)</Label>
+                                    <Label htmlFor="notes">Catatan (Optional)</Label>
                                     <Textarea
                                         id="notes"
-                                        placeholder="Additional notes..."
+                                        placeholder="Catatan tambahan..."
                                         value={transactionForm.notes}
                                         onChange={(e) =>
                                             setTransactionForm({
@@ -1134,7 +1153,7 @@ export default function StocksPage() {
                                         Cancel
                                     </Button>
                                     <Button type="submit" disabled={isSaving}>
-                                        {isSaving ? "Saving..." : "Save Transaction"}
+                                        {isSaving ? "Menyimpan..." : "Simpan Transaksi"}
                                     </Button>
                                 </div>
                             </form>
@@ -1147,7 +1166,7 @@ export default function StocksPage() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Raw Materials
+                            Bahan Baku
                         </CardTitle>
                         <Package2 className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
@@ -1162,7 +1181,7 @@ export default function StocksPage() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Finished Products
+                            Produk Jadi
                         </CardTitle>
                         <Package2 className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
@@ -1209,8 +1228,8 @@ export default function StocksPage() {
 
             <Tabs defaultValue="materials" className="space-y-4">
                 <TabsList>
-                    <TabsTrigger value="materials">Raw Materials</TabsTrigger>
-                    <TabsTrigger value="products">Finished Products</TabsTrigger>
+                    <TabsTrigger value="materials">Bahan Baku</TabsTrigger>
+                    <TabsTrigger value="products">Produk Jadi</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="materials" className="space-y-4">
@@ -1218,14 +1237,14 @@ export default function StocksPage() {
                         <CardHeader>
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div>
-                                    <CardTitle>Raw Materials Inventory</CardTitle>
+                                    <CardTitle>Inventaris Bahan Baku</CardTitle>
                                     <CardDescription>
-                                        Materials available for production
+                                        Bahan tersedia untuk produksi
                                     </CardDescription>
                                 </div>
                                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                                     <Input
-                                        placeholder="Search materials..."
+                                        placeholder="Cari bahan..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="w-full sm:w-64"
@@ -1317,9 +1336,9 @@ export default function StocksPage() {
                 <TabsContent value="products" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Finished Products</CardTitle>
+                            <CardTitle>Produk Jadi</CardTitle>
                             <CardDescription>
-                                Products ready for delivery
+                                Produk siap dikirim
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -1327,7 +1346,7 @@ export default function StocksPage() {
                                 <div className="flex flex-col items-center justify-center py-12 text-center">
                                     <Package2 className="h-12 w-12 text-muted-foreground mb-4" />
                                     <p className="text-muted-foreground">
-                                        No finished products yet
+                                        Belum ada produk jadi
                                     </p>
                                 </div>
                             ) : (
