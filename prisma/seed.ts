@@ -103,10 +103,33 @@ async function main() {
       code: "MAT-KAIN-001",
       name: "Kain Katun Premium",
       description: "Kain katun berkualitas tinggi untuk gamis",
+      color: "Putih",
       unit: "METER",
       currentStock: 500,
       minimumStock: 100,
       rollQuantity: 10,
+      meterPerRoll: 50,
+      price: 50000,
+      purchaseOrderNumber: "PO-2025-001",
+      supplier: "CV Kain Nusantara",
+      purchaseDate: new Date("2025-12-01"),
+      purchaseNotes: "Pembelian awal untuk stok gudang",
+      createdById: owner.id,
+    },
+  });
+
+  const kainKatunHijau = await prisma.material.upsert({
+    where: { code: "MAT-KAIN-002" },
+    update: {},
+    create: {
+      code: "MAT-KAIN-002",
+      name: "Kain Katun Premium",
+      description: "Kain katun berkualitas tinggi untuk gamis",
+      color: "Hijau",
+      unit: "METER",
+      currentStock: 300,
+      minimumStock: 100,
+      rollQuantity: 6,
       meterPerRoll: 50,
       price: 50000,
       purchaseOrderNumber: "PO-2025-001",
@@ -223,7 +246,7 @@ async function main() {
 
   console.log("✅ Linked materials to products");
 
-  // Create sample production batch
+  // Create sample production batch dengan alur baru
   const today = new Date();
   const batchSku = `PROD-${today.getFullYear()}${String(
     today.getMonth() + 1
@@ -233,7 +256,7 @@ async function main() {
     data: {
       batchSku,
       productId: gamisPremium.id,
-      targetQuantity: 100,
+      totalRolls: 5, // 3 roll putih + 2 roll hijau = 5 roll total
       status: "PENDING",
       createdById: kepalaProduksi.id,
       timeline: {
@@ -242,17 +265,39 @@ async function main() {
           details: "Batch produksi dibuat untuk Gamis Premium Elegant",
         },
       },
+      // Request ukuran dan warna
+      sizeColorRequests: {
+        create: [
+          {
+            productSize: "M",
+            color: "Putih",
+            requestedPieces: 30,
+          },
+          {
+            productSize: "L",
+            color: "Putih",
+            requestedPieces: 25,
+          },
+          {
+            productSize: "XL",
+            color: "Hijau",
+            requestedPieces: 15,
+          },
+        ],
+      },
     },
   });
 
-  console.log("✅ Created sample production batch");
+  console.log("✅ Created sample production batch with size/color requests");
 
-  // Create material allocation request
+  // Create material allocation dengan warna
   await prisma.batchMaterialAllocation.create({
     data: {
       batchId: productionBatch.id,
       materialId: kainKatun.id,
-      requestedQty: 250, // 2.5 meter per product * 100 products
+      color: "Putih",
+      rollQuantity: 3,
+      requestedQty: 150, // 3 roll * 50 meter per roll
       status: "REQUESTED",
     },
   });
@@ -260,13 +305,15 @@ async function main() {
   await prisma.batchMaterialAllocation.create({
     data: {
       batchId: productionBatch.id,
-      materialId: benang.id,
-      requestedQty: 100, // 1 roll per product * 100 products
+      materialId: kainKatunHijau.id,
+      color: "Hijau",
+      rollQuantity: 2,
+      requestedQty: 100, // 2 roll * 50 meter per roll
       status: "REQUESTED",
     },
   });
 
-  console.log("✅ Created material allocation requests");
+  console.log("✅ Created material allocation requests with colors");
 
   console.log("\n🎉 Database seeding completed successfully!");
   console.log("\n📝 Test accounts created:");

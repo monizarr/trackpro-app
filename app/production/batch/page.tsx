@@ -15,6 +15,7 @@ import { useEffect, useState } from "react"
 import { toast } from "@/lib/toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useRouter } from "next/navigation"
+import { CreateBatchDialog } from "@/components/create-batch-dialog"
 
 interface Material {
     id: string
@@ -41,17 +42,36 @@ interface Batch {
     id: string
     batchSku: string
     status: string
-    targetQuantity: number
+    totalRolls: number
     actualQuantity: number | null
     rejectQuantity: number
     createdAt: string
     product: Product
     materialAllocations?: MaterialAllocation[]
+    sizeColorRequests?: Array<{
+        id: string
+        productSize: string
+        color: string
+        requestedPieces: number
+    }>
+    cuttingResults?: Array<{
+        id: string
+        productSize: string
+        color: string
+        actualPieces: number
+        isConfirmed: boolean
+        confirmedBy?: {
+            name: string
+            role: string
+        }
+    }>
 }
 
 interface MaterialAllocation {
     materialId: string
     materialName: string
+    color: string
+    rollQuantity: number
     requestedQty: number
     unit: string
     availableStock: number
@@ -162,11 +182,7 @@ export default function BatchManagementPage() {
     const [assignFinisherNotes, setAssignFinisherNotes] = useState("")
     const [assigningFinisher, setAssigningFinisher] = useState(false)
 
-    // Form state
-    const [selectedProductId, setSelectedProductId] = useState("")
-    const [targetQuantity, setTargetQuantity] = useState("")
-    const [notes, setNotes] = useState("")
-    const [materialAllocations, setMaterialAllocations] = useState<MaterialAllocation[]>([])
+    // Form state - handled by CreateBatchDialog component
 
     useEffect(() => {
         fetchBatches()
@@ -201,90 +217,7 @@ export default function BatchManagementPage() {
         }
     }
 
-    const handleProductChange = (productId: string) => {
-        setSelectedProductId(productId)
-        const product = products.find(p => p.id === productId)
-
-        if (product && product.materials && product.materials.length > 0) {
-            // Setup material list untuk input manual
-            const allocations: MaterialAllocation[] = product.materials.map(pm => ({
-                materialId: pm.material.id,
-                materialName: pm.material.name,
-                requestedQty: 0, // Default 0, akan diinput manual
-                unit: pm.material.unit,
-                availableStock: Number(pm.material.currentStock) || 0,
-                material: pm.material,
-            }))
-            setMaterialAllocations(allocations)
-        } else {
-            setMaterialAllocations([])
-        }
-    }
-
-    const handleTargetQuantityChange = (value: string) => {
-        setTargetQuantity(value)
-        // Material allocations tidak auto-recalculate
-        // Quantity material diinput manual oleh kepala produksi
-    }
-
-    const handleMaterialQuantityChange = (materialId: string, quantity: string) => {
-        setMaterialAllocations(prev =>
-            prev.map(ma =>
-                ma.materialId === materialId
-                    ? { ...ma, requestedQty: parseFloat(quantity) || 0 }
-                    : ma
-            )
-        )
-    }
-
-    const handleCreateBatch = async () => {
-        if (!selectedProductId || !targetQuantity) {
-            toast.error("Error", "Produk dan target quantity harus diisi")
-            return
-        }
-
-        setCreating(true)
-        try {
-            const response = await fetch("/api/production-batches", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    productId: selectedProductId,
-                    targetQuantity: parseInt(targetQuantity),
-                    notes,
-                    materialAllocations: materialAllocations.map(ma => ({
-                        materialId: ma.materialId,
-                        requestedQty: ma.requestedQty,
-                    })),
-                }),
-            })
-
-            const result = await response.json()
-
-            if (result.success) {
-                toast.success("Berhasil", "Batch produksi berhasil dibuat")
-                setShowCreateDialog(false)
-                resetForm()
-                fetchBatches()
-            } else {
-                toast.error("Error", result.error || "Gagal membuat batch")
-            }
-        } catch (error) {
-            console.error("Error creating batch:", error)
-            toast.error("Error", "Terjadi kesalahan saat membuat batch")
-        } finally {
-            setCreating(false)
-        }
-    }
-
-    const resetForm = () => {
-        setSelectedProductId("")
-        setTargetQuantity("")
-        setNotes("")
-        setMaterialAllocations([])
-    }
+    // Batch creation handled by CreateBatchDialog component
 
     const handleConfirmBatch = async () => {
         if (!selectedBatch) return
@@ -745,135 +678,12 @@ export default function BatchManagementPage() {
             </div>
 
             {/* Create Batch Dialog */}
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>Buat Batch Produksi Baru</DialogTitle>
-                        <DialogDescription>
-                            Isi form di bawah untuk membuat batch produksi baru
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-4 py-4">
-                        {/* Product Selection */}
-                        <div className="space-y-2">
-                            <Label htmlFor="product">Produk *</Label>
-                            <Select
-                                id="product"
-                                value={selectedProductId}
-                                onChange={(e) => handleProductChange(e.target.value)}
-                            >
-                                <option value="">Pilih produk</option>
-                                {products.map((product) => (
-                                    <option key={product.id} value={product.id}>
-                                        {product.name} ({product.sku})
-                                    </option>
-                                ))}
-                            </Select>
-                        </div>
-
-                        {/* Target Quantity */}
-                        <div className="space-y-2">
-                            <Label htmlFor="quantity">Target Quantity * <b>(Pcs)</b></Label>
-                            <Input
-                                id="quantity"
-                                type="number"
-                                min="1"
-                                placeholder="Masukkan jumlah target produksi"
-                                value={targetQuantity}
-                                onChange={(e) => handleTargetQuantityChange(e.target.value)}
-                            />
-                        </div>
-
-                        {/* Material Allocations */}
-                        {materialAllocations.length > 0 && (
-                            <div className="space-y-3">
-                                <div>
-                                    <Label>Alokasi Bahan Baku (Input Manual)</Label>
-                                    <p className="text-sm text-muted-foreground mt-1">
-                                        Masukkan perkiraan kebutuhan bahan baku. Konversi dari roll ke pcs akan ditentukan oleh pemotong.
-                                    </p>
-                                </div>
-                                <div className="space-y-3">
-                                    {materialAllocations.map((allocation) => (
-                                        <div key={allocation.materialId} className="rounded-lg border p-4 space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="font-medium">{allocation.materialName}</p>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        Stok tersedia: {Number(allocation.availableStock)} {allocation.unit}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor={`material-${allocation.materialId}`}>
-                                                    Perkiraan Kebutuhan ({allocation.unit})
-                                                </Label>
-                                                <Input
-                                                    id={`material-${allocation.materialId}`}
-                                                    type="number"
-                                                    min="1"
-                                                    step="1"
-                                                    placeholder={`Masukkan jumlah ${allocation.unit}`}
-                                                    value={allocation.requestedQty || ""}
-                                                    onChange={(e) => handleMaterialQuantityChange(allocation.materialId, e.target.value)}
-                                                />
-                                                {allocation.requestedQty > 0 && (
-                                                    <div className="flex items-center gap-2">
-                                                        {Number(allocation.availableStock) >= Number(allocation.requestedQty) ? (
-                                                            <>
-                                                                <Badge className="bg-green-500">Stok Cukup</Badge>
-                                                                <span className="text-sm text-muted-foreground">
-                                                                    Sisa: {Number(allocation.availableStock) - Number(allocation.requestedQty)} {allocation.unit}
-                                                                </span>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Badge variant="destructive">Stok Kurang</Badge>
-                                                                <span className="text-sm text-muted-foreground">
-                                                                    Kurang: {Number(allocation.requestedQty) - Number(allocation.availableStock)} {allocation.unit}
-                                                                </span>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Notes */}
-                        <div className="space-y-2">
-                            <Label htmlFor="notes">Catatan (Opsional)</Label>
-                            <Textarea
-                                id="notes"
-                                placeholder="Tambahkan catatan untuk batch ini..."
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                rows={3}
-                            />
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                setShowCreateDialog(false)
-                                resetForm()
-                            }}
-                            disabled={creating}
-                        >
-                            Batal
-                        </Button>
-                        <Button onClick={handleCreateBatch} disabled={creating}>
-                            {creating ? "Membuat..." : "Buat Batch"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <CreateBatchDialog
+                open={showCreateDialog}
+                onOpenChange={setShowCreateDialog}
+                products={products}
+                onSuccess={fetchBatches}
+            />
 
             {/* Confirm Batch Dialog */}
             <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
@@ -898,8 +708,8 @@ export default function BatchManagementPage() {
                                     <p className="font-medium">{selectedBatch.product.name}</p>
                                 </div>
                                 <div>
-                                    <Label className="text-muted-foreground">Target Produksi</Label>
-                                    <p className="font-medium">{selectedBatch.targetQuantity} pcs</p>
+                                    <Label className="text-muted-foreground">Total Roll Bahan</Label>
+                                    <p className="font-medium">{selectedBatch.totalRolls} roll</p>
                                 </div>
                                 <div>
                                     <Label className="text-muted-foreground">Status</Label>
@@ -916,32 +726,40 @@ export default function BatchManagementPage() {
                                             <TableHeader>
                                                 <TableRow>
                                                     <TableHead>Material</TableHead>
+                                                    <TableHead>Warna</TableHead>
+                                                    <TableHead className="text-right">Roll</TableHead>
                                                     <TableHead className="text-right">Kebutuhan</TableHead>
-                                                    <TableHead className="text-right">Stok Tersedia</TableHead>
+                                                    <TableHead className="text-right">Stok</TableHead>
                                                     <TableHead className="text-center">Status</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {selectedBatch.materialAllocations.map((allocation) => {
-                                                    const available = Number(allocation.material.currentStock) || 0
+                                                {selectedBatch.materialAllocations.map((allocation, idx) => {
+                                                    const available = Number(allocation.material?.currentStock) || 0
                                                     const needed = Number(allocation.requestedQty)
                                                     const sufficient = available >= needed
 
                                                     return (
-                                                        <TableRow key={allocation.materialId}>
+                                                        <TableRow key={idx}>
                                                             <TableCell>
                                                                 <div>
-                                                                    <p className="font-medium">{allocation.material.name}</p>
+                                                                    <p className="font-medium">{allocation.material?.name || allocation.materialName}</p>
                                                                     <p className="text-sm text-muted-foreground">
-                                                                        {allocation.material.code}
+                                                                        {allocation.material?.code}
                                                                     </p>
                                                                 </div>
                                                             </TableCell>
-                                                            <TableCell className="text-right">
-                                                                {needed} {allocation.material.unit}
+                                                            <TableCell>
+                                                                <Badge variant="outline">{allocation.color}</Badge>
                                                             </TableCell>
                                                             <TableCell className="text-right">
-                                                                {available} {allocation.material.unit}
+                                                                {allocation.rollQuantity}
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                {needed} {allocation.unit}
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                {available} {allocation.unit}
                                                             </TableCell>
                                                             <TableCell className="text-center">
                                                                 {sufficient ? (
@@ -1045,8 +863,8 @@ export default function BatchManagementPage() {
                                     <p className="font-medium">{assignBatch.product.name}</p>
                                 </div>
                                 <div>
-                                    <Label className="text-muted-foreground">Target Quantity</Label>
-                                    <p className="font-medium">{assignBatch.targetQuantity} pcs</p>
+                                    <Label className="text-muted-foreground">Total Roll Bahan</Label>
+                                    <p className="font-medium">{assignBatch.totalRolls} roll</p>
                                 </div>
                                 <div>
                                     <Label className="text-muted-foreground">Status</Label>
@@ -1066,21 +884,61 @@ export default function BatchManagementPage() {
                                             <TableHeader>
                                                 <TableRow>
                                                     <TableHead>Material</TableHead>
-                                                    <TableHead className="text-right">Jumlah</TableHead>
-                                                    <TableHead>Satuan</TableHead>
+                                                    <TableHead>Warna</TableHead>
+                                                    <TableHead className="text-right">Roll</TableHead>
+                                                    <TableHead className="text-right">Total</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {assignBatch.materialAllocations.map((allocation) => (
-                                                    <TableRow key={allocation.materialId}>
+                                                {assignBatch.materialAllocations.map((allocation, idx) => (
+                                                    <TableRow key={idx}>
                                                         <TableCell className="font-medium">
-                                                            {allocation.material.name}
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            {Number(allocation.requestedQty)}
+                                                            {allocation.material?.name || allocation.materialName}
                                                         </TableCell>
                                                         <TableCell>
-                                                            {allocation.material.unit}
+                                                            <Badge variant="outline">{allocation.color}</Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            {allocation.rollQuantity}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            {Number(allocation.requestedQty)} {allocation.unit}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Size & Color Requests */}
+                            {assignBatch.sizeColorRequests && assignBatch.sizeColorRequests.length > 0 && (
+                                <div className="space-y-2">
+                                    <Label>Request Ukuran & Warna</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Target potongan yang diinginkan untuk setiap ukuran dan warna
+                                    </p>
+                                    <div className="rounded-md border">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Ukuran</TableHead>
+                                                    <TableHead>Warna</TableHead>
+                                                    <TableHead className="text-right">Target Pcs</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {assignBatch.sizeColorRequests.map((request) => (
+                                                    <TableRow key={request.id}>
+                                                        <TableCell className="font-medium">
+                                                            {request.productSize}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">{request.color}</Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            {request.requestedPieces}
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}
@@ -1173,8 +1031,8 @@ export default function BatchManagementPage() {
                                     <p className="font-medium">{verifyBatch.product.name}</p>
                                 </div>
                                 <div>
-                                    <Label className="text-muted-foreground">Target Quantity</Label>
-                                    <p className="font-medium">{verifyBatch.targetQuantity} pcs</p>
+                                    <Label className="text-muted-foreground">Total Roll Bahan</Label>
+                                    <p className="font-medium">{verifyBatch.totalRolls} roll</p>
                                 </div>
                                 <div>
                                     <Label className="text-muted-foreground">Pemotong</Label>
@@ -1330,8 +1188,8 @@ export default function BatchManagementPage() {
                                     <p className="font-medium">{assignSewerBatch.product.name}</p>
                                 </div>
                                 <div>
-                                    <Label className="text-muted-foreground">Target Quantity</Label>
-                                    <p className="font-medium">{assignSewerBatch.targetQuantity} pcs</p>
+                                    <Label className="text-muted-foreground">Total Roll Bahan</Label>
+                                    <p className="font-medium">{assignSewerBatch.totalRolls} roll</p>
                                 </div>
                                 <div>
                                     <Label className="text-muted-foreground">Status</Label>
@@ -1423,8 +1281,8 @@ export default function BatchManagementPage() {
                                     <p className="font-medium">{verifySewingBatch.product.name}</p>
                                 </div>
                                 <div>
-                                    <Label className="text-muted-foreground">Target Quantity</Label>
-                                    <p className="font-medium">{verifySewingBatch.targetQuantity} pcs</p>
+                                    <Label className="text-muted-foreground">Total Roll Bahan</Label>
+                                    <p className="font-medium">{verifySewingBatch.totalRolls} roll</p>
                                 </div>
                                 <div>
                                     <Label className="text-muted-foreground">Penjahit</Label>
@@ -1578,8 +1436,8 @@ export default function BatchManagementPage() {
                                     <p className="font-medium">{assignFinisherBatch.product.name}</p>
                                 </div>
                                 <div>
-                                    <p className="text-sm text-muted-foreground">Target Quantity</p>
-                                    <p className="font-medium">{assignFinisherBatch.targetQuantity} pcs</p>
+                                    <p className="text-sm text-muted-foreground">Total Roll Bahan</p>
+                                    <p className="font-medium">{assignFinisherBatch.totalRolls} roll</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground">Status</p>
@@ -1690,7 +1548,11 @@ export default function BatchManagementPage() {
                                         </div>
                                         <div>
                                             <Label className="text-muted-foreground">Target Produksi</Label>
-                                            <p className="font-medium">{detailBatch.targetQuantity} pcs</p>
+                                            <p className="font-medium">{detailBatch.totalRolls} roll</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">Hasil Pemotongan</p>
+                                            <p className="font-medium">{detailBatch.actualQuantity || 0} pcs</p>
                                         </div>
                                         <div>
                                             <Label className="text-muted-foreground">Tanggal Dibuat</Label>
@@ -1864,7 +1726,7 @@ export default function BatchManagementPage() {
                                                     >
                                                         {batch.product.name}
                                                     </TableCell>
-                                                    <TableCell>{batch.targetQuantity} pcs</TableCell>
+                                                    <TableCell>{batch.totalRolls} roll</TableCell>
                                                     <TableCell>
                                                         <Badge variant="secondary">{getCurrentStage(batch.status)}</Badge>
                                                     </TableCell>
@@ -1985,12 +1847,12 @@ export default function BatchManagementPage() {
                                             <CardContent className="space-y-3">
                                                 <div className="grid grid-cols-2 gap-2 text-sm">
                                                     <div>
-                                                        <p className="text-muted-foreground text-xs">Target</p>
-                                                        <p className="font-medium">{batch.targetQuantity} pcs</p>
+                                                        <p className="text-muted-foreground text-xs">Total Roll</p>
+                                                        <p className="font-medium">{batch.totalRolls} roll</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-muted-foreground text-xs">Tanggal</p>
-                                                        <p className="font-medium">{formatDate(batch.createdAt)}</p>
+                                                        <p className="text-muted-foreground text-xs">Hasil</p>
+                                                        <p className="font-medium">{batch.actualQuantity || 0} pcs</p>
                                                     </div>
                                                 </div>
                                                 <div className="flex flex-wrap gap-2">
@@ -2113,7 +1975,7 @@ export default function BatchManagementPage() {
                                                     >
                                                         {batch.product.name}
                                                     </TableCell>
-                                                    <TableCell>{batch.targetQuantity} pcs</TableCell>
+                                                    <TableCell>{batch.totalRolls} roll → {batch.actualQuantity || 0} pcs</TableCell>
                                                     <TableCell className="text-sm text-muted-foreground">
                                                         {formatDate(batch.createdAt)}
                                                     </TableCell>
@@ -2170,7 +2032,7 @@ export default function BatchManagementPage() {
                                                     >
                                                         {batch.product.name}
                                                     </TableCell>
-                                                    <TableCell>{batch.targetQuantity} pcs</TableCell>
+                                                    <TableCell>{batch.totalRolls} roll → {batch.actualQuantity || 0} pcs</TableCell>
                                                     <TableCell>
                                                         <Badge variant="secondary">{getCurrentStage(batch.status)}</Badge>
                                                     </TableCell>

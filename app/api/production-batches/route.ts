@@ -39,7 +39,19 @@ export async function GET(request: Request) {
               select: {
                 name: true,
                 code: true,
+                color: true,
                 unit: true,
+              },
+            },
+          },
+        },
+        sizeColorRequests: true,
+        cuttingResults: {
+          include: {
+            confirmedBy: {
+              select: {
+                name: true,
+                role: true,
               },
             },
           },
@@ -61,7 +73,7 @@ export async function GET(request: Request) {
     // Convert Decimal fields to number for JSON serialization
     const serializedBatches = batches.map((batch) => ({
       ...batch,
-      targetQuantity: Number(batch.targetQuantity),
+      totalRolls: Number(batch.totalRolls),
       actualQuantity: batch.actualQuantity
         ? Number(batch.actualQuantity)
         : null,
@@ -69,6 +81,9 @@ export async function GET(request: Request) {
       materialAllocations: batch.materialAllocations.map((allocation) => ({
         ...allocation,
         requestedQty: Number(allocation.requestedQty),
+        allocatedQty: allocation.allocatedQty
+          ? Number(allocation.allocatedQty)
+          : null,
       })),
     }));
 
@@ -93,14 +108,14 @@ export async function POST(request: Request) {
   try {
     const session = await requireRole(["OWNER", "KEPALA_PRODUKSI"]);
     const body = await request.json();
-    const { productId, targetQuantity, notes, materialAllocations } = body;
+    const { productId, notes, materialAllocations, sizeColorRequests } = body;
 
     // Validate required fields
-    if (!productId || !targetQuantity) {
+    if (!productId) {
       return NextResponse.json(
         {
           success: false,
-          error: "Product ID and target quantity are required",
+          error: "Product ID is required",
         },
         { status: 400 }
       );
@@ -118,12 +133,19 @@ export async function POST(request: Request) {
     });
     const batchSku = `PROD-${dateStr}-${String(count + 1).padStart(3, "0")}`;
 
-    // Create batch with material allocations
+    // Hitung total rolls dari material allocations
+    const totalRolls =
+      materialAllocations?.reduce(
+        (sum: number, allocation: any) => sum + (allocation.rollQuantity || 0),
+        0
+      ) || 0;
+
+    // Create batch with material allocations and size/color requests
     const batch = await prisma.productionBatch.create({
       data: {
         batchSku,
         productId,
-        targetQuantity: parseInt(targetQuantity),
+        totalRolls,
         notes: notes || "",
         createdById: session.user.id,
         status:
@@ -132,8 +154,18 @@ export async function POST(request: Request) {
           create:
             materialAllocations?.map((allocation: any) => ({
               materialId: allocation.materialId,
+              color: allocation.color,
+              rollQuantity: parseInt(allocation.rollQuantity),
               requestedQty: parseFloat(allocation.requestedQty),
               status: "REQUESTED",
+            })) || [],
+        },
+        sizeColorRequests: {
+          create:
+            sizeColorRequests?.map((request: any) => ({
+              productSize: request.productSize,
+              color: request.color,
+              requestedPieces: parseInt(request.requestedPieces),
             })) || [],
         },
       },

@@ -44,6 +44,7 @@ model User {
   verifiedCuttingTasks  CuttingTask[]       @relation("CuttingTaskVerified")
   verifiedSewingTasks   SewingTask[]        @relation("SewingTaskVerified")
   verifiedFinishingTasks FinishingTask[]    @relation("FinishingTaskVerified")
+  confirmedCuttingResults CuttingResult[]   @relation("CuttingResultConfirmed")
   verifiedFinishedGoods FinishedGood[]
   notifications         Notification[]
   auditLogs             AuditLog[]
@@ -107,6 +108,7 @@ model Material {
   code            String       @unique
   name            String
   description     String?
+  color           String?      // Warna bahan baku (misal: Putih, Hitam, Merah, dll)
   unit            MaterialUnit @default(METER) // Unit utama dalam METER
   currentStock    Decimal      @db.Decimal(15, 3) // Total dalam METER
   minimumStock    Decimal      @db.Decimal(15, 3) // Minimum dalam METER
@@ -135,6 +137,7 @@ model Material {
   @@index([currentStock])
   @@index([minimumStock])
   @@index([purchaseOrderNumber])
+  @@index([color])
   @@map("materials")
 }
 
@@ -224,8 +227,8 @@ model ProductionBatch {
   id              String      @id @default(cuid())
   batchSku        String      @unique // Format: PROD-YYYYMMDD-XXX
   productId       String
-  targetQuantity  Int
-  actualQuantity  Int         @default(0)
+  totalRolls      Int         @default(0) // Total roll bahan baku yang dibawa
+  actualQuantity  Int         @default(0) // Total pieces setelah dipotong
   rejectQuantity  Int         @default(0)
   status          BatchStatus @default(PENDING)
   startDate       DateTime    @default(now())
@@ -240,6 +243,8 @@ model ProductionBatch {
   createdBy            User                      @relation("BatchCreator", fields: [createdById], references: [id])
   materialAllocations  BatchMaterialAllocation[]
   materialTransactions MaterialTransaction[]
+  sizeColorRequests    BatchSizeColorRequest[]  // Request ukuran dan warna
+  cuttingResults       CuttingResult[]          // Hasil pemotongan aktual
   cuttingTask          CuttingTask?
   sewingTask           SewingTask?
   finishingTask        FinishingTask?
@@ -269,7 +274,9 @@ model BatchMaterialAllocation {
   id              String           @id @default(cuid())
   batchId         String
   materialId      String
-  requestedQty    Decimal          @db.Decimal(15, 3)
+  color           String           // Warna material yang diminta
+  rollQuantity    Int              // Jumlah roll yang dibawa
+  requestedQty    Decimal          @db.Decimal(15, 3) // Total meter (rollQuantity * meterPerRoll)
   allocatedQty    Decimal?         @db.Decimal(15, 3)
   status          AllocationStatus @default(REQUESTED)
   notes           String?
@@ -373,6 +380,49 @@ model FinishingTask {
   @@index([status])
   @@index([assignedToId])
   @@map("finishing_tasks")
+}
+
+// ============================================
+// SIZE & COLOR REQUESTS (Request Ukuran & Warna)
+// ============================================
+
+model BatchSizeColorRequest {
+  id              String   @id @default(cuid())
+  batchId         String
+  productSize     String   // Ukuran produk (S, M, L, XL, XXL, dll)
+  color           String   // Warna yang diminta
+  requestedPieces Int      // Jumlah potongan yang diminta
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  batch ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@map("batch_size_color_requests")
+}
+
+// ============================================
+// CUTTING RESULTS (Hasil Pemotongan Aktual)
+// ============================================
+
+model CuttingResult {
+  id              String   @id @default(cuid())
+  batchId         String
+  productSize     String   // Ukuran produk (S, M, L, XL, XXL, dll)
+  color           String   // Warna hasil potongan
+  actualPieces    Int      // Jumlah potongan yang terealisasi
+  isConfirmed     Boolean  @default(false) // Dikonfirmasi oleh kepala produksi
+  confirmedById   String?  // ID user yang konfirmasi (Kepala Produksi atau Pemotong)
+  confirmedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  batch ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  confirmedBy User?      @relation("CuttingResultConfirmed", fields: [confirmedById], references: [id])
+
+  @@index([batchId])
+  @@index([isConfirmed])
+  @@map("cutting_results")
 }
 
 // ============================================
