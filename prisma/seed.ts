@@ -160,6 +160,73 @@ async function main() {
 
   console.log("✅ Created sample materials");
 
+  // Create material color variants
+  await prisma.materialColorVariant.upsert({
+    where: {
+      materialId_colorName: {
+        materialId: kainKatun.id,
+        colorName: "Putih",
+      },
+    },
+    update: {},
+    create: {
+      materialId: kainKatun.id,
+      colorName: "Putih",
+      colorCode: "#FFFFFF",
+      stock: 500,
+    },
+  });
+
+  await prisma.materialColorVariant.upsert({
+    where: {
+      materialId_colorName: {
+        materialId: kainKatun.id,
+        colorName: "Hitam",
+      },
+    },
+    update: {},
+    create: {
+      materialId: kainKatun.id,
+      colorName: "Hitam",
+      colorCode: "#000000",
+      stock: 250,
+    },
+  });
+
+  await prisma.materialColorVariant.upsert({
+    where: {
+      materialId_colorName: {
+        materialId: kainKatunHijau.id,
+        colorName: "Hijau",
+      },
+    },
+    update: {},
+    create: {
+      materialId: kainKatunHijau.id,
+      colorName: "Hijau",
+      colorCode: "#008000",
+      stock: 300,
+    },
+  });
+
+  await prisma.materialColorVariant.upsert({
+    where: {
+      materialId_colorName: {
+        materialId: kainKatunHijau.id,
+        colorName: "Hijau Tua",
+      },
+    },
+    update: {},
+    create: {
+      materialId: kainKatunHijau.id,
+      colorName: "Hijau Tua",
+      colorCode: "#006400",
+      stock: 150,
+    },
+  });
+
+  console.log("✅ Created material color variants");
+
   // Create sample products
   const gamisPremium = await prisma.product.upsert({
     where: { sku: "PROD-GAMIS-001" },
@@ -194,6 +261,84 @@ async function main() {
   });
 
   console.log("✅ Created sample products");
+
+  // Create product color variants
+  await prisma.productColorVariant.upsert({
+    where: {
+      productId_colorName: {
+        productId: gamisPremium.id,
+        colorName: "Putih",
+      },
+    },
+    update: {},
+    create: {
+      productId: gamisPremium.id,
+      colorName: "Putih",
+      colorCode: "#FFFFFF",
+    },
+  });
+
+  await prisma.productColorVariant.upsert({
+    where: {
+      productId_colorName: {
+        productId: gamisPremium.id,
+        colorName: "Hitam",
+      },
+    },
+    update: {},
+    create: {
+      productId: gamisPremium.id,
+      colorName: "Hitam",
+      colorCode: "#000000",
+    },
+  });
+
+  await prisma.productColorVariant.upsert({
+    where: {
+      productId_colorName: {
+        productId: gamisPremium.id,
+        colorName: "Hijau",
+      },
+    },
+    update: {},
+    create: {
+      productId: gamisPremium.id,
+      colorName: "Hijau",
+      colorCode: "#008000",
+    },
+  });
+
+  await prisma.productColorVariant.upsert({
+    where: {
+      productId_colorName: {
+        productId: gamisCasual.id,
+        colorName: "Putih",
+      },
+    },
+    update: {},
+    create: {
+      productId: gamisCasual.id,
+      colorName: "Putih",
+      colorCode: "#FFFFFF",
+    },
+  });
+
+  await prisma.productColorVariant.upsert({
+    where: {
+      productId_colorName: {
+        productId: gamisCasual.id,
+        colorName: "Navy",
+      },
+    },
+    update: {},
+    create: {
+      productId: gamisCasual.id,
+      colorName: "Navy",
+      colorCode: "#000080",
+    },
+  });
+
+  console.log("✅ Created product color variants");
 
   // Link materials to products
   await prisma.productMaterial.upsert({

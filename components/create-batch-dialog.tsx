@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
@@ -14,9 +14,23 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
 import { toast } from "@/lib/toast"
 import { Plus, Trash2 } from "lucide-react"
+
+interface MaterialColorVariant {
+    id: string
+    materialId: string
+    colorName: string
+    colorCode?: string
+    stock: number
+}
+
+interface ProductColorVariant {
+    id: string
+    productId: string
+    colorName: string
+    colorCode?: string
+}
 
 interface Product {
     id: string
@@ -66,8 +80,46 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
     const [sizeColorRequests, setSizeColorRequests] = useState<SizeColorRequest[]>([
         { productSize: "", color: "", requestedPieces: 0 }
     ])
+    const [materialColorVariants, setMaterialColorVariants] = useState<MaterialColorVariant[]>([])
+    const [productColorVariants, setProductColorVariants] = useState<ProductColorVariant[]>([])
 
     const selectedProduct = products.find(p => p.id === selectedProductId)
+
+    // Fetch product color variants when product is selected
+    useEffect(() => {
+        if (selectedProductId) {
+            fetch(`/api/product-variants?productId=${selectedProductId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        setProductColorVariants(data.data)
+                    }
+                })
+                .catch(err => console.error("Error fetching product color variants:", err))
+        } else {
+            setProductColorVariants([])
+        }
+    }, [selectedProductId])
+
+    // Fetch material color variants when material is selected in allocations
+    useEffect(() => {
+        const materialIds = materialAllocations.map(a => a.materialId).filter(Boolean)
+        if (materialIds.length > 0) {
+            // Fetch all variants for all materials
+            Promise.all(
+                materialIds.map(id =>
+                    fetch(`/api/material-color-variants?materialId=${id}`)
+                        .then(res => res.json())
+                )
+            ).then(results => {
+                const allVariants = results.flatMap(r => r.success ? r.data : [])
+                setMaterialColorVariants(allVariants)
+            }).catch(err => console.error("Error fetching material color variants:", err))
+        } else {
+            setMaterialColorVariants([])
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [materialAllocations.map(a => a.materialId).join(',')])
 
     const handleProductChange = (productId: string) => {
         setSelectedProductId(productId)
@@ -93,19 +145,19 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
         setMaterialAllocations(prev => prev.filter((_, i) => i !== index))
     }
 
-    const updateMaterialAllocation = (index: number, field: string, value: any) => {
+    const updateMaterialAllocation = (index: number, field: string, value: string | number) => {
         setMaterialAllocations(prev =>
             prev.map((alloc, i) => {
                 if (i === index) {
                     // If materialId changed, update related fields
-                    if (field === "materialId" && selectedProduct) {
+                    if (field === "materialId" && typeof value === "string" && selectedProduct) {
                         const productMaterial = selectedProduct.materials.find(
                             m => m.material.id === value
                         )
                         if (productMaterial) {
                             return {
                                 ...alloc,
-                                materialId: value,
+                                materialId: value as string,
                                 materialName: productMaterial.material.name,
                                 color: productMaterial.material.color || "",
                                 unit: productMaterial.material.unit,
@@ -113,7 +165,7 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
                             }
                         }
                     }
-                    return { ...alloc, [field]: value }
+                    return { ...alloc, [field]: value } as MaterialAllocation
                 }
                 return alloc
             })
@@ -133,10 +185,10 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
         }
     }
 
-    const updateSizeColorRequest = (index: number, field: string, value: any) => {
+    const updateSizeColorRequest = (index: number, field: string, value: string | number) => {
         setSizeColorRequests(prev =>
             prev.map((req, i) =>
-                i === index ? { ...req, [field]: value } : req
+                i === index ? { ...req, [field]: value } as SizeColorRequest : req
             )
         )
     }
@@ -306,12 +358,20 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
 
                                     <div className="space-y-2">
                                         <Label>Warna</Label>
-                                        <Input
-                                            type="text"
-                                            placeholder="Misal: Putih"
+                                        <Select
                                             value={alloc.color}
                                             onChange={(e) => updateMaterialAllocation(index, "color", e.target.value)}
-                                        />
+                                            disabled={!alloc.materialId}
+                                        >
+                                            <option value="">Pilih warna</option>
+                                            {materialColorVariants
+                                                .filter(v => v.materialId === alloc.materialId)
+                                                .map((variant) => (
+                                                    <option key={variant.id} value={variant.colorName}>
+                                                        {variant.colorName} (Stok: {variant.stock} {alloc.unit})
+                                                    </option>
+                                                ))}
+                                        </Select>
                                     </div>
 
                                     <div className="space-y-2">
@@ -390,15 +450,21 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
 
                                     <div className="space-y-2">
                                         <Label>Warna</Label>
-                                        <Input
-                                            type="text"
-                                            placeholder="Misal: Putih"
+                                        <Select
                                             value={req.color}
                                             onChange={(e) => updateSizeColorRequest(index, "color", e.target.value)}
-                                        />
+                                            disabled={!selectedProductId}
+                                        >
+                                            <option value="">Pilih warna</option>
+                                            {productColorVariants.map((variant) => (
+                                                <option key={variant.id} value={variant.colorName}>
+                                                    {variant.colorName}
+                                                </option>
+                                            ))}
+                                        </Select>
                                     </div>
 
-                                    <div className="space-y-2">
+                                    {/* <div className="space-y-2">
                                         <Label>Jumlah Potongan</Label>
                                         <Input
                                             type="number"
@@ -407,7 +473,7 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
                                             value={req.requestedPieces || ""}
                                             onChange={(e) => updateSizeColorRequest(index, "requestedPieces", parseInt(e.target.value) || 0)}
                                         />
-                                    </div>
+                                    </div> */}
                                 </div>
                             </div>
                         ))}

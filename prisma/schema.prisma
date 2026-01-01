@@ -82,11 +82,30 @@ model Product {
   createdBy        User              @relation("ProductCreator", fields: [createdById], references: [id])
   productionBatches ProductionBatch[]
   materials        ProductMaterial[]
+  colorVariants    ProductColorVariant[] // Varian warna produk
 
   @@index([sku])
   @@index([status])
   @@index([createdById])
   @@map("products")
+}
+
+// Product Color Variants (Varian Warna Produk)
+model ProductColorVariant {
+  id          String   @id @default(cuid())
+  productId   String
+  colorName   String   // Nama warna produk (Putih, Hitam, Merah, dll)
+  colorCode   String?  // Kode warna (hex color atau custom code)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, colorName])
+  @@index([productId])
+  @@index([colorName])
+  @@map("product_color_variants")
 }
 
 // ============================================
@@ -132,6 +151,7 @@ model Material {
   transactions  MaterialTransaction[]
   products      ProductMaterial[]
   batchAllocations BatchMaterialAllocation[]
+  colorVariants MaterialColorVariant[] // Varian warna material
 
   @@index([code])
   @@index([currentStock])
@@ -139,6 +159,25 @@ model Material {
   @@index([purchaseOrderNumber])
   @@index([color])
   @@map("materials")
+}
+
+// Material Color Variants (Varian Warna Material)
+model MaterialColorVariant {
+  id          String   @id @default(cuid())
+  materialId  String
+  colorName   String   // Nama warna (Putih, Hitam, Merah, dll)
+  colorCode   String?  // Kode warna (hex color atau custom code)
+  stock       Decimal  @db.Decimal(15, 3) // Stock untuk warna ini
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@unique([materialId, colorName])
+  @@index([materialId])
+  @@index([colorName])
+  @@map("material_color_variants")
 }
 
 // Product Materials (Many-to-Many with quantity)
