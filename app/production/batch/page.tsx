@@ -16,6 +16,7 @@ import { toast } from "@/lib/toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useRouter } from "next/navigation"
 import { CreateBatchDialog } from "@/components/create-batch-dialog"
+import { CreateSubBatchDialog } from "@/components/create-sub-batch-dialog"
 
 interface Material {
     id: string
@@ -198,6 +199,9 @@ export default function BatchManagementPage() {
     const [assignFinisherBatch, setAssignFinisherBatch] = useState<Batch | null>(null)
     const [finishers, setFinishers] = useState<Finisher[]>([])
     const [selectedFinisherId, setSelectedFinisherId] = useState("")
+    // Sub-batch state
+    const [showSubBatchDialog, setShowSubBatchDialog] = useState(false)
+    const [subBatchBatch, setSubBatchBatch] = useState<Batch | null>(null)
     const [assignFinisherNotes, setAssignFinisherNotes] = useState("")
     const [assigningFinisher, setAssigningFinisher] = useState(false)
     const [showInputCuttingDialog, setShowInputCuttingDialog] = useState(false)
@@ -499,6 +503,24 @@ export default function BatchManagementPage() {
         } catch (error) {
             console.error("Error fetching sewers:", error)
             toast.error("Error", "Gagal memuat daftar penjahit")
+        }
+    }
+
+    // Open sub-batch dialog (for assigning to multiple sewers)
+    const openSubBatchDialog = async (batch: Batch) => {
+        try {
+            const response = await fetch(`/api/production-batches/${batch.id}`)
+            const result = await response.json()
+
+            if (result.success) {
+                setSubBatchBatch(result.data)
+                setShowSubBatchDialog(true)
+            } else {
+                toast.error("Error", "Gagal memuat detail batch")
+            }
+        } catch (error) {
+            console.error("Error fetching batch details:", error)
+            toast.error("Error", "Gagal memuat detail batch")
         }
     }
 
@@ -812,6 +834,21 @@ export default function BatchManagementPage() {
                 products={products}
                 onSuccess={fetchBatches}
             />
+
+            {/* Create Sub-Batch Dialog (Assign to multiple sewers) */}
+            {subBatchBatch && (
+                <CreateSubBatchDialog
+                    open={showSubBatchDialog}
+                    onOpenChange={setShowSubBatchDialog}
+                    batchId={subBatchBatch.id}
+                    batchSku={subBatchBatch.batchSku}
+                    cuttingResults={subBatchBatch.cuttingResults || []}
+                    onSuccess={() => {
+                        fetchBatches()
+                        setSubBatchBatch(null)
+                    }}
+                />
+            )}
 
             {/* Confirm Batch Dialog */}
             <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
@@ -2191,7 +2228,7 @@ export default function BatchManagementPage() {
                                                                 <Button
                                                                     size="sm"
                                                                     variant="default"
-                                                                    onClick={() => openAssignSewerDialog(batch)}
+                                                                    onClick={() => openSubBatchDialog(batch)}
                                                                 >
                                                                     <UserPlus className="h-4 w-4 mr-1" />
                                                                     Assign Penjahit
@@ -2317,7 +2354,7 @@ export default function BatchManagementPage() {
                                                             size="sm"
                                                             variant="default"
                                                             className="w-full"
-                                                            onClick={() => openAssignSewerDialog(batch)}
+                                                            onClick={() => openSubBatchDialog(batch)}
                                                         >
                                                             <UserPlus className="h-4 w-4 mr-2" />
                                                             Assign Penjahit

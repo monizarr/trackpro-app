@@ -146,10 +146,7 @@ export async function PATCH(
         name,
         description,
         unit: "METER", // Force METER as unit
-        minimumStock: parseFloat(minimumStock.toString()),
-        price: parseFloat(price.toString()),
         rollQuantity: rollQuantity ? parseFloat(rollQuantity.toString()) : null,
-        meterPerRoll: meterPerRoll ? parseFloat(meterPerRoll.toString()) : null,
         purchaseOrderNumber: purchaseOrderNumber || null,
         supplier: supplier || null,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : null,

@@ -30,6 +30,12 @@ interface FinishedGood {
             sku: string
         }
     }
+    subBatch?: {
+        id: string
+        subBatchSku: string
+        assignedSewer: { name: string }
+        assignedFinisher?: { name: string }
+    }
     verifiedBy: {
         name: string
     }
@@ -79,7 +85,8 @@ export default function FinishedGoodsPage() {
             good.batch.batchSku.toLowerCase().includes(query) ||
             good.batch.product.name.toLowerCase().includes(query) ||
             good.batch.product.sku.toLowerCase().includes(query) ||
-            (good.location && good.location.toLowerCase().includes(query))
+            (good.location && good.location.toLowerCase().includes(query)) ||
+            (good.subBatch?.subBatchSku && good.subBatch.subBatchSku.toLowerCase().includes(query))
         )
     })
 
@@ -204,7 +211,7 @@ export default function FinishedGoodsPage() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>Batch</TableHead>
+                                            <TableHead>Batch / Sub-Batch</TableHead>
                                             <TableHead>Produk</TableHead>
                                             <TableHead>Tipe</TableHead>
                                             <TableHead className="text-right">Quantity</TableHead>
@@ -216,8 +223,15 @@ export default function FinishedGoodsPage() {
                                     <TableBody>
                                         {filteredGoods.map((good) => (
                                             <TableRow key={good.id}>
-                                                <TableCell className="font-mono font-medium">
-                                                    {good.batch.batchSku}
+                                                <TableCell className="font-mono">
+                                                    <div>
+                                                        <p className="font-medium">{good.batch.batchSku}</p>
+                                                        {good.subBatch && (
+                                                            <p className="text-xs text-muted-foreground">
+                                                                Sub: {good.subBatch.subBatchSku}
+                                                            </p>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div>

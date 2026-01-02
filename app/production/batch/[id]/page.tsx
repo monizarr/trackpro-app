@@ -27,6 +27,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { QRCodeGenerator } from "@/components/qr-code-generator";
+import { SubBatchList } from "@/components/sub-batch-list";
 
 interface Material {
     id: string;
@@ -468,6 +469,14 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                         </div>
                     </CardContent>
                 </Card>
+            )}
+
+            {/* Sub-Batches (shown when status is after CUTTING_VERIFIED) */}
+            {["CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED", "SEWING_VERIFIED", "IN_FINISHING", "FINISHING_COMPLETED", "WAREHOUSE_VERIFIED", "COMPLETED"].includes(batch.status) && (
+                <SubBatchList
+                    batchId={batch.id}
+                    onRefresh={fetchBatchDetail}
+                />
             )}
 
             {/* Production Progress */}

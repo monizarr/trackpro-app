@@ -1,66 +1,80 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { CheckCircle, Loader2, AlertCircle, Package, XCircle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
     Dialog,
     DialogContent,
     DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
+import { AlertCircle, Package, XCircle, Loader2, CheckCircle, MapPin, User, Shirt } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 
-interface FinishingTask {
-    piecesCompleted: number
-    rejectPieces: number
-    notes: string | null
-    completedAt: Date | null
+interface SubBatchItem {
+    id: string
+    productSize: string
+    color: string
+    piecesAssigned: number
+    sewingOutput: number
+    finishingOutput: number
 }
 
-interface Batch {
+interface SubBatch {
     id: string
-    batchSku: string
-    targetQuantity: number
+    subBatchSku: string
     status: string
-    createdAt: Date
-    product: {
-        name: string
-        sku: string
+    piecesAssigned: number
+    sewingOutput: number
+    sewingReject: number
+    finishingOutput: number
+    finishingReject: number
+    submittedToWarehouseAt: Date | null
+    batch: {
+        id: string
+        batchSku: string
+        product: {
+            id: string
+            name: string
+            sku: string
+        }
     }
-    finishingTask: FinishingTask | null
+    assignedSewer: { id: string; name: string }
+    assignedFinisher?: { id: string; name: string }
+    items: SubBatchItem[]
 }
 
 export default function WarehouseVerificationPage() {
-    const [batches, setBatches] = useState<Batch[]>([])
+    const [subBatches, setSubBatches] = useState<SubBatch[]>([])
     const [loading, setLoading] = useState(true)
     const [verifying, setVerifying] = useState(false)
-    const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null)
+    const [selectedSubBatch, setSelectedSubBatch] = useState<SubBatch | null>(null)
     const [showVerifyDialog, setShowVerifyDialog] = useState(false)
     const [goodsLocation, setGoodsLocation] = useState("")
     const [warehouseNotes, setWarehouseNotes] = useState("")
     const { toast } = useToast()
 
-    const fetchBatches = async () => {
+    const fetchSubBatches = async () => {
         try {
-            const response = await fetch('/api/production-batches?status=FINISHING_COMPLETED')
+            const response = await fetch('/api/sub-batches?status=SUBMITTED_TO_WAREHOUSE')
 
             if (response.ok) {
                 const result = await response.json()
-                setBatches(result.data || [])
+                setSubBatches(result.data || [])
             }
         } catch (err) {
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: "Gagal memuat data batch: " + err
+                description: "Gagal memuat data sub-batch: " + err
             })
         } finally {
             setLoading(false)
@@ -68,19 +82,19 @@ export default function WarehouseVerificationPage() {
     }
 
     useEffect(() => {
-        fetchBatches()
+        fetchSubBatches()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    const openVerifyDialog = (batch: Batch) => {
-        setSelectedBatch(batch)
+    const openVerifyDialog = (subBatch: SubBatch) => {
+        setSelectedSubBatch(subBatch)
         setGoodsLocation("")
         setWarehouseNotes("")
         setShowVerifyDialog(true)
     }
 
     const handleVerify = async () => {
-        if (!selectedBatch) return
+        if (!selectedSubBatch) return
 
         if (!goodsLocation.trim()) {
             toast({
@@ -93,7 +107,7 @@ export default function WarehouseVerificationPage() {
 
         setVerifying(true)
         try {
-            const response = await fetch(`/api/production-batches/${selectedBatch.id}/verify-warehouse`, {
+            const response = await fetch(`/api/sub-batches/${selectedSubBatch.id}/verify-warehouse`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -106,10 +120,10 @@ export default function WarehouseVerificationPage() {
                 const result = await response.json()
                 toast({
                     title: "Berhasil",
-                    description: `Batch ${selectedBatch.batchSku} telah diverifikasi. Finished: ${result.finishedGoods.quantity}, Reject: ${result.rejectGoods?.quantity || 0}`
+                    description: result.message || `Sub-batch ${selectedSubBatch.subBatchSku} telah diverifikasi`
                 })
                 setShowVerifyDialog(false)
-                fetchBatches()
+                fetchSubBatches()
             } else {
                 const error = await response.json()
                 throw new Error(error.error || 'Failed to verify')
@@ -118,12 +132,28 @@ export default function WarehouseVerificationPage() {
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: error instanceof Error ? error.message : "Gagal memverifikasi batch"
+                description: error instanceof Error ? error.message : "Gagal memverifikasi sub-batch"
             })
         } finally {
             setVerifying(false)
         }
     }
+
+    // Group sub-batches by parent batch
+    const groupedByBatch = subBatches.reduce((acc, sb) => {
+        const batchSku = sb.batch.batchSku
+        if (!acc[batchSku]) {
+            acc[batchSku] = {
+                batch: sb.batch,
+                subBatches: []
+            }
+        }
+        acc[batchSku].subBatches.push(sb)
+        return acc
+    }, {} as Record<string, { batch: SubBatch['batch']; subBatches: SubBatch[] }>)
+
+    const totalPieces = subBatches.reduce((sum, sb) => sum + sb.finishingOutput, 0)
+    const totalReject = subBatches.reduce((sum, sb) => sum + sb.sewingReject + sb.finishingReject, 0)
 
     if (loading) {
         return (
@@ -139,13 +169,13 @@ export default function WarehouseVerificationPage() {
                 <div>
                     <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Verifikasi Gudang</h2>
                     <p className="text-sm sm:text-base text-muted-foreground">
-                        Verifikasi batch finishing dan simpan sebagai barang jadi
+                        Verifikasi sub-batch finishing dan simpan sebagai barang jadi
                     </p>
                 </div>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
@@ -154,9 +184,26 @@ export default function WarehouseVerificationPage() {
                         <AlertCircle className="h-4 w-4 text-yellow-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{batches.length}</div>
+                        <div className="text-2xl font-bold">{subBatches.length}</div>
                         <p className="text-xs text-muted-foreground">
-                            Batch finishing selesai
+                            Sub-batch siap diverifikasi
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Total Batches
+                        </CardTitle>
+                        <Package className="h-4 w-4 text-blue-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">
+                            {Object.keys(groupedByBatch).length}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Batch produksi terkait
                         </p>
                     </CardContent>
                 </Card>
@@ -166,14 +213,14 @@ export default function WarehouseVerificationPage() {
                         <CardTitle className="text-sm font-medium">
                             Total Pieces
                         </CardTitle>
-                        <Package className="h-4 w-4 text-blue-600" />
+                        <CheckCircle className="h-4 w-4 text-green-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">
-                            {batches.reduce((sum, b) => sum + (b.finishingTask?.piecesCompleted || 0), 0)}
+                        <div className="text-2xl font-bold text-green-600">
+                            {totalPieces}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Total barang jadi siap disimpan
+                            Barang jadi siap disimpan
                         </p>
                     </CardContent>
                 </Card>
@@ -186,164 +233,202 @@ export default function WarehouseVerificationPage() {
                         <XCircle className="h-4 w-4 text-red-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">
-                            {batches.reduce((sum, b) => sum + (b.finishingTask?.rejectPieces || 0), 0)}
+                        <div className="text-2xl font-bold text-red-600">
+                            {totalReject}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Total barang gagal
+                            Barang gagal
                         </p>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Batch List */}
-            {batches.length === 0 ? (
+            {/* Sub-Batch List */}
+            {subBatches.length === 0 ? (
                 <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                        Tidak ada batch yang menunggu verifikasi gudang.
+                        Tidak ada sub-batch yang menunggu verifikasi gudang.
                     </AlertDescription>
                 </Alert>
             ) : (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Batch Menunggu Verifikasi</CardTitle>
-                        <CardDescription>
-                            Klik &ldquo;Verifikasi&rdquo; untuk menyimpan batch sebagai barang jadi di gudang
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            {batches.map((batch) => (
-                                <Card key={batch.id} className="border-2">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-start justify-between">
-                                            <div className="space-y-1 flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <p className="font-mono font-bold text-lg">{batch.batchSku}</p>
-                                                    <Badge variant="outline">FINISHING_COMPLETED</Badge>
+                <div className="space-y-6">
+                    {Object.entries(groupedByBatch).map(([batchSku, { batch, subBatches: batchSubBatches }]) => (
+                        <Card key={batchSku}>
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="font-mono">{batchSku}</CardTitle>
+                                        <CardDescription>{batch.product.name}</CardDescription>
+                                    </div>
+                                    <Badge variant="outline">
+                                        {batchSubBatches.length} sub-batch
+                                    </Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    {batchSubBatches.map((subBatch) => (
+                                        <div
+                                            key={subBatch.id}
+                                            className="border rounded-lg p-4 space-y-3"
+                                        >
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <p className="font-mono font-medium text-sm">
+                                                        {subBatch.subBatchSku}
+                                                    </p>
+                                                    <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                                                        <span className="flex items-center gap-1">
+                                                            <User className="h-3 w-3" />
+                                                            {subBatch.assignedSewer?.name || "-"}
+                                                        </span>
+                                                        {subBatch.assignedFinisher && (
+                                                            <span className="flex items-center gap-1">
+                                                                <Shirt className="h-3 w-3" />
+                                                                {subBatch.assignedFinisher.name}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <p className="text-sm text-muted-foreground">{batch.product.name}</p>
-                                                <p className="text-xs text-muted-foreground">SKU: {batch.product.sku}</p>
-
-                                                {batch.finishingTask && (
-                                                    <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t">
-                                                        <div>
-                                                            <p className="text-xs text-muted-foreground">Target</p>
-                                                            <p className="text-lg font-bold">{batch.targetQuantity} pcs</p>
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-xs text-muted-foreground">Finished</p>
-                                                            <p className="text-lg font-bold text-green-600">
-                                                                {batch.finishingTask.piecesCompleted} pcs
-                                                            </p>
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-xs text-muted-foreground">Reject</p>
-                                                            <p className="text-lg font-bold text-red-600">
-                                                                {batch.finishingTask.rejectPieces} pcs
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {batch.finishingTask?.notes && (
-                                                    <div className="mt-3 p-3 bg-muted rounded-md">
-                                                        <p className="text-xs text-muted-foreground">Catatan Finishing:</p>
-                                                        <p className="text-sm">{batch.finishingTask.notes}</p>
-                                                    </div>
-                                                )}
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => openVerifyDialog(subBatch)}
+                                                >
+                                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                                    Verifikasi
+                                                </Button>
                                             </div>
 
-                                            <Button
-                                                onClick={() => openVerifyDialog(batch)}
-                                                size="lg"
-                                                className="ml-4"
-                                            >
-                                                <CheckCircle className="h-4 w-4 mr-2" />
-                                                Verifikasi
-                                            </Button>
+                                            {/* Items breakdown */}
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+                                                <div className="bg-muted/50 p-2 rounded">
+                                                    <p className="text-muted-foreground text-xs">Assigned</p>
+                                                    <p className="font-medium">{subBatch.piecesAssigned} pcs</p>
+                                                </div>
+                                                <div className="bg-green-50 dark:bg-green-950 p-2 rounded">
+                                                    <p className="text-muted-foreground text-xs">Finishing Output</p>
+                                                    <p className="font-medium text-green-600">{subBatch.finishingOutput} pcs</p>
+                                                </div>
+                                                <div className="bg-red-50 dark:bg-red-950 p-2 rounded">
+                                                    <p className="text-muted-foreground text-xs">Sewing Reject</p>
+                                                    <p className="font-medium text-red-600">{subBatch.sewingReject} pcs</p>
+                                                </div>
+                                                <div className="bg-red-50 dark:bg-red-950 p-2 rounded">
+                                                    <p className="text-muted-foreground text-xs">Finishing Reject</p>
+                                                    <p className="font-medium text-red-600">{subBatch.finishingReject} pcs</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Size/Color breakdown */}
+                                            <div className="flex flex-wrap gap-1">
+                                                {subBatch.items.map((item) => (
+                                                    <Badge
+                                                        key={item.id}
+                                                        variant="secondary"
+                                                        className="text-xs"
+                                                    >
+                                                        {item.productSize} {item.color}: {item.finishingOutput}
+                                                    </Badge>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
             )}
 
             {/* Verify Dialog */}
             <Dialog open={showVerifyDialog} onOpenChange={setShowVerifyDialog}>
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
-                        <DialogTitle>Verifikasi Batch ke Gudang</DialogTitle>
+                        <DialogTitle>Verifikasi Sub-Batch ke Gudang</DialogTitle>
                         <DialogDescription>
-                            Simpan batch sebagai barang jadi dan barang gagal di gudang
+                            Simpan hasil finishing sebagai barang jadi di gudang
                         </DialogDescription>
                     </DialogHeader>
 
-                    {selectedBatch && (
+                    {selectedSubBatch && (
                         <div className="space-y-4">
-                            {/* Batch Info */}
-                            <div className="p-4 border rounded-lg space-y-2">
+                            {/* Sub-batch info */}
+                            <div className="bg-muted/50 p-4 rounded-lg space-y-2">
                                 <div className="flex justify-between">
-                                    <span className="text-sm text-muted-foreground">Batch:</span>
-                                    <span className="font-mono font-bold">{selectedBatch.batchSku}</span>
+                                    <span className="text-sm text-muted-foreground">Sub-Batch</span>
+                                    <span className="font-mono font-medium">{selectedSubBatch.subBatchSku}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-sm text-muted-foreground">Produk:</span>
-                                    <span className="font-medium">{selectedBatch.product.name}</span>
-                                </div>
-                                <div className="flex justify-between pt-2 border-t">
-                                    <span className="text-sm text-muted-foreground">Barang Jadi:</span>
-                                    <span className="font-bold text-green-600">
-                                        {selectedBatch.finishingTask?.piecesCompleted || 0} pcs
-                                    </span>
+                                    <span className="text-sm text-muted-foreground">Batch</span>
+                                    <span className="font-mono">{selectedSubBatch.batch.batchSku}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-sm text-muted-foreground">Barang Gagal:</span>
-                                    <span className="font-bold text-red-600">
-                                        {selectedBatch.finishingTask?.rejectPieces || 0} pcs
-                                    </span>
+                                    <span className="text-sm text-muted-foreground">Produk</span>
+                                    <span>{selectedSubBatch.batch.product.name}</span>
                                 </div>
                             </div>
 
-                            <Alert>
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertDescription>
-                                    Barang jadi akan disimpan di lokasi yang Anda tentukan.
-                                    Barang gagal otomatis disimpan di area reject.
-                                </AlertDescription>
-                            </Alert>
+                            {/* Quantity summary */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg text-center">
+                                    <p className="text-sm text-muted-foreground">Barang Jadi</p>
+                                    <p className="text-3xl font-bold text-green-600">
+                                        {selectedSubBatch.finishingOutput}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">pieces</p>
+                                </div>
+                                <div className="bg-red-50 dark:bg-red-950 p-4 rounded-lg text-center">
+                                    <p className="text-sm text-muted-foreground">Barang Gagal</p>
+                                    <p className="text-3xl font-bold text-red-600">
+                                        {selectedSubBatch.sewingReject + selectedSubBatch.finishingReject}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">pieces</p>
+                                </div>
+                            </div>
 
-                            {/* Form */}
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="goodsLocation">
-                                        Lokasi Penyimpanan Barang Jadi <span className="text-red-500">*</span>
-                                    </Label>
+                            {/* Items detail */}
+                            <div>
+                                <Label className="text-sm text-muted-foreground">Detail per Size/Warna</Label>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {selectedSubBatch.items.map((item) => (
+                                        <Badge key={item.id} variant="outline">
+                                            {item.productSize} {item.color}: {item.finishingOutput} pcs
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Location input */}
+                            <div className="space-y-2">
+                                <Label htmlFor="location">
+                                    Lokasi Penyimpanan <span className="text-destructive">*</span>
+                                </Label>
+                                <div className="relative">
+                                    <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <Input
-                                        id="goodsLocation"
+                                        id="location"
+                                        placeholder="Contoh: Rak A-01, Gudang Utama"
                                         value={goodsLocation}
                                         onChange={(e) => setGoodsLocation(e.target.value)}
-                                        placeholder="Contoh: RAK-A-01, SHELF-B-05"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="warehouseNotes">Catatan Gudang</Label>
-                                    <Textarea
-                                        id="warehouseNotes"
-                                        value={warehouseNotes}
-                                        onChange={(e) => setWarehouseNotes(e.target.value)}
-                                        placeholder="Tambahkan catatan jika diperlukan"
-                                        rows={3}
+                                        className="pl-10"
                                     />
                                 </div>
                             </div>
 
-                            {/* Actions */}
-                            <div className="flex gap-2 justify-end pt-4 border-t">
+                            {/* Notes */}
+                            <div className="space-y-2">
+                                <Label htmlFor="notes">Catatan (Opsional)</Label>
+                                <Textarea
+                                    id="notes"
+                                    placeholder="Catatan tambahan..."
+                                    value={warehouseNotes}
+                                    onChange={(e) => setWarehouseNotes(e.target.value)}
+                                    rows={2}
+                                />
+                            </div>
+
+                            <DialogFooter className="flex-col sm:flex-row gap-2">
                                 <Button
                                     variant="outline"
                                     onClick={() => setShowVerifyDialog(false)}
@@ -367,7 +452,7 @@ export default function WarehouseVerificationPage() {
                                         </>
                                     )}
                                 </Button>
-                            </div>
+                            </DialogFooter>
                         </div>
                     )}
                 </DialogContent>

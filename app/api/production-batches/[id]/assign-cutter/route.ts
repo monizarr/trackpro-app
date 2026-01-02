@@ -129,7 +129,7 @@ export async function POST(
       });
 
       // Create notification for cutter
-      let notificationMessage = `Anda mendapat task pemotongan untuk batch ${batch.batchSku} - ${batch.product.name}. Target: ${batch.targetQuantity} pcs`;
+      let notificationMessage = `Anda mendapat task pemotongan untuk batch ${batch.batchSku} - ${batch.product.name}`;
       if (materialReceived && materialReceived > 0) {
         notificationMessage += `. Material yang diterima: ${Number(
           materialReceived

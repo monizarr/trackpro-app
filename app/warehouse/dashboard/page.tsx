@@ -10,6 +10,7 @@ import Link from "next/link"
 interface PendingVerification {
     count: number
     totalPieces: number
+    totalReject: number
 }
 
 interface Material {
@@ -34,8 +35,14 @@ interface Transaction {
     }
 }
 
+interface SubBatch {
+    finishingOutput: number
+    sewingReject: number
+    finishingReject: number
+}
+
 export default function WarehouseDashboard() {
-    const [pendingVerification, setPendingVerification] = useState<PendingVerification>({ count: 0, totalPieces: 0 })
+    const [pendingVerification, setPendingVerification] = useState<PendingVerification>({ count: 0, totalPieces: 0, totalReject: 0 })
     const [materials, setMaterials] = useState<Material[]>([])
     const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([])
     const [loading, setLoading] = useState(true)
@@ -43,15 +50,14 @@ export default function WarehouseDashboard() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Fetch pending verification batches
-                const verificationRes = await fetch('/api/production-batches?status=FINISHING_COMPLETED')
+                // Fetch pending verification sub-batches (new sub-batch flow)
+                const verificationRes = await fetch('/api/sub-batches?status=SUBMITTED_TO_WAREHOUSE')
                 if (verificationRes.ok) {
                     const result = await verificationRes.json()
-                    const batches = result.data || []
-                    const totalPieces = batches.reduce((sum: number, batch: { finishingTask?: { piecesCompleted: number } }) => {
-                        return sum + (batch.finishingTask?.piecesCompleted || 0)
-                    }, 0)
-                    setPendingVerification({ count: batches.length, totalPieces })
+                    const subBatches: SubBatch[] = result.data || []
+                    const totalPieces = subBatches.reduce((sum: number, sb: SubBatch) => sum + sb.finishingOutput, 0)
+                    const totalReject = subBatches.reduce((sum: number, sb: SubBatch) => sum + sb.sewingReject + sb.finishingReject, 0)
+                    setPendingVerification({ count: subBatches.length, totalPieces, totalReject })
                 }
 
                 // Fetch materials for stock alerts
@@ -123,10 +129,13 @@ export default function WarehouseDashboard() {
                                 <CheckCircle className="h-8 w-8 text-yellow-600" />
                                 <div>
                                     <p className="font-bold text-lg">
-                                        {pendingVerification.count} Batch Menunggu Verifikasi
+                                        {pendingVerification.count} Sub-Batch Menunggu Verifikasi
                                     </p>
                                     <p className="text-sm text-muted-foreground">
                                         Total {pendingVerification.totalPieces} pieces barang jadi siap disimpan
+                                        {pendingVerification.totalReject > 0 && (
+                                            <span className="text-red-500"> • {pendingVerification.totalReject} reject</span>
+                                        )}
                                     </p>
                                 </div>
                             </div>
@@ -197,7 +206,7 @@ export default function WarehouseDashboard() {
                     <CardContent>
                         <div className="text-2xl font-bold">{pendingVerification.count}</div>
                         <p className="text-xs text-muted-foreground">
-                            Batch menunggu verifikasi
+                            Sub-batch menunggu verifikasi
                         </p>
                     </CardContent>
                 </Card>

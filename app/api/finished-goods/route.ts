@@ -42,6 +42,18 @@ export async function GET(request: Request) {
             product: true,
           },
         },
+        subBatch: {
+          select: {
+            id: true,
+            subBatchSku: true,
+            assignedSewer: {
+              select: { name: true },
+            },
+            assignedFinisher: {
+              select: { name: true },
+            },
+          },
+        },
         verifiedBy: {
           select: {
             name: true,

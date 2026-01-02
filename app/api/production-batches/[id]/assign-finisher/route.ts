@@ -80,7 +80,7 @@ export async function POST(
         data: {
           batchId,
           assignedToId,
-          piecesReceived: batch.actualQuantity || batch.targetQuantity,
+          piecesReceived: batch.actualQuantity || 0,
           notes: notes || null,
           status: "PENDING",
         },
@@ -111,9 +111,7 @@ export async function POST(
           title: "Task Finishing Baru",
           message: `Anda mendapat task finishing untuk batch ${
             batch.batchSku
-          } - ${batch.product.name}. Pieces: ${
-            batch.actualQuantity || batch.targetQuantity
-          } pcs`,
+          } - ${batch.product.name}. Pieces: ${batch.actualQuantity || 0} pcs`,
         },
       });
 

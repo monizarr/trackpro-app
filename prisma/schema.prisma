@@ -26,7 +26,7 @@ model User {
   id        String   @id @default(cuid())
   username  String   @unique
   email     String   @unique
-  password  String   // Hashed with bcrypt
+  password  String // Hashed with bcrypt
   name      String
   role      UserRole
   isActive  Boolean  @default(true)
@@ -34,20 +34,25 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  createdProducts       Product[]           @relation("ProductCreator")
-  createdMaterials      Material[]          @relation("MaterialCreator")
-  createdBatches        ProductionBatch[]   @relation("BatchCreator")
-  materialTransactions  MaterialTransaction[]
-  cuttingTasks          CuttingTask[]       @relation("CuttingTaskAssigned")
-  sewingTasks           SewingTask[]        @relation("SewingTaskAssigned")
-  finishingTasks        FinishingTask[]     @relation("FinishingTaskAssigned")
-  verifiedCuttingTasks  CuttingTask[]       @relation("CuttingTaskVerified")
-  verifiedSewingTasks   SewingTask[]        @relation("SewingTaskVerified")
-  verifiedFinishingTasks FinishingTask[]    @relation("FinishingTaskVerified")
-  confirmedCuttingResults CuttingResult[]   @relation("CuttingResultConfirmed")
-  verifiedFinishedGoods FinishedGood[]
-  notifications         Notification[]
-  auditLogs             AuditLog[]
+  createdProducts         Product[]             @relation("ProductCreator")
+  createdMaterials        Material[]            @relation("MaterialCreator")
+  createdBatches          ProductionBatch[]     @relation("BatchCreator")
+  materialTransactions    MaterialTransaction[]
+  cuttingTasks            CuttingTask[]         @relation("CuttingTaskAssigned")
+  sewingTasks             SewingTask[]          @relation("SewingTaskAssigned")
+  finishingTasks          FinishingTask[]       @relation("FinishingTaskAssigned")
+  verifiedCuttingTasks    CuttingTask[]         @relation("CuttingTaskVerified")
+  verifiedSewingTasks     SewingTask[]          @relation("SewingTaskVerified")
+  verifiedFinishingTasks  FinishingTask[]       @relation("FinishingTaskVerified")
+  confirmedCuttingResults CuttingResult[]       @relation("CuttingResultConfirmed")
+  verifiedFinishedGoods   FinishedGood[]
+  notifications           Notification[]
+  auditLogs               AuditLog[]
+
+  // Sub-batch relations
+  assignedSubBatchesSewing    SubBatch[] @relation("SubBatchSewer")
+  assignedSubBatchesFinishing SubBatch[] @relation("SubBatchFinisher")
+  verifiedSubBatchesWarehouse SubBatch[] @relation("SubBatchWarehouseVerifier")
 
   @@index([email])
   @@index([username])
@@ -72,17 +77,17 @@ model Product {
   description String?
   price       Decimal       @db.Decimal(15, 2)
   status      ProductStatus @default(ACTIVE)
-  images      String[]      // Array of image URLs
+  images      String[] // Array of image URLs
   isDeleted   Boolean       @default(false) // Soft delete
   createdById String
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   // Relations
-  createdBy        User              @relation("ProductCreator", fields: [createdById], references: [id])
+  createdBy         User                  @relation("ProductCreator", fields: [createdById], references: [id])
   productionBatches ProductionBatch[]
-  materials        ProductMaterial[]
-  colorVariants    ProductColorVariant[] // Varian warna produk
+  materials         ProductMaterial[]
+  colorVariants     ProductColorVariant[] // Varian warna produk
 
   @@index([sku])
   @@index([status])
@@ -92,13 +97,13 @@ model Product {
 
 // Product Color Variants (Varian Warna Produk)
 model ProductColorVariant {
-  id          String   @id @default(cuid())
-  productId   String
-  colorName   String   // Nama warna produk (Putih, Hitam, Merah, dll)
-  colorCode   String?  // Kode warna (hex color atau custom code)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  productId String
+  colorName String // Nama warna produk (Putih, Hitam, Merah, dll)
+  colorCode String? // Kode warna (hex color atau custom code)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -123,31 +128,31 @@ enum MaterialUnit {
 }
 
 model Material {
-  id              String       @id @default(cuid())
-  code            String       @unique
-  name            String
-  description     String?
-  color           String?      // Warna bahan baku (misal: Putih, Hitam, Merah, dll)
-  unit            MaterialUnit @default(METER) // Unit utama dalam METER
-  rollQuantity    Decimal?     @db.Decimal(15, 3) // Jumlah roll (informasi tambahan)
-  
+  id           String       @id @default(cuid())
+  code         String       @unique
+  name         String
+  description  String?
+  color        String? // Warna bahan baku (misal: Putih, Hitam, Merah, dll)
+  unit         MaterialUnit @default(METER) // Unit utama dalam METER
+  rollQuantity Decimal?     @db.Decimal(15, 3) // Jumlah roll (informasi tambahan)
+
   // Informasi Pembelian
-  purchaseOrderNumber String?  // Kode nota pemesanan
-  supplier            String?  // Nama supplier
+  purchaseOrderNumber String? // Kode nota pemesanan
+  supplier            String? // Nama supplier
   purchaseDate        DateTime? // Tanggal pembelian
-  purchaseNotes       String?  // Catatan pembelian
-  
-  isActive        Boolean      @default(true)
-  createdById     String
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  purchaseNotes       String? // Catatan pembelian
+
+  isActive    Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  createdBy     User                  @relation("MaterialCreator", fields: [createdById], references: [id])
-  transactions  MaterialTransaction[]
-  products      ProductMaterial[]
+  createdBy        User                      @relation("MaterialCreator", fields: [createdById], references: [id])
+  transactions     MaterialTransaction[]
+  products         ProductMaterial[]
   batchAllocations BatchMaterialAllocation[]
-  colorVariants MaterialColorVariant[] // Varian warna material
+  colorVariants    MaterialColorVariant[] // Varian warna material
 
   @@index([code])
   @@index([purchaseOrderNumber])
@@ -157,27 +162,27 @@ model Material {
 
 // Material Color Variants (Varian Warna Material)
 model MaterialColorVariant {
-  id           String   @id @default(cuid())
+  id           String  @id @default(cuid())
   materialId   String
-  colorName    String   // Nama warna (Putih, Hitam, Merah, dll)
-  colorCode    String?  // Kode warna (hex color atau custom code)
-  stock        Decimal  @db.Decimal(15, 3) // Stock untuk warna ini dalam METER
-  minimumStock Decimal  @db.Decimal(15, 3) @default(0) // Minimum stock dalam METER
-  
-  // Pricing & Purchase Info
-  price                Decimal   @db.Decimal(15, 2) @default(0) // Harga per meter
-  rollQuantity         Decimal?  @db.Decimal(15, 3) // Jumlah roll
-  meterPerRoll         Decimal?  @db.Decimal(15, 3) // Meter per roll
-  purchaseOrderNumber  String?   // Kode nota pemesanan
-  purchaseDate         DateTime? // Tanggal pembelian
-  purchaseNotes        String?   // Catatan pembelian
-  supplier             String?   // Nama supplier
-  
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  colorName    String // Nama warna (Putih, Hitam, Merah, dll)
+  colorCode    String? // Kode warna (hex color atau custom code)
+  stock        Decimal @db.Decimal(15, 3) // Stock untuk warna ini dalam METER
+  minimumStock Decimal @default(0) @db.Decimal(15, 3) // Minimum stock dalam METER
 
-  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  // Pricing & Purchase Info
+  price               Decimal   @default(0) @db.Decimal(15, 2) // Harga per meter
+  rollQuantity        Decimal?  @db.Decimal(15, 3) // Jumlah roll
+  meterPerRoll        Decimal?  @db.Decimal(15, 3) // Meter per roll
+  purchaseOrderNumber String? // Kode nota pemesanan
+  purchaseDate        DateTime? // Tanggal pembelian
+  purchaseNotes       String? // Catatan pembelian
+  supplier            String? // Nama supplier
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  material         Material                       @relation(fields: [materialId], references: [id], onDelete: Cascade)
   batchAllocations BatchMaterialColorAllocation[] // Alokasi untuk batch
 
   @@unique([materialId, colorName])
@@ -188,13 +193,13 @@ model MaterialColorVariant {
 
 // Product Materials (Many-to-Many with quantity)
 model ProductMaterial {
-  id         String  @id @default(cuid())
+  id         String       @id @default(cuid())
   productId  String
   materialId String
-  quantity   Decimal @db.Decimal(15, 3)
+  quantity   Decimal      @db.Decimal(15, 3)
   unit       MaterialUnit
   color      String?
-  
+
   product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
 
@@ -207,34 +212,34 @@ model ProductMaterial {
 // ============================================
 
 enum TransactionType {
-  IN      // Stock masuk
-  OUT     // Stock keluar untuk produksi
+  IN // Stock masuk
+  OUT // Stock keluar untuk produksi
   ADJUSTMENT
   RETURN
 }
 
 model MaterialTransaction {
-  id          String          @id @default(cuid())
-  materialId  String
-  type        TransactionType
-  quantity    Decimal         @db.Decimal(15, 3)
-  unit        MaterialUnit
-  notes       String?
-  batchId     String?         // Reference to production batch if OUT
-  
-  // Purchase Information (for type IN)
-  rollQuantity            Decimal?  @db.Decimal(15, 3)
-  meterPerRoll            Decimal?  @db.Decimal(15, 3)
-  purchaseOrderNumber     String?
-  supplier                String?
-  purchaseDate            DateTime?
-  purchaseNotes           String?
-  
-  userId      String
-  createdAt   DateTime        @default(now())
+  id         String          @id @default(cuid())
+  materialId String
+  type       TransactionType
+  quantity   Decimal         @db.Decimal(15, 3)
+  unit       MaterialUnit
+  notes      String?
+  batchId    String? // Reference to production batch if OUT
 
-  material Material @relation(fields: [materialId], references: [id])
-  user     User     @relation(fields: [userId], references: [id])
+  // Purchase Information (for type IN)
+  rollQuantity        Decimal?  @db.Decimal(15, 3)
+  meterPerRoll        Decimal?  @db.Decimal(15, 3)
+  purchaseOrderNumber String?
+  supplier            String?
+  purchaseDate        DateTime?
+  purchaseNotes       String?
+
+  userId    String
+  createdAt DateTime @default(now())
+
+  material Material         @relation(fields: [materialId], references: [id])
+  user     User             @relation(fields: [userId], references: [id])
   batch    ProductionBatch? @relation(fields: [batchId], references: [id])
 
   @@index([materialId])
@@ -250,53 +255,54 @@ model MaterialTransaction {
 // ============================================
 
 enum BatchStatus {
-  PENDING           // Batch created, waiting for material allocation
+  PENDING // Batch created, waiting for material allocation
   MATERIAL_REQUESTED // Material request sent to warehouse
   MATERIAL_ALLOCATED // Material allocated by warehouse
   ASSIGNED_TO_CUTTER // Assigned to cutting department
-  IN_CUTTING        // Currently being cut
+  IN_CUTTING // Currently being cut
   CUTTING_COMPLETED // Cutting done, waiting for verification
-  CUTTING_VERIFIED  // Verified by production head
+  CUTTING_VERIFIED // Verified by production head
   ASSIGNED_TO_SEWER // Assigned to sewing department
-  IN_SEWING         // Currently being sewn
-  SEWING_COMPLETED  // Sewing done, waiting for verification
-  SEWING_VERIFIED   // Verified by production head
-  IN_FINISHING      // Currently in finishing
+  IN_SEWING // Currently being sewn
+  SEWING_COMPLETED // Sewing done, waiting for verification
+  SEWING_VERIFIED // Verified by production head
+  IN_FINISHING // Currently in finishing
   FINISHING_COMPLETED // Finishing done, waiting for warehouse verification
   WAREHOUSE_VERIFIED // Verified by warehouse head, stored as finished goods
-  COMPLETED         // All processes completed
-  CANCELLED         // Batch cancelled
+  COMPLETED // All processes completed
+  CANCELLED // Batch cancelled
 }
 
 model ProductionBatch {
-  id              String      @id @default(cuid())
-  batchSku        String      @unique // Format: PROD-YYYYMMDD-XXX
-  productId       String
-  totalRolls      Int         @default(0) // Total roll bahan baku yang dibawa
-  actualQuantity  Int         @default(0) // Total pieces setelah dipotong
-  rejectQuantity  Int         @default(0)
-  status          BatchStatus @default(PENDING)
-  startDate       DateTime    @default(now())
-  completedDate   DateTime?
-  notes           String?
-  createdById     String
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id             String      @id @default(cuid())
+  batchSku       String      @unique // Format: PROD-YYYYMMDD-XXX
+  productId      String
+  totalRolls     Int         @default(0) // Total roll bahan baku yang dibawa
+  actualQuantity Int         @default(0) // Total pieces setelah dipotong
+  rejectQuantity Int         @default(0)
+  status         BatchStatus @default(PENDING)
+  startDate      DateTime    @default(now())
+  completedDate  DateTime?
+  notes          String?
+  createdById    String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   // Relations
-  product              Product                   @relation(fields: [productId], references: [id])
-  createdBy            User                      @relation("BatchCreator", fields: [createdById], references: [id])
-  materialAllocations  BatchMaterialAllocation[]
+  product                  Product                        @relation(fields: [productId], references: [id])
+  createdBy                User                           @relation("BatchCreator", fields: [createdById], references: [id])
+  materialAllocations      BatchMaterialAllocation[]
   materialColorAllocations BatchMaterialColorAllocation[] // Alokasi varian warna
-  materialTransactions MaterialTransaction[]
-  sizeColorRequests    BatchSizeColorRequest[]  // Request ukuran dan warna
-  cuttingResults       CuttingResult[]          // Hasil pemotongan aktual
-  cuttingTask          CuttingTask?
-  sewingTask           SewingTask?
-  finishingTask        FinishingTask?
-  qualityChecks        QualityCheck[]
-  timeline             BatchTimeline[]
-  finishedGoods        FinishedGood[]
+  materialTransactions     MaterialTransaction[]
+  sizeColorRequests        BatchSizeColorRequest[] // Request ukuran dan warna
+  cuttingResults           CuttingResult[] // Hasil pemotongan aktual
+  cuttingTask              CuttingTask?
+  sewingTask               SewingTask? // Legacy - untuk backward compatibility
+  finishingTask            FinishingTask? // Legacy - untuk backward compatibility
+  subBatches               SubBatch[] // Sub-batches untuk sewing & finishing
+  qualityChecks            QualityCheck[]
+  timeline                 BatchTimeline[]
+  finishedGoods            FinishedGood[]
 
   @@index([batchSku])
   @@index([status])
@@ -317,17 +323,17 @@ enum AllocationStatus {
 }
 
 model BatchMaterialAllocation {
-  id              String           @id @default(cuid())
-  batchId         String
-  materialId      String
-  color           String           // Warna material yang diminta
-  rollQuantity    Int              // Jumlah roll yang dibawa
-  requestedQty    Decimal          @db.Decimal(15, 3) // Total meter (rollQuantity * meterPerRoll)
-  allocatedQty    Decimal?         @db.Decimal(15, 3)
-  status          AllocationStatus @default(REQUESTED)
-  notes           String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id           String           @id @default(cuid())
+  batchId      String
+  materialId   String
+  color        String // Warna material yang diminta
+  rollQuantity Int // Jumlah roll yang dibawa
+  requestedQty Decimal          @db.Decimal(15, 3) // Total meter (rollQuantity * meterPerRoll)
+  allocatedQty Decimal?         @db.Decimal(15, 3)
+  status       AllocationStatus @default(REQUESTED)
+  notes        String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   batch    ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
   material Material        @relation(fields: [materialId], references: [id])
@@ -342,14 +348,14 @@ model BatchMaterialColorAllocation {
   id                     String   @id @default(cuid())
   batchId                String
   materialColorVariantId String
-  rollQuantity           Int      // Jumlah roll untuk warna ini
+  rollQuantity           Int // Jumlah roll untuk warna ini
   allocatedQty           Decimal  @db.Decimal(15, 3) // Total meter yang dialokasikan
-  meterPerRoll           Decimal  @db.Decimal(15, 3) @default(95) // Panjang per roll (default 95m)
+  meterPerRoll           Decimal  @default(95) @db.Decimal(15, 3) // Panjang per roll (default 95m)
   notes                  String?
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 
-  batch                ProductionBatch       @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  batch                ProductionBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
   materialColorVariant MaterialColorVariant @relation(fields: [materialColorVariantId], references: [id])
 
   @@index([batchId])
@@ -371,21 +377,21 @@ enum TaskStatus {
 
 // Cutting Task (Pemotong)
 model CuttingTask {
-  id              String     @id @default(cuid())
-  batchId         String     @unique
-  assignedToId    String
-  materialReceived Decimal   @db.Decimal(15, 3)
-  piecesCompleted Int        @default(0)
-  rejectPieces    Int        @default(0)
-  wasteQty        Decimal?   @db.Decimal(15, 3)
-  status          TaskStatus @default(PENDING)
-  notes           String?
-  startedAt       DateTime?
-  completedAt     DateTime?
-  verifiedAt      DateTime?
-  verifiedById    String?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id               String     @id @default(cuid())
+  batchId          String     @unique
+  assignedToId     String
+  materialReceived Decimal    @db.Decimal(15, 3)
+  piecesCompleted  Int        @default(0)
+  rejectPieces     Int        @default(0)
+  wasteQty         Decimal?   @db.Decimal(15, 3)
+  status           TaskStatus @default(PENDING)
+  notes            String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  verifiedAt       DateTime?
+  verifiedById     String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   batch      ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
   assignedTo User            @relation("CuttingTaskAssigned", fields: [assignedToId], references: [id])
@@ -449,15 +455,117 @@ model FinishingTask {
 }
 
 // ============================================
+// SUB-BATCH (Pemecahan Batch untuk Sewing & Finishing)
+// ============================================
+
+enum SubBatchStatus {
+  ASSIGNED_TO_SEWER // Ditugaskan ke penjahit
+  IN_SEWING // Sedang dijahit
+  SEWING_COMPLETED // Jahitan selesai, menunggu konfirmasi
+  ASSIGNED_TO_FINISHING // Ditugaskan ke finishing
+  IN_FINISHING // Sedang finishing
+  FINISHING_COMPLETED // Finishing selesai
+  SUBMITTED_TO_WAREHOUSE // Diserahkan ke gudang
+  WAREHOUSE_VERIFIED // Diverifikasi gudang
+  COMPLETED // Selesai
+}
+
+model SubBatch {
+  id          String @id @default(cuid())
+  subBatchSku String @unique // Format: BATCH-SKU-SUB-001
+  batchId     String
+
+  // Penjahit assignment
+  assignedSewerId String
+
+  // Finishing assignment (optional, diisi saat assign finishing)
+  assignedFinisherId String?
+
+  // Warehouse verification
+  warehouseVerifiedById String?
+
+  // Quantity tracking per size/color
+  piecesAssigned  Int // Total pieces yang di-assign dari cutting
+  sewingOutput    Int @default(0) // Hasil jahitan (good pieces)
+  sewingReject    Int @default(0) // Reject dari jahitan
+  finishingOutput Int @default(0) // Hasil finishing (good pieces)
+  finishingReject Int @default(0) // Reject dari finishing
+
+  status SubBatchStatus @default(ASSIGNED_TO_SEWER)
+  notes  String?
+
+  // Timestamps
+  sewingStartedAt        DateTime?
+  sewingCompletedAt      DateTime?
+  sewingConfirmedAt      DateTime? // Konfirmasi oleh kepala produksi
+  finishingStartedAt     DateTime?
+  finishingCompletedAt   DateTime?
+  finishingConfirmedAt   DateTime? // Konfirmasi oleh kepala produksi
+  submittedToWarehouseAt DateTime?
+  warehouseVerifiedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  batch               ProductionBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  assignedSewer       User               @relation("SubBatchSewer", fields: [assignedSewerId], references: [id])
+  assignedFinisher    User?              @relation("SubBatchFinisher", fields: [assignedFinisherId], references: [id])
+  warehouseVerifiedBy User?              @relation("SubBatchWarehouseVerifier", fields: [warehouseVerifiedById], references: [id])
+  items               SubBatchItem[] // Detail per size/color
+  timeline            SubBatchTimeline[]
+  finishedGoods       FinishedGood[] // Barang jadi yang dihasilkan
+
+  @@index([batchId])
+  @@index([status])
+  @@index([assignedSewerId])
+  @@index([assignedFinisherId])
+  @@map("sub_batches")
+}
+
+// Detail item per size/color dalam sub-batch
+model SubBatchItem {
+  id              String   @id @default(cuid())
+  subBatchId      String
+  productSize     String // Ukuran (S, M, L, XL, XXL)
+  color           String // Warna
+  piecesAssigned  Int // Jumlah yang di-assign
+  sewingOutput    Int      @default(0) // Hasil jahitan
+  finishingOutput Int      @default(0) // Hasil finishing
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  subBatch SubBatch @relation(fields: [subBatchId], references: [id], onDelete: Cascade)
+
+  @@index([subBatchId])
+  @@map("sub_batch_items")
+}
+
+// Timeline untuk sub-batch
+model SubBatchTimeline {
+  id         String   @id @default(cuid())
+  subBatchId String
+  event      String // Event description
+  details    String?
+  createdAt  DateTime @default(now())
+
+  subBatch SubBatch @relation(fields: [subBatchId], references: [id], onDelete: Cascade)
+
+  @@index([subBatchId])
+  @@index([createdAt])
+  @@map("sub_batch_timeline")
+}
+
+// ============================================
 // SIZE & COLOR REQUESTS (Request Ukuran & Warna)
 // ============================================
 
 model BatchSizeColorRequest {
   id              String   @id @default(cuid())
   batchId         String
-  productSize     String   // Ukuran produk (S, M, L, XL, XXL, dll)
-  color           String   // Warna yang diminta
-  requestedPieces Int      // Jumlah potongan yang diminta
+  productSize     String // Ukuran produk (S, M, L, XL, XXL, dll)
+  color           String // Warna yang diminta
+  requestedPieces Int // Jumlah potongan yang diminta
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -472,19 +580,19 @@ model BatchSizeColorRequest {
 // ============================================
 
 model CuttingResult {
-  id              String   @id @default(cuid())
-  batchId         String
-  productSize     String   // Ukuran produk (S, M, L, XL, XXL, dll)
-  color           String   // Warna hasil potongan
-  actualPieces    Int      // Jumlah potongan yang terealisasi
-  isConfirmed     Boolean  @default(false) // Dikonfirmasi oleh kepala produksi
-  confirmedById   String?  // ID user yang konfirmasi (Kepala Produksi atau Pemotong)
-  confirmedAt     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String    @id @default(cuid())
+  batchId       String
+  productSize   String // Ukuran produk (S, M, L, XL, XXL, dll)
+  color         String // Warna hasil potongan
+  actualPieces  Int // Jumlah potongan yang terealisasi
+  isConfirmed   Boolean   @default(false) // Dikonfirmasi oleh kepala produksi
+  confirmedById String? // ID user yang konfirmasi (Kepala Produksi atau Pemotong)
+  confirmedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  batch ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  confirmedBy User?      @relation("CuttingResultConfirmed", fields: [confirmedById], references: [id])
+  batch       ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  confirmedBy User?           @relation("CuttingResultConfirmed", fields: [confirmedById], references: [id])
 
   @@index([batchId])
   @@index([isConfirmed])
@@ -496,28 +604,31 @@ model CuttingResult {
 // ============================================
 
 enum GoodType {
-  FINISHED    // Barang jadi (produk berhasil)
-  REJECT      // Barang gagal/reject
+  FINISHED // Barang jadi (produk berhasil)
+  REJECT // Barang gagal/reject
 }
 
 model FinishedGood {
-  id              String     @id @default(cuid())
-  batchId         String
-  productId       String
-  type            GoodType
-  quantity        Int
-  location        String?    // Lokasi penyimpanan di gudang
-  notes           String?
-  verifiedById    String     // Kepala gudang yang verifikasi
-  verifiedAt      DateTime   @default(now())
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id           String   @id @default(cuid())
+  batchId      String
+  productId    String
+  subBatchId   String? // Optional - linked to sub-batch for new flow
+  type         GoodType
+  quantity     Int
+  location     String? // Lokasi penyimpanan di gudang
+  notes        String?
+  verifiedById String // Kepala gudang yang verifikasi
+  verifiedAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  batch        ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  verifiedBy   User            @relation(fields: [verifiedById], references: [id])
+  batch      ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  subBatch   SubBatch?       @relation(fields: [subBatchId], references: [id])
+  verifiedBy User            @relation(fields: [verifiedById], references: [id])
 
   @@index([batchId])
   @@index([productId])
+  @@index([subBatchId])
   @@index([type])
   @@index([verifiedAt])
   @@map("finished_goods")
@@ -541,15 +652,15 @@ enum QualityStatus {
 }
 
 model QualityCheck {
-  id            String            @id @default(cuid())
-  batchId       String
-  stage         QualityCheckStage
-  status        QualityStatus
-  passedQty     Int
-  failedQty     Int
-  reworkQty     Int               @default(0)
-  remarks       String?
-  checkedAt     DateTime          @default(now())
+  id        String            @id @default(cuid())
+  batchId   String
+  stage     QualityCheckStage
+  status    QualityStatus
+  passedQty Int
+  failedQty Int
+  reworkQty Int               @default(0)
+  remarks   String?
+  checkedAt DateTime          @default(now())
 
   batch ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
@@ -570,6 +681,7 @@ enum TimelineEvent {
   CUTTING_STARTED
   CUTTING_COMPLETED
   CUTTING_VERIFIED
+  // Legacy events (untuk backward compatibility)
   ASSIGNED_TO_SEWER
   SEWING_STARTED
   SEWING_COMPLETED
@@ -580,6 +692,9 @@ enum TimelineEvent {
   WAREHOUSE_VERIFIED
   BATCH_COMPLETED
   BATCH_CANCELLED
+  // Sub-batch events
+  SUB_BATCHES_CREATED
+  ALL_SUB_BATCHES_COMPLETED
 }
 
 model BatchTimeline {
@@ -643,16 +758,16 @@ enum AuditAction {
 }
 
 model AuditLog {
-  id          String      @id @default(cuid())
-  userId      String
-  action      AuditAction
-  entity      String      // Table name
-  entityId    String?     // Record ID
-  oldValues   Json?
-  newValues   Json?
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime    @default(now())
+  id        String      @id @default(cuid())
+  userId    String
+  action    AuditAction
+  entity    String // Table name
+  entityId  String? // Record ID
+  oldValues Json?
+  newValues Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime    @default(now())
 
   user User @relation(fields: [userId], references: [id])
 

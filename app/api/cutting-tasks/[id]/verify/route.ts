@@ -102,6 +102,18 @@ export async function POST(
         },
       });
 
+      // If approved, confirm all cutting results
+      if (action === "approve") {
+        await tx.cuttingResult.updateMany({
+          where: { batchId: task.batchId },
+          data: {
+            isConfirmed: true,
+            confirmedById: session.user.id,
+            confirmedAt: new Date(),
+          },
+        });
+      }
+
       // Create timeline entry
       await tx.batchTimeline.create({
         data: {
