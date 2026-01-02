@@ -52,7 +52,20 @@ export async function POST(request: Request) {
   try {
     await requireRole(["OWNER", "KEPALA_GUDANG"]);
     const body = await request.json();
-    const { materialId, colorName, colorCode, stock } = body;
+    const {
+      materialId,
+      colorName,
+      colorCode,
+      stock,
+      minimumStock,
+      price,
+      rollQuantity,
+      meterPerRoll,
+      purchaseOrderNumber,
+      purchaseDate,
+      purchaseNotes,
+      supplier,
+    } = body;
 
     if (!materialId || !colorName) {
       return NextResponse.json(
@@ -88,8 +101,16 @@ export async function POST(request: Request) {
       data: {
         materialId,
         colorName,
-        colorCode,
+        colorCode: colorCode || null,
         stock: stock || 0,
+        minimumStock: minimumStock || 0,
+        price: price || 0,
+        rollQuantity: rollQuantity || null,
+        meterPerRoll: meterPerRoll || null,
+        purchaseOrderNumber: purchaseOrderNumber || null,
+        purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
+        purchaseNotes: purchaseNotes || null,
+        supplier: supplier || null,
       },
       include: {
         material: true,
@@ -99,6 +120,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       data: variant,
+      message: `Varian warna ${colorName} berhasil ditambahkan`,
     });
   } catch (error: unknown) {
     console.error("Error creating material color variant:", error);

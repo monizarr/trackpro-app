@@ -163,6 +163,16 @@ model MaterialColorVariant {
   colorCode    String?  // Kode warna (hex color atau custom code)
   stock        Decimal  @db.Decimal(15, 3) // Stock untuk warna ini dalam METER
   minimumStock Decimal  @db.Decimal(15, 3) @default(0) // Minimum stock dalam METER
+  
+  // Pricing & Purchase Info
+  price                Decimal   @db.Decimal(15, 2) @default(0) // Harga per meter
+  rollQuantity         Decimal?  @db.Decimal(15, 3) // Jumlah roll
+  meterPerRoll         Decimal?  @db.Decimal(15, 3) // Meter per roll
+  purchaseOrderNumber  String?   // Kode nota pemesanan
+  purchaseDate         DateTime? // Tanggal pembelian
+  purchaseNotes        String?   // Catatan pembelian
+  supplier             String?   // Nama supplier
+  
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

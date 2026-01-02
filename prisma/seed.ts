@@ -82,6 +82,32 @@ async function main() {
   });
   console.log("✅ Created user: Penjahit");
 
+  const penjahit2 = await prisma.user.upsert({
+    where: { email: "penjahit2@trackpro.com" },
+    update: {},
+    create: {
+      email: "penjahit2@trackpro.com",
+      username: "penjahit2",
+      password: hashedPassword,
+      name: "Staff Penjahit 2",
+      role: UserRole.PENJAHIT,
+    },
+  });
+  console.log("✅ Created user: Penjahit 2");
+
+  const penjahit3 = await prisma.user.upsert({
+    where: { email: "penjahit3@trackpro.com" },
+    update: {},
+    create: {
+      email: "penjahit3@trackpro.com",
+      username: "penjahit3",
+      password: hashedPassword,
+      name: "Staff Penjahit 3",
+      role: UserRole.PENJAHIT,
+    },
+  });
+  console.log("✅ Created user: Penjahit 3");
+
   const finishing = await prisma.user.upsert({
     where: { email: "finishing@trackpro.com" },
     update: {},
@@ -94,6 +120,32 @@ async function main() {
     },
   });
   console.log("✅ Created user: Finishing");
+
+  const finishing2 = await prisma.user.upsert({
+    where: { email: "finishing2@trackpro.com" },
+    update: {},
+    create: {
+      email: "finishing2@trackpro.com",
+      username: "finishing2",
+      password: hashedPassword,
+      name: "Staff Finishing 2",
+      role: UserRole.FINISHING,
+    },
+  });
+  console.log("✅ Created user: Finishing 2");
+
+  const finishing3 = await prisma.user.upsert({
+    where: { email: "finishing3@trackpro.com" },
+    update: {},
+    create: {
+      email: "finishing3@trackpro.com",
+      username: "finishing3",
+      password: hashedPassword,
+      name: "Staff Finishing 3",
+      role: UserRole.FINISHING,
+    },
+  });
+  console.log("✅ Created user: Finishing 3");
 
   // Create sample materials (Bahan Baku)
   const kainKatun = await prisma.material.upsert({
@@ -132,23 +184,6 @@ async function main() {
     },
   });
 
-  const benang = await prisma.material.upsert({
-    where: { code: "MAT-BENANG-001" },
-    update: {},
-    create: {
-      code: "MAT-BENANG-001",
-      name: "Benang Jahit Premium",
-      description: "Benang jahit kuat dan tahan lama",
-      unit: "METER",
-      purchaseOrderNumber: "PO-2025-002",
-      supplier: "PT Benang Jaya",
-      purchaseDate: new Date("2025-12-02"),
-      createdById: owner.id,
-    },
-  });
-
-  console.log("✅ Created sample materials");
-
   // Create material color variants
   await prisma.materialColorVariant.upsert({
     where: {
@@ -164,6 +199,13 @@ async function main() {
       colorCode: "#FFFFFF",
       stock: 500,
       minimumStock: 100,
+      price: 35000,
+      rollQuantity: 10,
+      meterPerRoll: 50,
+      purchaseOrderNumber: "PO-2026-001",
+      purchaseDate: new Date("2026-01-01"),
+      purchaseNotes: "Kain katun putih premium dari supplier utama",
+      supplier: "PT Tekstil Jaya",
     },
   });
 
@@ -181,6 +223,13 @@ async function main() {
       colorCode: "#000000",
       stock: 250,
       minimumStock: 50,
+      price: 38000,
+      rollQuantity: 5,
+      meterPerRoll: 50,
+      purchaseOrderNumber: "PO-2026-002",
+      purchaseDate: new Date("2026-01-01"),
+      purchaseNotes: "Kain katun hitam berkualitas tinggi",
+      supplier: "PT Tekstil Jaya",
     },
   });
 
@@ -198,6 +247,13 @@ async function main() {
       colorCode: "#008000",
       stock: 300,
       minimumStock: 80,
+      price: 42000,
+      rollQuantity: 6,
+      meterPerRoll: 50,
+      purchaseOrderNumber: "PO-2026-003",
+      purchaseDate: new Date("2025-12-28"),
+      purchaseNotes: "Kain katun hijau segar",
+      supplier: "CV Kain Nusantara",
     },
   });
 
@@ -215,6 +271,13 @@ async function main() {
       colorCode: "#006400",
       stock: 150,
       minimumStock: 30,
+      price: 40000,
+      rollQuantity: 3,
+      meterPerRoll: 50,
+      purchaseOrderNumber: "PO-2026-004",
+      purchaseDate: new Date("2025-12-28"),
+      purchaseNotes: "Kain katun hijau tua elegant",
+      supplier: "CV Kain Nusantara",
     },
   });
 
@@ -347,22 +410,6 @@ async function main() {
       materialId: kainKatun.id,
       quantity: 2.5,
       unit: "METER",
-    },
-  });
-
-  await prisma.productMaterial.upsert({
-    where: {
-      productId_materialId: {
-        productId: gamisPremium.id,
-        materialId: benang.id,
-      },
-    },
-    update: {},
-    create: {
-      productId: gamisPremium.id,
-      materialId: benang.id,
-      quantity: 1,
-      unit: "ROLL",
     },
   });
 

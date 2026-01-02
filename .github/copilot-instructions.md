@@ -69,12 +69,17 @@ pnpm build                    # Production build
 ### Test Credentials (from `prisma/seed.ts`)
 
 ```
-owner@trackpro.com / password123 (OWNER)
-gudang@trackpro.com / password123 (KEPALA_GUDANG)
-produksi@trackpro.com / password123 (KEPALA_PRODUKSI)
-pemotong@trackpro.com / password123 (PEMOTONG)
-penjahit@trackpro.com / password123 (PENJAHIT)
-finishing@trackpro.com / password123 (FINISHING)
+owner / password123 (OWNER)
+gudang / password123 (KEPALA_GUDANG)
+produksi / password123 (KEPALA_PRODUKSI)
+pemotong / password123 (PEMOTONG)
+penjahit / password123 (PENJAHIT)
+penjahit2 / password123 (PENJAHIT)
+penjahit3 / password123 (PENJAHIT)
+finishing / password123 (FINISHING)
+finishing2 / password123 (FINISHING)
+finishing3 / password123 (FINISHING)
+gudang / password123 (WAREHOUSE_VERIFIER)
 ```
 
 ## Critical Patterns

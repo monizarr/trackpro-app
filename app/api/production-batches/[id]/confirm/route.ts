@@ -149,8 +149,31 @@ export async function POST(
         )
       );
 
-      // NOTE: Stock already deducted during batch creation for materialColorAllocations
-      // Material transactions created during batch creation
+      // Deduct stock for material color allocations
+      for (const allocation of batch.materialColorAllocations) {
+        // Deduct stock from material color variant
+        await tx.materialColorVariant.update({
+          where: { id: allocation.materialColorVariantId },
+          data: {
+            stock: {
+              decrement: Number(allocation.allocatedQty),
+            },
+          },
+        });
+
+        // Create material transaction for audit trail
+        await tx.materialTransaction.create({
+          data: {
+            materialId: allocation.materialColorVariant.materialId,
+            type: "OUT",
+            quantity: Number(allocation.allocatedQty),
+            unit: allocation.materialColorVariant.material.unit,
+            notes: `Alokasi untuk batch ${batch.batchSku} - Varian: ${allocation.materialColorVariant.colorName}`,
+            batchId: batch.id,
+            userId: session.user.id,
+          },
+        });
+      }
 
       // Create timeline entry
       await tx.batchTimeline.create({

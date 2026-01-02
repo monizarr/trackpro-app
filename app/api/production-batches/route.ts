@@ -305,17 +305,8 @@ export async function POST(request: Request) {
       },
     });
 
-    // Update material color variant stock
-    for (const alloc of materialColorAllocations) {
-      await prisma.materialColorVariant.update({
-        where: { id: alloc.materialColorVariantId },
-        data: {
-          stock: {
-            decrement: parseFloat(alloc.requestedQty),
-          },
-        },
-      });
-    }
+    // NOTE: Stock is NOT deducted here - it will be deducted when batch is confirmed
+    // This allows batch to be cancelled before confirmation without affecting stock
 
     return NextResponse.json({
       success: true,
