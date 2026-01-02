@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select } from "@/components/ui/select"
+import { MultiSelect } from "@/components/ui/multi-select"
 import { toast } from "@/lib/toast"
 import { Plus, Trash2 } from "lucide-react"
 
@@ -23,13 +24,6 @@ interface MaterialColorVariant {
     colorName: string
     colorCode?: string
     stock: number
-}
-
-interface ProductColorVariant {
-    id: string
-    productId: string
-    colorName: string
-    colorCode?: string
 }
 
 interface Product {
@@ -44,13 +38,13 @@ interface Product {
             code: string
             unit: string
             color?: string
-            currentStock: number
         }
     }>
 }
 
 interface MaterialAllocation {
     materialId: string
+    materialColorVariantId: string // ID dari material_color_variants
     materialName: string
     color: string
     rollQuantity: number
@@ -59,10 +53,9 @@ interface MaterialAllocation {
     availableStock: number
 }
 
-interface SizeColorRequest {
-    productSize: string
-    color: string
-    requestedPieces: number
+interface SizeRequest {
+    color: string // Dari material allocation
+    sizes: string[] // Array of size names (S, M, L, XL, etc.)
 }
 
 interface CreateBatchDialogProps {
@@ -77,29 +70,10 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
     const [selectedProductId, setSelectedProductId] = useState("")
     const [notes, setNotes] = useState("")
     const [materialAllocations, setMaterialAllocations] = useState<MaterialAllocation[]>([])
-    const [sizeColorRequests, setSizeColorRequests] = useState<SizeColorRequest[]>([
-        { productSize: "", color: "", requestedPieces: 0 }
-    ])
+    const [sizeRequests, setSizeRequests] = useState<SizeRequest[]>([])
     const [materialColorVariants, setMaterialColorVariants] = useState<MaterialColorVariant[]>([])
-    const [productColorVariants, setProductColorVariants] = useState<ProductColorVariant[]>([])
 
     const selectedProduct = products.find(p => p.id === selectedProductId)
-
-    // Fetch product color variants when product is selected
-    useEffect(() => {
-        if (selectedProductId) {
-            fetch(`/api/product-variants?productId=${selectedProductId}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        setProductColorVariants(data.data)
-                    }
-                })
-                .catch(err => console.error("Error fetching product color variants:", err))
-        } else {
-            setProductColorVariants([])
-        }
-    }, [selectedProductId])
 
     // Fetch material color variants when material is selected in allocations
     useEffect(() => {
@@ -113,13 +87,41 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
                 )
             ).then(results => {
                 const allVariants = results.flatMap(r => r.success ? r.data : [])
-                setMaterialColorVariants(allVariants)
+                // Deduplicate by variant ID to prevent duplicate colors
+                const uniqueVariants = allVariants.filter((variant, index, self) =>
+                    index === self.findIndex((v) => v.id === variant.id)
+                )
+                setMaterialColorVariants(uniqueVariants)
             }).catch(err => console.error("Error fetching material color variants:", err))
         } else {
             setMaterialColorVariants([])
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [materialAllocations.map(a => a.materialId).join(',')])
+
+    // Sync size requests with material allocations colors
+    useEffect(() => {
+        const selectedColors = materialAllocations
+            .filter(alloc => alloc.color)
+            .map(alloc => alloc.color)
+
+        // Remove size requests for colors that are no longer selected
+        setSizeRequests(prev => {
+            const filtered = prev.filter(req => selectedColors.includes(req.color))
+
+            // Add size requests for new colors
+            const existingColors = filtered.map(req => req.color)
+            const newColors = selectedColors.filter(color => !existingColors.includes(color))
+
+            const newRequests = newColors.map(color => ({
+                color,
+                sizes: []
+            }))
+
+            return [...filtered, ...newRequests]
+        })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [materialAllocations.map(alloc => alloc.color).join(',')])
 
     const handleProductChange = (productId: string) => {
         setSelectedProductId(productId)
@@ -131,6 +133,7 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
             ...prev,
             {
                 materialId: "",
+                materialColorVariantId: "",
                 materialName: "",
                 color: "",
                 rollQuantity: 0,
@@ -158,13 +161,30 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
                             return {
                                 ...alloc,
                                 materialId: value as string,
+                                materialColorVariantId: "", // Reset when material changes
                                 materialName: productMaterial.material.name,
-                                color: productMaterial.material.color || "",
+                                color: "", // Reset color when material changes
                                 unit: productMaterial.material.unit,
-                                availableStock: Number(productMaterial.material.currentStock),
+                                availableStock: 0, // Will be set when color is selected
                             }
                         }
                     }
+
+                    // If color changed, find the variant and set materialColorVariantId
+                    if (field === "color" && typeof value === "string") {
+                        const variant = materialColorVariants.find(
+                            v => v.materialId === alloc.materialId && v.colorName === value
+                        )
+                        if (variant) {
+                            return {
+                                ...alloc,
+                                color: value as string,
+                                materialColorVariantId: variant.id,
+                                availableStock: Number(variant.stock),
+                            }
+                        }
+                    }
+
                     return { ...alloc, [field]: value } as MaterialAllocation
                 }
                 return alloc
@@ -172,23 +192,12 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
         )
     }
 
-    const addSizeColorRequest = () => {
-        setSizeColorRequests(prev => [
-            ...prev,
-            { productSize: "", color: "", requestedPieces: 0 }
-        ])
-    }
-
-    const removeSizeColorRequest = (index: number) => {
-        if (sizeColorRequests.length > 1) {
-            setSizeColorRequests(prev => prev.filter((_, i) => i !== index))
-        }
-    }
-
-    const updateSizeColorRequest = (index: number, field: string, value: string | number) => {
-        setSizeColorRequests(prev =>
-            prev.map((req, i) =>
-                i === index ? { ...req, [field]: value } as SizeColorRequest : req
+    const updateSizesForColor = (color: string, sizes: string[]) => {
+        setSizeRequests(prev =>
+            prev.map(req =>
+                req.color === color
+                    ? { ...req, sizes }
+                    : req
             )
         )
     }
@@ -206,30 +215,47 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
         }
 
         const invalidMaterial = materialAllocations.find(
-            m => !m.materialId || !m.color || m.rollQuantity <= 0
+            m => !m.materialId || !m.color || !m.materialColorVariantId || m.rollQuantity <= 0
         )
         if (invalidMaterial) {
             toast.error("Error", "Semua field bahan baku harus diisi dengan benar")
             return
         }
 
-        const invalidRequest = sizeColorRequests.find(
-            r => !r.productSize || !r.color || r.requestedPieces <= 0
-        )
+        // Validate stock availability (1 roll = 95 meters)
+        const METER_PER_ROLL = 95
+        for (const alloc of materialAllocations) {
+            const requiredMeters = alloc.rollQuantity * METER_PER_ROLL
+            if (requiredMeters > alloc.availableStock) {
+                toast.error(
+                    "Stok Tidak Cukup",
+                    `${alloc.materialName} - ${alloc.color}: Butuh ${requiredMeters}m (${alloc.rollQuantity} roll), tersedia ${alloc.availableStock}m`
+                )
+                return
+            }
+        }
+
+        if (sizeRequests.length === 0) {
+            toast.error("Error", "Minimal 1 request ukuran harus ditambahkan")
+            return
+        }
+
+        const invalidRequest = sizeRequests.find(req => req.sizes.length === 0)
         if (invalidRequest) {
-            toast.error("Error", "Semua field request ukuran/warna harus diisi dengan benar")
+            toast.error("Error", "Setiap warna harus memiliki minimal 1 ukuran")
             return
         }
 
         setCreating(true)
         try {
-            // Calculate requestedQty for each material (rollQuantity * meterPerRoll)
-            // For now, assume 50 meter per roll
+            const METER_PER_ROLL = 95
             const formattedMaterialAllocations = materialAllocations.map(alloc => ({
                 materialId: alloc.materialId,
+                materialColorVariantId: alloc.materialColorVariantId,
                 color: alloc.color,
                 rollQuantity: alloc.rollQuantity,
-                requestedQty: alloc.rollQuantity * 50, // TODO: Get from material data
+                requestedQty: alloc.rollQuantity * METER_PER_ROLL,
+                meterPerRoll: METER_PER_ROLL,
             }))
 
             const response = await fetch("/api/production-batches", {
@@ -240,12 +266,14 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
                 body: JSON.stringify({
                     productId: selectedProductId,
                     notes,
-                    materialAllocations: formattedMaterialAllocations,
-                    sizeColorRequests: sizeColorRequests.map(req => ({
-                        productSize: req.productSize,
-                        color: req.color,
-                        requestedPieces: parseInt(req.requestedPieces.toString()),
-                    })),
+                    materialColorAllocations: formattedMaterialAllocations,
+                    sizeColorRequests: sizeRequests.flatMap(req =>
+                        req.sizes.map(size => ({
+                            productSize: size,
+                            color: req.color,
+                            requestedPieces: 0, // Will be filled later during confirmation
+                        }))
+                    ),
                 }),
             })
 
@@ -271,11 +299,11 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
         setSelectedProductId("")
         setNotes("")
         setMaterialAllocations([])
-        setSizeColorRequests([{ productSize: "", color: "", requestedPieces: 0 }])
+        setSizeRequests([])
     }
 
     const totalRolls = materialAllocations.reduce((sum, alloc) => sum + (alloc.rollQuantity || 0), 0)
-    const totalRequestedPieces = sizeColorRequests.reduce((sum, req) => sum + (req.requestedPieces || 0), 0)
+    const totalSizeVariants = sizeRequests.reduce((sum, req) => sum + req.sizes.length, 0)
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -401,86 +429,44 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
                         )}
                     </div>
 
-                    {/* Size & Color Requests */}
+                    {/* Size Requests per Material Color */}
                     <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <Label>Request Ukuran & Warna *</Label>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                    Tentukan berapa banyak potongan untuk setiap ukuran dan warna
-                                </p>
-                            </div>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={addSizeColorRequest}
-                            >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Tambah Request
-                            </Button>
+                        <div>
+                            <Label>Request Ukuran (Berdasarkan Warna Bahan) *</Label>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                Pilih ukuran yang akan diproduksi untuk setiap warna bahan. Jumlah potongan akan diinput saat konfirmasi batch.
+                            </p>
                         </div>
 
-                        {sizeColorRequests.map((req, index) => (
-                            <div key={index} className="rounded-lg border p-4 space-y-3">
-                                <div className="flex items-start justify-between">
-                                    <Label>Request #{index + 1}</Label>
-                                    {sizeColorRequests.length > 1 && (
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => removeSizeColorRequest(index)}
-                                        >
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    )}
+                        {sizeRequests.length === 0 && (
+                            <div className="text-sm text-muted-foreground italic">
+                                Pilih bahan baku dan warna terlebih dahulu
+                            </div>
+                        )}
+
+                        {sizeRequests.map((req) => (
+                            <div key={req.color} className="rounded-lg border p-4 space-y-3">
+                                <div className="space-y-2">
+                                    <Label className="text-base">Warna: {req.color}</Label>
+                                    <MultiSelect
+                                        options={["XS", "S", "M", "L", "XL", "XXL", "XXXL"]}
+                                        selected={req.sizes}
+                                        onChange={(sizes) => updateSizesForColor(req.color, sizes)}
+                                        placeholder="Pilih ukuran untuk warna ini..."
+                                    />
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    <div className="space-y-2">
-                                        <Label>Ukuran</Label>
-                                        <Input
-                                            type="text"
-                                            placeholder="Misal: M, L, XL"
-                                            value={req.productSize}
-                                            onChange={(e) => updateSizeColorRequest(index, "productSize", e.target.value)}
-                                        />
+                                {req.sizes.length > 0 && (
+                                    <div className="text-sm text-muted-foreground">
+                                        Ukuran terpilih: {req.sizes.join(", ")}
                                     </div>
-
-                                    <div className="space-y-2">
-                                        <Label>Warna</Label>
-                                        <Select
-                                            value={req.color}
-                                            onChange={(e) => updateSizeColorRequest(index, "color", e.target.value)}
-                                            disabled={!selectedProductId}
-                                        >
-                                            <option value="">Pilih warna</option>
-                                            {productColorVariants.map((variant) => (
-                                                <option key={variant.id} value={variant.colorName}>
-                                                    {variant.colorName}
-                                                </option>
-                                            ))}
-                                        </Select>
-                                    </div>
-
-                                    {/* <div className="space-y-2">
-                                        <Label>Jumlah Potongan</Label>
-                                        <Input
-                                            type="number"
-                                            min="1"
-                                            placeholder="0"
-                                            value={req.requestedPieces || ""}
-                                            onChange={(e) => updateSizeColorRequest(index, "requestedPieces", parseInt(e.target.value) || 0)}
-                                        />
-                                    </div> */}
-                                </div>
+                                )}
                             </div>
                         ))}
 
-                        {sizeColorRequests.length > 0 && (
+                        {sizeRequests.length > 0 && (
                             <div className="text-sm font-medium">
-                                Total Potongan yang Diharapkan: {totalRequestedPieces} pcs
+                                Total Varian Ukuran: {totalSizeVariants}
                             </div>
                         )}
                     </div>

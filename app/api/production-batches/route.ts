@@ -45,6 +45,21 @@ export async function GET(request: Request) {
             },
           },
         },
+        materialColorAllocations: {
+          include: {
+            materialColorVariant: {
+              include: {
+                material: {
+                  select: {
+                    name: true,
+                    code: true,
+                    unit: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         sizeColorRequests: true,
         cuttingResults: {
           include: {
@@ -85,6 +100,18 @@ export async function GET(request: Request) {
           ? Number(allocation.allocatedQty)
           : null,
       })),
+      materialColorAllocations: batch.materialColorAllocations.map(
+        (allocation) => ({
+          ...allocation,
+          allocatedQty: Number(allocation.allocatedQty),
+          meterPerRoll: Number(allocation.meterPerRoll),
+          materialColorVariant: {
+            ...allocation.materialColorVariant,
+            stock: Number(allocation.materialColorVariant.stock),
+            minimumStock: Number(allocation.materialColorVariant.minimumStock),
+          },
+        })
+      ),
     }));
 
     return NextResponse.json({
@@ -107,8 +134,35 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await requireRole(["OWNER", "KEPALA_PRODUKSI"]);
+
+    // Validate session has user ID
+    if (!session?.user?.id) {
+      console.error("Session missing user ID:", session);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid session - user ID not found",
+        },
+        { status: 401 }
+      );
+    }
+
+    // Verify user exists in database
+    const userExists = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+
+    if (!userExists) {
+      console.error("User not found in database:", session.user.id);
+      return NextResponse.json(
+        { success: false, error: "User not found - please login again" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
-    const { productId, notes, materialAllocations, sizeColorRequests } = body;
+    const { productId, notes, materialColorAllocations, sizeColorRequests } =
+      body;
 
     // Validate required fields
     if (!productId) {
@@ -119,6 +173,56 @@ export async function POST(request: Request) {
         },
         { status: 400 }
       );
+    }
+
+    // Validate material color allocations
+    if (!materialColorAllocations || materialColorAllocations.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Material color allocations are required",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate stock availability (1 roll = 95 meters by default)
+    for (const alloc of materialColorAllocations) {
+      const variant = await prisma.materialColorVariant.findUnique({
+        where: { id: alloc.materialColorVariantId },
+      });
+
+      if (!variant) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Material color variant not found for allocation`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const requiredQty = alloc.requestedQty;
+      if (Number(variant.stock) < requiredQty) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Insufficient stock for ${alloc.color}. Required: ${requiredQty}m, Available: ${variant.stock}m`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Check minimum stock
+      if (Number(variant.stock) - requiredQty < Number(variant.minimumStock)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Allocation will cause ${alloc.color} to fall below minimum stock (${variant.minimumStock}m)`,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Generate unique batch SKU
@@ -134,13 +238,15 @@ export async function POST(request: Request) {
     const batchSku = `PROD-${dateStr}-${String(count + 1).padStart(3, "0")}`;
 
     // Hitung total rolls dari material allocations
-    const totalRolls =
-      materialAllocations?.reduce(
-        (sum: number, allocation: any) => sum + (allocation.rollQuantity || 0),
-        0
-      ) || 0;
+    const totalRolls = materialColorAllocations.reduce(
+      (sum: number, allocation: any) => sum + (allocation.rollQuantity || 0),
+      0
+    );
 
-    // Create batch with material allocations and size/color requests
+    console.log("Creating batch with createdById:", session.user.id);
+    console.log("Session user:", session.user);
+
+    // Create batch with material color allocations and size/color requests
     const batch = await prisma.productionBatch.create({
       data: {
         batchSku,
@@ -148,17 +254,26 @@ export async function POST(request: Request) {
         totalRolls,
         notes: notes || "",
         createdById: session.user.id,
-        status:
-          materialAllocations?.length > 0 ? "MATERIAL_REQUESTED" : "PENDING",
+        status: "MATERIAL_REQUESTED",
+        // Create legacy material allocations for backward compatibility
         materialAllocations: {
-          create:
-            materialAllocations?.map((allocation: any) => ({
-              materialId: allocation.materialId,
-              color: allocation.color,
-              rollQuantity: parseInt(allocation.rollQuantity),
-              requestedQty: parseFloat(allocation.requestedQty),
-              status: "REQUESTED",
-            })) || [],
+          create: materialColorAllocations.map((allocation: any) => ({
+            materialId: allocation.materialId,
+            color: allocation.color,
+            rollQuantity: parseInt(allocation.rollQuantity),
+            requestedQty: parseFloat(allocation.requestedQty),
+            status: "REQUESTED",
+          })),
+        },
+        // Create new material color allocations
+        materialColorAllocations: {
+          create: materialColorAllocations.map((allocation: any) => ({
+            materialColorVariantId: allocation.materialColorVariantId,
+            rollQuantity: parseInt(allocation.rollQuantity),
+            allocatedQty: parseFloat(allocation.requestedQty),
+            meterPerRoll: parseFloat(allocation.meterPerRoll || 95),
+            notes: `Allocated ${allocation.rollQuantity} rolls of ${allocation.color}`,
+          })),
         },
         sizeColorRequests: {
           create:
@@ -182,12 +297,30 @@ export async function POST(request: Request) {
             material: true,
           },
         },
+        materialColorAllocations: {
+          include: {
+            materialColorVariant: true,
+          },
+        },
       },
     });
+
+    // Update material color variant stock
+    for (const alloc of materialColorAllocations) {
+      await prisma.materialColorVariant.update({
+        where: { id: alloc.materialColorVariantId },
+        data: {
+          stock: {
+            decrement: parseFloat(alloc.requestedQty),
+          },
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
       data: batch,
+      message: `Batch ${batchSku} created successfully`,
     });
   } catch (error) {
     console.error("Error creating production batch:", error);

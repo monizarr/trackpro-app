@@ -39,6 +39,16 @@ export async function GET() {
         batch: {
           include: {
             product: true,
+            sizeColorRequests: {
+              orderBy: {
+                productSize: "asc",
+              },
+            },
+            cuttingResults: {
+              orderBy: {
+                productSize: "asc",
+              },
+            },
           },
         },
       },

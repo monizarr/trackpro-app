@@ -13,11 +13,7 @@ export async function GET() {
         name: true,
         description: true,
         unit: true,
-        currentStock: true,
-        minimumStock: true,
         rollQuantity: true,
-        meterPerRoll: true,
-        price: true,
         purchaseOrderNumber: true,
         supplier: true,
         purchaseDate: true,
@@ -25,6 +21,19 @@ export async function GET() {
         isActive: true,
         createdAt: true,
         updatedAt: true,
+        colorVariants: {
+          select: {
+            id: true,
+            colorName: true,
+            colorCode: true,
+            stock: true,
+            minimumStock: true,
+            isActive: true,
+          },
+          where: {
+            isActive: true,
+          },
+        },
       },
       where: {
         isActive: true,
@@ -53,6 +62,32 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await requireRole(["OWNER", "KEPALA_GUDANG"]);
+
+    // Validate session has user ID
+    if (!session?.user?.id) {
+      console.error("Session missing user ID:", session);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid session - user ID not found",
+        },
+        { status: 401 }
+      );
+    }
+
+    // Verify user exists in database
+    const userExists = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+
+    if (!userExists) {
+      console.error("User not found in database:", session.user.id);
+      return NextResponse.json(
+        { success: false, error: "User not found - please login again" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const {
       code,
@@ -71,11 +106,11 @@ export async function POST(request: Request) {
     } = body;
 
     // Validate required fields
-    if (!code || !name || minimumStock === undefined || price === undefined) {
+    if (!code || !name) {
       return NextResponse.json(
         {
           success: false,
-          error: "Missing required fields",
+          error: "Code and name are required",
         },
         { status: 400 }
       );
@@ -96,17 +131,16 @@ export async function POST(request: Request) {
       );
     }
 
+    console.log("Creating material with createdById:", session.user.id);
+    console.log("Session user:", session.user);
+
     const material = await prisma.material.create({
       data: {
         code,
         name,
         description,
         unit: "METER", // Force METER as default unit
-        currentStock: initialStock ? parseFloat(initialStock.toString()) : 0,
-        minimumStock: parseFloat(minimumStock.toString()),
-        price: parseFloat(price.toString()),
         rollQuantity: rollQuantity ? parseFloat(rollQuantity.toString()) : null,
-        meterPerRoll: meterPerRoll ? parseFloat(meterPerRoll.toString()) : null,
         purchaseOrderNumber: purchaseOrderNumber || null,
         supplier: supplier || null,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : null,

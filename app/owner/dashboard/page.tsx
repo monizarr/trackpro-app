@@ -28,12 +28,16 @@ interface ProductionBatch {
     };
 }
 
-interface Material {
+interface MaterialColorVariant {
     id: string;
-    name: string;
-    code: string;
-    currentStock: number;
+    colorName: string;
+    stock: number;
     minimumStock: number;
+    material: {
+        id: string;
+        name: string;
+        code: string;
+    };
 }
 
 interface DashboardStats {
@@ -53,7 +57,7 @@ export default function DashboardPage() {
         criticalMaterials: 0,
     });
     const [recentBatches, setRecentBatches] = useState<ProductionBatch[]>([]);
-    const [criticalMaterials, setCriticalMaterials] = useState<Material[]>([]);
+    const [criticalMaterials, setCriticalMaterials] = useState<MaterialColorVariant[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -65,20 +69,20 @@ export default function DashboardPage() {
             setLoading(true);
 
             // Fetch all data in parallel
-            const [productsRes, batchesRes, materialsRes] = await Promise.all([
+            const [productsRes, batchesRes, materialVariantsRes] = await Promise.all([
                 fetch("/api/products"),
                 fetch("/api/production-batches"),
-                fetch("/api/materials"),
+                fetch("/api/material-color-variants"),
             ]);
 
             const productsData = await productsRes.json();
             const batchesData = await batchesRes.json();
-            const materialsData = await materialsRes.json();
+            const materialVariantsData = await materialVariantsRes.json();
 
-            if (productsData.success && batchesData.success && materialsData.success) {
+            if (productsData.success && batchesData.success && materialVariantsData.success) {
                 const products = productsData.data || [];
                 const batches = batchesData.data || [];
-                const materials = materialsData.data || [];
+                const materialVariants = materialVariantsData.data || [];
 
                 // Calculate stats
                 const activeBatches = batches.filter((b: ProductionBatch) =>
@@ -89,8 +93,8 @@ export default function DashboardPage() {
                 );
 
                 // Get critical materials (stock <= 50% of minimum)
-                const critical = materials.filter((m: Material) =>
-                    m.currentStock <= m.minimumStock * 0.5
+                const critical = materialVariants.filter((m: MaterialColorVariant) =>
+                    Number(m.stock) <= Number(m.minimumStock) * 0.5
                 );
 
                 setStats({
@@ -282,14 +286,16 @@ export default function DashboardPage() {
                                 </CardHeader>
                                 <CardContent className="space-y-3">
                                     {criticalMaterials.length > 0 ? (
-                                        criticalMaterials.map((material) => (
-                                            <div key={material.id} className="flex items-start space-x-3 rounded-lg border p-3 bg-red-50 border-red-200">
+                                        criticalMaterials.map((variant) => (
+                                            <div key={variant.id} className="flex items-start space-x-3 rounded-lg border p-3 bg-red-50 border-red-200">
                                                 <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
                                                 <div className="space-y-1 flex-1 min-w-0">
-                                                    <p className="text-sm font-medium leading-none">{material.name}</p>
+                                                    <p className="text-sm font-medium leading-none">
+                                                        {variant.material.name} - {variant.colorName}
+                                                    </p>
                                                     <p className="text-xs text-muted-foreground">
-                                                        Current: <span className="font-medium text-red-600">{material.currentStock}</span> /
-                                                        Min: {material.minimumStock}
+                                                        Current: <span className="font-medium text-red-600">{Number(variant.stock).toFixed(2)}m</span> /
+                                                        Min: {Number(variant.minimumStock).toFixed(2)}m
                                                     </p>
                                                 </div>
                                             </div>

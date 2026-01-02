@@ -26,7 +26,19 @@ export async function POST(
             material: {
               select: {
                 name: true,
-                currentStock: true,
+              },
+            },
+          },
+        },
+        materialColorAllocations: {
+          include: {
+            materialColorVariant: {
+              include: {
+                material: {
+                  select: {
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -55,27 +67,33 @@ export async function POST(
       );
     }
 
-    // Check material availability
-    const insufficientMaterials = batch.materialAllocations.filter(
-      (allocation) =>
-        Number(allocation.material.currentStock) <
-        Number(allocation.requestedQty)
-    );
-
-    if (insufficientMaterials.length > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Insufficient material stock",
-          insufficientMaterials: insufficientMaterials.map((m) => ({
-            material: m.material.name,
-            needed: Number(m.requestedQty),
-            available: Number(m.material.currentStock),
-          })),
-        },
-        { status: 400 }
+    // Check material color variant availability (NEW SYSTEM)
+    if (
+      batch.materialColorAllocations &&
+      batch.materialColorAllocations.length > 0
+    ) {
+      const insufficientColorVariants = batch.materialColorAllocations.filter(
+        (allocation) =>
+          Number(allocation.materialColorVariant.stock) <
+          Number(allocation.allocatedQty)
       );
+
+      if (insufficientColorVariants.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Insufficient material color variant stock",
+            insufficientMaterials: insufficientColorVariants.map((m) => ({
+              material: `${m.materialColorVariant.material.name} - ${m.materialColorVariant.colorName}`,
+              needed: Number(m.allocatedQty),
+              available: Number(m.materialColorVariant.stock),
+            })),
+          },
+          { status: 400 }
+        );
+      }
     }
+    // NOTE: No fallback to old system - must use material color variants
 
     // Update batch status and material allocations in transaction
     const updatedBatch = await prisma.$transaction(async (tx) => {
@@ -102,7 +120,15 @@ export async function POST(
                   code: true,
                   name: true,
                   unit: true,
-                  currentStock: true,
+                },
+              },
+            },
+          },
+          materialColorAllocations: {
+            include: {
+              materialColorVariant: {
+                include: {
+                  material: true,
                 },
               },
             },
@@ -123,36 +149,8 @@ export async function POST(
         )
       );
 
-      // Deduct material stock
-      await Promise.all(
-        batch.materialAllocations.map((allocation) =>
-          tx.material.update({
-            where: { id: allocation.materialId },
-            data: {
-              currentStock: {
-                decrement: allocation.requestedQty,
-              },
-            },
-          })
-        )
-      );
-
-      // Create material transactions
-      await Promise.all(
-        batch.materialAllocations.map((allocation) =>
-          tx.materialTransaction.create({
-            data: {
-              materialId: allocation.materialId,
-              batchId: id,
-              type: "OUT",
-              quantity: allocation.requestedQty,
-              unit: allocation.material.unit,
-              notes: `Alokasi untuk batch ${batch.batchSku}`,
-              userId: session.user.id,
-            },
-          })
-        )
-      );
+      // NOTE: Stock already deducted during batch creation for materialColorAllocations
+      // Material transactions created during batch creation
 
       // Create timeline entry
       await tx.batchTimeline.create({

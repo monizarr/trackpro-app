@@ -27,7 +27,6 @@ export async function GET(
                 code: true,
                 name: true,
                 unit: true,
-                currentStock: true,
               },
             },
           },
@@ -104,116 +103,16 @@ export async function POST(
       );
     }
 
-    // Check if all materials have sufficient stock
-    for (const allocation of batch.materialAllocations) {
-      const currentStock = parseFloat(
-        allocation.material.currentStock.toString()
-      );
-      const requestedQty = parseFloat(allocation.requestedQty.toString());
-
-      if (currentStock < requestedQty) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Insufficient stock for ${allocation.material.name}. Available: ${currentStock}, Requested: ${requestedQty}`,
-          },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Perform allocation in transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Update all material allocations to ALLOCATED
-      for (const allocation of batch.materialAllocations) {
-        await tx.batchMaterialAllocation.update({
-          where: { id: allocation.id },
-          data: {
-            status: "ALLOCATED",
-            allocatedQty: allocation.requestedQty,
-          },
-        });
-
-        // Create material OUT transaction
-        await tx.materialTransaction.create({
-          data: {
-            materialId: allocation.materialId,
-            type: "OUT",
-            quantity: allocation.requestedQty,
-            unit: allocation.material.unit,
-            notes: `Alokasi untuk batch ${batch.batchSku}`,
-            batchId: batch.id,
-            userId: session.user.id,
-          },
-        });
-
-        // Update material stock
-        const newStock =
-          parseFloat(allocation.material.currentStock.toString()) -
-          parseFloat(allocation.requestedQty.toString());
-        await tx.material.update({
-          where: { id: allocation.materialId },
-          data: {
-            currentStock: newStock,
-          },
-        });
-      }
-
-      // Update batch status to MATERIAL_ALLOCATED
-      const updatedBatch = await tx.productionBatch.update({
-        where: { id: batchId },
-        data: {
-          status: "MATERIAL_ALLOCATED",
-          notes: notes || batch.notes,
-        },
-        include: {
-          product: {
-            select: {
-              name: true,
-              sku: true,
-            },
-          },
-          materialAllocations: {
-            include: {
-              material: {
-                select: {
-                  code: true,
-                  name: true,
-                  unit: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      // Create timeline event
-      await tx.batchTimeline.create({
-        data: {
-          batchId,
-          event: "MATERIAL_ALLOCATED",
-          details: `Material allocated by ${session.user.name}`,
-        },
-      });
-
-      // Create notification for production head
-      await tx.notification.create({
-        data: {
-          userId: batch.createdById,
-          type: "MATERIAL_REQUEST",
-          title: "Material Allocated",
-          message: `Material untuk batch ${batch.batchSku} telah dialokasikan`,
-          link: `/production/batch/${batch.id}`,
-        },
-      });
-
-      return updatedBatch;
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
+    // NOTE: This endpoint is deprecated - material allocation happens during batch creation
+    // Stock is managed via MaterialColorVariant table
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "This endpoint is deprecated. Material allocation happens during batch creation using color variants.",
+      },
+      { status: 400 }
+    );
   } catch (error) {
     console.error("Error allocating materials:", error);
     return NextResponse.json(

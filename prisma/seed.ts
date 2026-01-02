@@ -105,11 +105,7 @@ async function main() {
       description: "Kain katun berkualitas tinggi untuk gamis",
       color: "Putih",
       unit: "METER",
-      currentStock: 500,
-      minimumStock: 100,
       rollQuantity: 10,
-      meterPerRoll: 50,
-      price: 50000,
       purchaseOrderNumber: "PO-2025-001",
       supplier: "CV Kain Nusantara",
       purchaseDate: new Date("2025-12-01"),
@@ -127,11 +123,7 @@ async function main() {
       description: "Kain katun berkualitas tinggi untuk gamis",
       color: "Hijau",
       unit: "METER",
-      currentStock: 300,
-      minimumStock: 100,
       rollQuantity: 6,
-      meterPerRoll: 50,
-      price: 50000,
       purchaseOrderNumber: "PO-2025-001",
       supplier: "CV Kain Nusantara",
       purchaseDate: new Date("2025-12-01"),
@@ -148,9 +140,6 @@ async function main() {
       name: "Benang Jahit Premium",
       description: "Benang jahit kuat dan tahan lama",
       unit: "METER",
-      currentStock: 200,
-      minimumStock: 50,
-      price: 15000,
       purchaseOrderNumber: "PO-2025-002",
       supplier: "PT Benang Jaya",
       purchaseDate: new Date("2025-12-02"),
@@ -174,6 +163,7 @@ async function main() {
       colorName: "Putih",
       colorCode: "#FFFFFF",
       stock: 500,
+      minimumStock: 100,
     },
   });
 
@@ -190,6 +180,7 @@ async function main() {
       colorName: "Hitam",
       colorCode: "#000000",
       stock: 250,
+      minimumStock: 50,
     },
   });
 
@@ -206,6 +197,7 @@ async function main() {
       colorName: "Hijau",
       colorCode: "#008000",
       stock: 300,
+      minimumStock: 80,
     },
   });
 
@@ -222,6 +214,7 @@ async function main() {
       colorName: "Hijau Tua",
       colorCode: "#006400",
       stock: 150,
+      minimumStock: 30,
     },
   });
 

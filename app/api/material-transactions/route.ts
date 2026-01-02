@@ -119,146 +119,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get material to check stock and unit
-    const material = await prisma.material.findUnique({
-      where: { id: materialId },
-    });
-
-    console.log("Material fetched for transaction:", material);
-
-    if (!material) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Material not found",
-        },
-        { status: 404 }
-      );
-    }
-
-    // Validate stock for OUT transactions
-    if (type === "OUT" && Number(material.currentStock) < Number(quantity)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Insufficient stock",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Create transaction and update stock in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Prepare transaction data
-      const transactionData: any = {
-        materialId,
-        type,
-        quantity: parseFloat(quantity.toString()),
-        unit: material.unit,
-        notes: notes || null,
-        userId: session.user.id,
-      };
-
-      // Add purchase info only for type IN
-      if (type === "IN") {
-        if (
-          rollQuantity !== undefined &&
-          rollQuantity !== null &&
-          rollQuantity !== ""
-        ) {
-          transactionData.rollQuantity = parseFloat(rollQuantity.toString());
-        }
-        if (
-          meterPerRoll !== undefined &&
-          meterPerRoll !== null &&
-          meterPerRoll !== ""
-        ) {
-          transactionData.meterPerRoll = parseFloat(meterPerRoll.toString());
-        }
-        if (purchaseOrderNumber) {
-          transactionData.purchaseOrderNumber = purchaseOrderNumber;
-        }
-        if (supplier) {
-          transactionData.supplier = supplier;
-        }
-        if (purchaseDate) {
-          transactionData.purchaseDate = new Date(purchaseDate);
-        }
-        if (purchaseNotes) {
-          transactionData.purchaseNotes = purchaseNotes;
-        }
-      }
-
-      console.log(
-        "Creating transaction with data:",
-        JSON.stringify(transactionData, null, 2)
-      );
-
-      // Create transaction record
-      const transaction = await tx.materialTransaction.create({
-        data: transactionData,
-        include: {
-          material: {
-            select: {
-              code: true,
-              name: true,
-              unit: true,
-            },
-          },
-          user: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      });
-
-      // Update material stock
-      let newStock = Number(material.currentStock);
-      if (type === "IN") {
-        newStock += Number(quantity);
-      } else if (type === "OUT") {
-        newStock -= Number(quantity);
-      } else if (type === "ADJUSTMENT") {
-        newStock = Number(quantity); // Set to exact quantity
-      } else if (type === "RETURN") {
-        newStock += Number(quantity);
-      }
-
-      // Update material - also update roll quantity and purchase info if type is IN
-      const updateData: any = {
-        currentStock: newStock,
-      };
-
-      // If this is a stock IN transaction, update material's purchase info
-      if (type === "IN") {
-        if (rollQuantity) {
-          updateData.rollQuantity = material.rollQuantity
-            ? Number(material.rollQuantity) +
-              parseFloat(rollQuantity.toString())
-            : parseFloat(rollQuantity.toString());
-        }
-        if (meterPerRoll)
-          updateData.meterPerRoll = parseFloat(meterPerRoll.toString());
-        if (purchaseOrderNumber)
-          updateData.purchaseOrderNumber = purchaseOrderNumber;
-        if (supplier) updateData.supplier = supplier;
-        if (purchaseDate) updateData.purchaseDate = new Date(purchaseDate);
-        if (purchaseNotes) updateData.purchaseNotes = purchaseNotes;
-      }
-
-      await tx.material.update({
-        where: { id: materialId },
-        data: updateData,
-      });
-
-      return transaction;
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
+    // NOTE: Stock management moved to MaterialColorVariant table
+    // This endpoint is deprecated for stock IN/OUT operations
+    // Use material-color-variants API instead
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Material transactions are now managed through MaterialColorVariant. Please use /api/material-color-variants for stock operations.",
+      },
+      { status: 400 }
+    );
   } catch (error) {
     console.error("Error creating transaction:", error);
     return NextResponse.json(

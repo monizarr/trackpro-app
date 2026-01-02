@@ -24,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,13 +41,14 @@ import {
   Search,
   TrendingDown,
   TrendingUp,
+  Eye,
   Edit,
   Trash2,
-  PackagePlus,
+  History,
 } from "lucide-react"
 import { toast } from "@/lib/toast"
 
-// Interfaces sesuai dengan struktur database
+// Interfaces sesuai dengan struktur database baru
 interface Material {
   id: string
   code: string
@@ -106,6 +108,7 @@ export default function StocksPage() {
     code: "",
     name: "",
     description: "",
+    unit: "METER",
     supplier: "",
   })
 
@@ -113,11 +116,11 @@ export default function StocksPage() {
     materialId: "",
     colorName: "",
     colorCode: "",
-    stock: "",
-    minimumStock: "",
-    price: "",
-    rollQuantity: "",
-    meterPerRoll: "",
+    stock: 0,
+    minimumStock: 0,
+    price: 0,
+    rollQuantity: 0,
+    meterPerRoll: 0,
     purchaseOrderNumber: "",
     purchaseDate: "",
     purchaseNotes: "",
@@ -146,7 +149,7 @@ export default function StocksPage() {
 
       if (data.success) {
         setVariants(data.data)
-
+        
         // Calculate statistics
         const totalValue = data.data.reduce(
           (sum: number, v: MaterialColorVariant) => sum + v.stock * v.price,
@@ -168,7 +171,6 @@ export default function StocksPage() {
       }
     } catch (error) {
       console.error("Error fetching variants:", error)
-      toast.error("Error", "Gagal mengambil data varian")
     }
   }
 
@@ -182,7 +184,6 @@ export default function StocksPage() {
       }
     } catch (error) {
       console.error("Error fetching materials:", error)
-      toast.error("Error", "Gagal mengambil data bahan baku")
     }
   }
 
@@ -212,11 +213,12 @@ export default function StocksPage() {
           code: "",
           name: "",
           description: "",
+          unit: "METER",
           supplier: "",
         })
-        toast.success("Berhasil", `Bahan baku ${createMaterialForm.name} berhasil ditambahkan`)
+        toast.success("Bahan Baku Ditambahkan", `${createMaterialForm.name} berhasil ditambahkan`)
       } else {
-        toast.error("Gagal", data.error || "Tidak dapat menambahkan bahan baku")
+        toast.error("Gagal Menambahkan", data.error || "Tidak dapat menambahkan bahan baku")
       }
     } catch (error) {
       console.error("Error creating material:", error)
@@ -259,19 +261,19 @@ export default function StocksPage() {
           materialId: "",
           colorName: "",
           colorCode: "",
-          stock: "",
-          minimumStock: "",
-          price: "",
-          rollQuantity: "",
-          meterPerRoll: "",
+          stock: 0,
+          minimumStock: 0,
+          price: 0,
+          rollQuantity: 0,
+          meterPerRoll: 0,
           purchaseOrderNumber: "",
           purchaseDate: "",
           purchaseNotes: "",
           supplier: "",
         })
-        toast.success("Berhasil", "Varian warna berhasil ditambahkan")
+        toast.success("Varian Ditambahkan", "Varian warna berhasil ditambahkan")
       } else {
-        toast.error("Gagal", data.error || "Tidak dapat menambahkan varian")
+        toast.error("Gagal Menambahkan", data.error || "Tidak dapat menambahkan varian")
       }
     } catch (error) {
       console.error("Error adding variant:", error)
@@ -305,9 +307,9 @@ export default function StocksPage() {
         await fetchVariants()
         setIsEditVariantOpen(false)
         setSelectedVariant(null)
-        toast.success("Berhasil", "Varian berhasil diperbarui")
+        toast.success("Varian Diperbarui", "Varian berhasil diperbarui")
       } else {
-        toast.error("Gagal", data.error || "Tidak dapat memperbarui varian")
+        toast.error("Gagal Memperbarui", data.error || "Tidak dapat memperbarui varian")
       }
     } catch (error) {
       console.error("Error updating variant:", error)
@@ -333,9 +335,9 @@ export default function StocksPage() {
         await fetchVariants()
         setIsDeleteDialogOpen(false)
         setSelectedVariant(null)
-        toast.success("Berhasil", "Varian berhasil dihapus")
+        toast.success("Varian Dihapus", "Varian berhasil dihapus")
       } else {
-        toast.error("Gagal", data.error || "Tidak dapat menghapus varian")
+        toast.error("Gagal Menghapus", data.error || "Tidak dapat menghapus varian")
       }
     } catch (error) {
       console.error("Error deleting variant:", error)
@@ -351,11 +353,11 @@ export default function StocksPage() {
       materialId: variant.materialId,
       colorName: variant.colorName,
       colorCode: variant.colorCode || "",
-      stock: variant.stock.toString(),
-      minimumStock: variant.minimumStock.toString(),
-      price: variant.price.toString(),
-      rollQuantity: variant.rollQuantity?.toString() || "",
-      meterPerRoll: variant.meterPerRoll?.toString() || "",
+      stock: variant.stock,
+      minimumStock: variant.minimumStock,
+      price: variant.price,
+      rollQuantity: variant.rollQuantity || 0,
+      meterPerRoll: variant.meterPerRoll || 0,
       purchaseOrderNumber: variant.purchaseOrderNumber || "",
       purchaseDate: variant.purchaseDate ? new Date(variant.purchaseDate).toISOString().split('T')[0] : "",
       purchaseNotes: variant.purchaseNotes || "",
@@ -370,9 +372,9 @@ export default function StocksPage() {
   }
 
   const getStockStatus = (current: number, minimum: number) => {
-    if (current === 0) return { status: "critical", label: "Habis", variant: "destructive" as const }
-    if (current <= minimum) return { status: "low", label: "Menipis", variant: "warning" as const }
-    return { status: "good", label: "Aman", variant: "default" as const }
+    if (current === 0) return "critical"
+    if (current <= minimum) return "low"
+    return "good"
   }
 
   const filteredVariants = variants.filter((variant) =>
@@ -381,12 +383,12 @@ export default function StocksPage() {
     variant.colorName.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const formatCurrency = (amount: number) => {
+  const formatPrice = (price: number) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
       minimumFractionDigits: 0,
-    }).format(amount)
+    }).format(price)
   }
 
   return (
@@ -395,7 +397,7 @@ export default function StocksPage() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Inventaris Bahan Baku</h2>
           <p className="text-muted-foreground">
-            Kelola bahan baku dan varian warna
+            Pantau tingkat stok bahan baku dan varian warna
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -410,7 +412,7 @@ export default function StocksPage() {
               <DialogHeader>
                 <DialogTitle>Tambah Bahan Baku Baru</DialogTitle>
                 <DialogDescription>
-                  Tambahkan bahan baku baru. Setelah ditambahkan, Anda bisa menambahkan varian warna.
+                  Tambahkan bahan baku baru ke sistem. Setelah ditambahkan, Anda bisa menambahkan varian warna.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateMaterial} className="space-y-4">
@@ -460,13 +462,8 @@ export default function StocksPage() {
                     onChange={(e) =>
                       setCreateMaterialForm({ ...createMaterialForm, supplier: e.target.value })
                     }
-                    placeholder="Nama supplier"
+                    placeholder="Nama supplier..."
                   />
-                </div>
-                <div className="bg-muted/50 p-3 rounded-md">
-                  <p className="text-sm text-muted-foreground">
-                    <strong>Catatan:</strong> Semua bahan baku menggunakan satuan METER sebagai unit default.
-                  </p>
                 </div>
                 <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
                   <Button
@@ -478,7 +475,7 @@ export default function StocksPage() {
                     Batal
                   </Button>
                   <Button type="submit" disabled={isSaving}>
-                    {isSaving ? "Menyimpan..." : "Simpan Bahan Baku"}
+                    {isSaving ? "Menyimpan..." : "Simpan"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -488,8 +485,8 @@ export default function StocksPage() {
           <Dialog open={isAddVariantOpen} onOpenChange={setIsAddVariantOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">
-                <PackagePlus className="mr-2 h-4 w-4" />
-                Tambah Varian
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Varian Warna
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -505,14 +502,14 @@ export default function StocksPage() {
                     <Label htmlFor="materialId">Bahan Baku *</Label>
                     <select
                       id="materialId"
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       value={variantForm.materialId}
                       onChange={(e) =>
                         setVariantForm({ ...variantForm, materialId: e.target.value })
                       }
+                      className="w-full rounded-md border border-input bg-background px-3 py-2"
                       required
                     >
-                      <option value="">Pilih Bahan Baku</option>
+                      <option value="">Pilih bahan baku...</option>
                       {materials.map((material) => (
                         <option key={material.id} value={material.id}>
                           {material.code} - {material.name}
@@ -528,7 +525,7 @@ export default function StocksPage() {
                       onChange={(e) =>
                         setVariantForm({ ...variantForm, colorName: e.target.value })
                       }
-                      placeholder="Putih"
+                      placeholder="Merah"
                       required
                     />
                   </div>
@@ -540,7 +537,7 @@ export default function StocksPage() {
                       onChange={(e) =>
                         setVariantForm({ ...variantForm, colorCode: e.target.value })
                       }
-                      placeholder="#FFFFFF"
+                      placeholder="#FF0000"
                     />
                   </div>
                   <div className="space-y-2">
@@ -551,23 +548,21 @@ export default function StocksPage() {
                       step="0.01"
                       value={variantForm.stock}
                       onChange={(e) =>
-                        setVariantForm({ ...variantForm, stock: e.target.value })
+                        setVariantForm({ ...variantForm, stock: Number(e.target.value) })
                       }
-                      placeholder="0"
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="minimumStock">Stok Minimum (Meter) *</Label>
+                    <Label htmlFor="minimumStock">Minimum Stok (Meter) *</Label>
                     <Input
                       id="minimumStock"
                       type="number"
                       step="0.01"
                       value={variantForm.minimumStock}
                       onChange={(e) =>
-                        setVariantForm({ ...variantForm, minimumStock: e.target.value })
+                        setVariantForm({ ...variantForm, minimumStock: Number(e.target.value) })
                       }
-                      placeholder="0"
                       required
                     />
                   </div>
@@ -579,9 +574,8 @@ export default function StocksPage() {
                       step="0.01"
                       value={variantForm.price}
                       onChange={(e) =>
-                        setVariantForm({ ...variantForm, price: e.target.value })
+                        setVariantForm({ ...variantForm, price: Number(e.target.value) })
                       }
-                      placeholder="0"
                       required
                     />
                   </div>
@@ -592,9 +586,8 @@ export default function StocksPage() {
                       type="number"
                       value={variantForm.rollQuantity}
                       onChange={(e) =>
-                        setVariantForm({ ...variantForm, rollQuantity: e.target.value })
+                        setVariantForm({ ...variantForm, rollQuantity: Number(e.target.value) })
                       }
-                      placeholder="0"
                     />
                   </div>
                   <div className="space-y-2">
@@ -605,9 +598,8 @@ export default function StocksPage() {
                       step="0.01"
                       value={variantForm.meterPerRoll}
                       onChange={(e) =>
-                        setVariantForm({ ...variantForm, meterPerRoll: e.target.value })
+                        setVariantForm({ ...variantForm, meterPerRoll: Number(e.target.value) })
                       }
-                      placeholder="0"
                     />
                   </div>
                   <div className="space-y-2">
@@ -618,7 +610,7 @@ export default function StocksPage() {
                       onChange={(e) =>
                         setVariantForm({ ...variantForm, supplier: e.target.value })
                       }
-                      placeholder="Nama supplier"
+                      placeholder="Nama supplier..."
                     />
                   </div>
                   <div className="space-y-2">
@@ -629,7 +621,7 @@ export default function StocksPage() {
                       onChange={(e) =>
                         setVariantForm({ ...variantForm, purchaseOrderNumber: e.target.value })
                       }
-                      placeholder="PO-2024-001"
+                      placeholder="PO-001"
                     />
                   </div>
                   <div className="space-y-2">
@@ -651,7 +643,7 @@ export default function StocksPage() {
                       onChange={(e) =>
                         setVariantForm({ ...variantForm, purchaseNotes: e.target.value })
                       }
-                      placeholder="Catatan tambahan..."
+                      placeholder="Catatan..."
                       rows={2}
                     />
                   </div>
@@ -666,7 +658,7 @@ export default function StocksPage() {
                     Batal
                   </Button>
                   <Button type="submit" disabled={isSaving}>
-                    {isSaving ? "Menyimpan..." : "Simpan Varian"}
+                    {isSaving ? "Menyimpan..." : "Simpan"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -684,58 +676,63 @@ export default function StocksPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{statistics.totalVariants}</div>
-            <p className="text-xs text-muted-foreground">Varian warna tersedia</p>
+            <p className="text-xs text-muted-foreground">varian warna aktif</p>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Stok Menipis</CardTitle>
-            <TrendingDown className="h-4 w-4 text-yellow-600" />
+            <CardTitle className="text-sm font-medium">Stok Rendah</CardTitle>
+            <TrendingDown className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{statistics.lowStockItems}</div>
-            <p className="text-xs text-muted-foreground">Perlu diperhatikan</p>
+            <div className="text-2xl font-bold text-orange-600">
+              {statistics.lowStockItems}
+            </div>
+            <p className="text-xs text-muted-foreground">item perlu diisi ulang</p>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Stok Habis</CardTitle>
-            <TrendingUp className="h-4 w-4 text-red-600" />
+            <TrendingDown className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{statistics.outOfStockItems}</div>
-            <p className="text-xs text-muted-foreground">Perlu segera diisi</p>
+            <div className="text-2xl font-bold text-red-600">
+              {statistics.outOfStockItems}
+            </div>
+            <p className="text-xs text-muted-foreground">item habis</p>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nilai Total</CardTitle>
-            <Package2 className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Nilai</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(statistics.totalValue)}</div>
-            <p className="text-xs text-muted-foreground">Nilai inventaris</p>
+            <div className="text-2xl font-bold">{formatPrice(statistics.totalValue)}</div>
+            <p className="text-xs text-muted-foreground">nilai inventaris</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Cari bahan baku atau warna..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8"
-          />
-        </div>
-      </div>
-
-      {/* Table */}
+      {/* Materials Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Daftar Varian Bahan Baku</CardTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle>Daftar Bahan Baku & Varian</CardTitle>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cari bahan atau warna..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border overflow-x-auto">
@@ -743,32 +740,31 @@ export default function StocksPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Kode</TableHead>
-                  <TableHead>Bahan Baku</TableHead>
+                  <TableHead>Nama Bahan</TableHead>
                   <TableHead>Warna</TableHead>
-                  <TableHead className="text-right">Stok (M)</TableHead>
+                  <TableHead className="text-right">Stok</TableHead>
                   <TableHead className="text-right">Min. Stok</TableHead>
+                  <TableHead className="text-right">Harga/Meter</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Harga/M</TableHead>
-                  <TableHead className="text-right">Total Nilai</TableHead>
-                  <TableHead className="text-center">Aksi</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
-                      Memuat data...
+                    <TableCell colSpan={8} className="text-center">
+                      Loading...
                     </TableCell>
                   </TableRow>
                 ) : filteredVariants.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
-                      {searchQuery ? "Tidak ada data yang cocok" : "Belum ada varian warna"}
+                    <TableCell colSpan={8} className="text-center">
+                      Tidak ada data
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredVariants.map((variant) => {
-                    const stockStatus = getStockStatus(variant.stock, variant.minimumStock)
+                    const status = getStockStatus(variant.stock, variant.minimumStock)
                     return (
                       <TableRow key={variant.id}>
                         <TableCell className="font-medium">{variant.material.code}</TableCell>
@@ -784,25 +780,26 @@ export default function StocksPage() {
                             {variant.colorName}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {variant.stock.toLocaleString("id-ID")}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {variant.minimumStock.toLocaleString("id-ID")}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={stockStatus.variant}>
-                            {stockStatus.label}
-                          </Badge>
+                        <TableCell className="text-right">
+                          {variant.stock.toFixed(2)} {variant.material.unit}
                         </TableCell>
                         <TableCell className="text-right">
-                          {formatCurrency(variant.price)}
+                          {variant.minimumStock.toFixed(2)} {variant.material.unit}
                         </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(variant.stock * variant.price)}
+                        <TableCell className="text-right">{formatPrice(variant.price)}</TableCell>
+                        <TableCell>
+                          {status === "critical" && (
+                            <Badge variant="destructive">Habis</Badge>
+                          )}
+                          {status === "low" && (
+                            <Badge className="bg-orange-100 text-orange-800">Rendah</Badge>
+                          )}
+                          {status === "good" && (
+                            <Badge className="bg-green-100 text-green-800">Aman</Badge>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center justify-center gap-1">
+                          <div className="flex justify-end gap-2">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -815,7 +812,7 @@ export default function StocksPage() {
                               size="sm"
                               onClick={() => openDeleteDialog(variant)}
                             >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
                           </div>
                         </TableCell>
@@ -829,89 +826,62 @@ export default function StocksPage() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
+      {/* Edit Variant Dialog */}
       <Dialog open={isEditVariantOpen} onOpenChange={setIsEditVariantOpen}>
         <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Varian Warna</DialogTitle>
+            <DialogTitle>Edit Varian</DialogTitle>
             <DialogDescription>
-              Edit informasi varian warna (stok tidak bisa diubah di sini)
+              Edit informasi varian {selectedVariant?.material.name} - {selectedVariant?.colorName}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditVariant} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Bahan Baku</Label>
-              <Input
-                value={selectedVariant?.material.name || ""}
-                disabled
-                className="bg-muted"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Warna</Label>
-              <Input
-                value={variantForm.colorName}
-                disabled
-                className="bg-muted"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-colorCode">Kode Warna</Label>
-              <Input
-                id="edit-colorCode"
-                value={variantForm.colorCode}
-                onChange={(e) =>
-                  setVariantForm({ ...variantForm, colorCode: e.target.value })
-                }
-                placeholder="#FFFFFF"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-minimumStock">Stok Minimum *</Label>
+                <Label htmlFor="edit-colorCode">Kode Warna</Label>
+                <Input
+                  id="edit-colorCode"
+                  value={variantForm.colorCode}
+                  onChange={(e) =>
+                    setVariantForm({ ...variantForm, colorCode: e.target.value })
+                  }
+                  placeholder="#FF0000"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-minimumStock">Minimum Stok (Meter)</Label>
                 <Input
                   id="edit-minimumStock"
                   type="number"
                   step="0.01"
                   value={variantForm.minimumStock}
                   onChange={(e) =>
-                    setVariantForm({ ...variantForm, minimumStock: e.target.value })
+                    setVariantForm({ ...variantForm, minimumStock: Number(e.target.value) })
                   }
-                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-price">Harga per Meter *</Label>
+                <Label htmlFor="edit-price">Harga per Meter</Label>
                 <Input
                   id="edit-price"
                   type="number"
                   step="0.01"
                   value={variantForm.price}
                   onChange={(e) =>
-                    setVariantForm({ ...variantForm, price: e.target.value })
+                    setVariantForm({ ...variantForm, price: Number(e.target.value) })
                   }
-                  required
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-supplier">Supplier</Label>
-              <Input
-                id="edit-supplier"
-                value={variantForm.supplier}
-                onChange={(e) =>
-                  setVariantForm({ ...variantForm, supplier: e.target.value })
-                }
-                placeholder="Nama supplier"
-              />
-            </div>
-            <div className="bg-muted/50 p-3 rounded-md">
-              <p className="text-sm text-muted-foreground">
-                <strong>Stok saat ini:</strong> {selectedVariant?.stock.toLocaleString("id-ID")} meter
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Untuk mengubah stok, gunakan fitur transaksi stok
-              </p>
+              <div className="space-y-2">
+                <Label htmlFor="edit-supplier">Supplier</Label>
+                <Input
+                  id="edit-supplier"
+                  value={variantForm.supplier}
+                  onChange={(e) =>
+                    setVariantForm({ ...variantForm, supplier: e.target.value })
+                  }
+                />
+              </div>
             </div>
             <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
               <Button
@@ -948,7 +918,7 @@ export default function StocksPage() {
             <AlertDialogAction
               onClick={handleDeleteVariant}
               disabled={isSaving}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-600 hover:bg-red-700"
             >
               {isSaving ? "Menghapus..." : "Hapus"}
             </AlertDialogAction>

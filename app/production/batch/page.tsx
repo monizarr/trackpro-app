@@ -1,6 +1,6 @@
 "use client"
 
-import { Plus, Search, Eye, CheckCircle, AlertCircle, Package, UserPlus } from "lucide-react"
+import { Plus, Search, Eye, CheckCircle, AlertCircle, Package, UserPlus, Scissors } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,25 @@ interface Material {
     code: string
     name: string
     unit: string
-    currentStock: number
+}
+
+interface MaterialColorVariant {
+    id: string
+    materialId: string
+    colorName: string
+    colorCode?: string
+    stock: number
+    minimumStock: number
+    material: Material
+}
+
+interface MaterialColorAllocation {
+    id: string
+    materialColorVariantId: string
+    rollQuantity: number
+    allocatedQty: number
+    meterPerRoll: number
+    materialColorVariant: MaterialColorVariant
 }
 
 interface ProductMaterial {
@@ -48,6 +66,7 @@ interface Batch {
     createdAt: string
     product: Product
     materialAllocations?: MaterialAllocation[]
+    materialColorAllocations?: MaterialColorAllocation[]
     sizeColorRequests?: Array<{
         id: string
         productSize: string
@@ -181,6 +200,15 @@ export default function BatchManagementPage() {
     const [selectedFinisherId, setSelectedFinisherId] = useState("")
     const [assignFinisherNotes, setAssignFinisherNotes] = useState("")
     const [assigningFinisher, setAssigningFinisher] = useState(false)
+    const [showInputCuttingDialog, setShowInputCuttingDialog] = useState(false)
+    const [inputCuttingBatch, setInputCuttingBatch] = useState<Batch | null>(null)
+    const [cuttingResults, setCuttingResults] = useState<Array<{
+        productSize: string
+        color: string
+        actualPieces: number
+    }>>([])
+    const [cuttingNotes, setCuttingNotes] = useState("")
+    const [submittingCutting, setSubmittingCutting] = useState(false)
 
     // Form state - handled by CreateBatchDialog component
 
@@ -220,6 +248,7 @@ export default function BatchManagementPage() {
     // Batch creation handled by CreateBatchDialog component
 
     const handleConfirmBatch = async () => {
+        console.log(selectedBatch)
         if (!selectedBatch) return
 
         setConfirming(true)
@@ -227,6 +256,19 @@ export default function BatchManagementPage() {
             const response = await fetch(`/api/production-batches/${selectedBatch.id}/confirm`, {
                 method: "POST",
             })
+
+            if (!response.ok) {
+                const text = await response.text()
+                let errorMessage = "Gagal mengkonfirmasi batch"
+                try {
+                    const result = JSON.parse(text)
+                    errorMessage = result.error || errorMessage
+                } catch {
+                    errorMessage = `Server error: ${response.status} ${response.statusText}`
+                }
+                toast.error("Error", errorMessage)
+                return
+            }
 
             const result = await response.json()
 
@@ -367,9 +409,25 @@ export default function BatchManagementPage() {
     }
 
     const openVerifyDialog = async (batch: Batch) => {
-        setVerifyBatch(batch)
         setVerifyAction("approve")
         setVerifyNotes("")
+
+        // Fetch full batch details including cutting results
+        try {
+            const batchResponse = await fetch(`/api/production-batches/${batch.id}`)
+            const batchResult = await batchResponse.json()
+
+            if (batchResult.success) {
+                setVerifyBatch(batchResult.data)
+            } else {
+                toast.error("Error", "Gagal memuat detail batch")
+                return
+            }
+        } catch (error) {
+            console.error("Error fetching batch details:", error)
+            toast.error("Error", "Gagal memuat detail batch")
+            return
+        }
 
         // Fetch cutting task details
         try {
@@ -561,6 +619,76 @@ export default function BatchManagementPage() {
         }
     }
 
+    const openInputCuttingDialog = async (batch: Batch) => {
+        // Fetch full batch details
+        try {
+            const response = await fetch(`/api/production-batches/${batch.id}`)
+            const result = await response.json()
+
+            if (result.success) {
+                setInputCuttingBatch(result.data)
+
+                // Initialize cutting results from sizeColorRequests
+                if (result.data.sizeColorRequests) {
+                    setCuttingResults(result.data.sizeColorRequests.map((req: any) => ({
+                        productSize: req.productSize,
+                        color: req.color,
+                        actualPieces: req.requestedPieces // Default to requested
+                    })))
+                }
+
+                setCuttingNotes("")
+                setShowInputCuttingDialog(true)
+            }
+        } catch (error) {
+            console.error("Error fetching batch details:", error)
+            toast.error("Error", "Gagal memuat detail batch")
+        }
+    }
+
+    const handleSubmitCuttingResults = async () => {
+        if (!inputCuttingBatch) return
+
+        // Validation
+        const totalActual = cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0)
+        if (totalActual === 0) {
+            toast.error("Error", "Total actual pieces harus lebih dari 0")
+            return
+        }
+
+        setSubmittingCutting(true)
+        try {
+            const response = await fetch(`/api/production-batches/${inputCuttingBatch.id}/input-cutting-results`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    cuttingResults,
+                    notes: cuttingNotes,
+                }),
+            })
+
+            const result = await response.json()
+
+            if (result.success) {
+                toast.success("Berhasil", result.message || "Hasil potongan berhasil disimpan")
+                setShowInputCuttingDialog(false)
+                setInputCuttingBatch(null)
+                setCuttingResults([])
+                setCuttingNotes("")
+                fetchBatches()
+            } else {
+                toast.error("Error", result.error || "Gagal menyimpan hasil potongan")
+            }
+        } catch (error) {
+            console.error("Error submitting cutting results:", error)
+            toast.error("Error", "Terjadi kesalahan saat menyimpan hasil potongan")
+        } finally {
+            setSubmittingCutting(false)
+        }
+    }
+
     const handleAssignToFinisher = async () => {
         if (!assignFinisherBatch || !selectedFinisherId) {
             toast.error("Error", "Pilih finisher terlebih dahulu")
@@ -720,7 +848,67 @@ export default function BatchManagementPage() {
                             {/* Material Allocations */}
                             <div className="space-y-2">
                                 <Label>Material yang Dibutuhkan</Label>
-                                {selectedBatch.materialAllocations && selectedBatch.materialAllocations.length > 0 ? (
+                                {selectedBatch.materialColorAllocations && selectedBatch.materialColorAllocations.length > 0 ? (
+                                    <div className="rounded-md border">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Material</TableHead>
+                                                    <TableHead>Warna</TableHead>
+                                                    <TableHead className="text-right">Roll</TableHead>
+                                                    <TableHead className="text-right">Kebutuhan</TableHead>
+                                                    <TableHead className="text-right">Stok</TableHead>
+                                                    <TableHead className="text-center">Status</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {selectedBatch.materialColorAllocations.map((allocation, idx) => {
+                                                    const available = Number(allocation.materialColorVariant.stock)
+                                                    const needed = Number(allocation.allocatedQty)
+                                                    const sufficient = available >= needed
+
+                                                    return (
+                                                        <TableRow key={idx}>
+                                                            <TableCell>
+                                                                <div>
+                                                                    <p className="font-medium">{allocation.materialColorVariant.material.name}</p>
+                                                                    <p className="text-sm text-muted-foreground">
+                                                                        {allocation.materialColorVariant.material.code}
+                                                                    </p>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="outline">{allocation.materialColorVariant.colorName}</Badge>
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                {allocation.rollQuantity}
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                ~ {needed} m
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                {available} {allocation.materialColorVariant.material.unit}
+                                                            </TableCell>
+                                                            <TableCell className="text-center">
+                                                                {sufficient ? (
+                                                                    <Badge className="bg-green-500">
+                                                                        <CheckCircle className="h-3 w-3 mr-1" />
+                                                                        Cukup
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <Badge variant="destructive">
+                                                                        <AlertCircle className="h-3 w-3 mr-1" />
+                                                                        Kurang
+                                                                    </Badge>
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                ) : selectedBatch.materialAllocations && selectedBatch.materialAllocations.length > 0 ? (
                                     <div className="rounded-md border">
                                         <Table>
                                             <TableHeader>
@@ -756,10 +944,10 @@ export default function BatchManagementPage() {
                                                                 {allocation.rollQuantity}
                                                             </TableCell>
                                                             <TableCell className="text-right">
-                                                                {needed} {allocation.unit}
+                                                                {needed.toFixed(2)} {allocation.unit}
                                                             </TableCell>
                                                             <TableCell className="text-right">
-                                                                {available} {allocation.unit}
+                                                                {available.toFixed(2)} {allocation.unit}
                                                             </TableCell>
                                                             <TableCell className="text-center">
                                                                 {sufficient ? (
@@ -791,8 +979,8 @@ export default function BatchManagementPage() {
                             </div>
 
                             {/* Warning if insufficient stock */}
-                            {selectedBatch.materialAllocations?.some(
-                                (a) => Number(a.material.currentStock) < Number(a.requestedQty)
+                            {selectedBatch.materialColorAllocations?.some(
+                                (a) => Number(a.materialColorVariant.stock) < Number(a.allocatedQty)
                             ) && (
                                     <Alert variant="destructive">
                                         <AlertCircle className="h-4 w-4" />
@@ -829,8 +1017,8 @@ export default function BatchManagementPage() {
                             onClick={handleConfirmBatch}
                             disabled={
                                 confirming ||
-                                selectedBatch?.materialAllocations?.some(
-                                    (a) => Number(a.material.currentStock) < Number(a.requestedQty)
+                                selectedBatch?.materialColorAllocations?.some(
+                                    (a) => Number(a.materialColorVariant.stock) < Number(a.allocatedQty)
                                 ) ||
                                 false
                             }
@@ -843,7 +1031,7 @@ export default function BatchManagementPage() {
 
             {/* Assign to Cutter Dialog */}
             <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-                <DialogContent className="max-w-2xl" >
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" >
                     <DialogHeader>
                         <DialogTitle>Assign ke Pemotong</DialogTitle>
                         <DialogDescription>
@@ -873,44 +1061,64 @@ export default function BatchManagementPage() {
                             </div>
 
                             {/* Material yang Sudah Dialokasikan */}
-                            {assignBatch.materialAllocations && assignBatch.materialAllocations.length > 0 && (
-                                <div className="space-y-2">
-                                    <Label>Bahan Baku untuk Pemotongan</Label>
-                                    <p className="text-sm text-muted-foreground">
-                                        Material yang sudah dialokasikan dan siap diteruskan ke pemotong
-                                    </p>
-                                    <div className="rounded-md border">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Material</TableHead>
-                                                    <TableHead>Warna</TableHead>
-                                                    <TableHead className="text-right">Roll</TableHead>
-                                                    <TableHead className="text-right">Total</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {assignBatch.materialAllocations.map((allocation, idx) => (
-                                                    <TableRow key={idx}>
-                                                        <TableCell className="font-medium">
-                                                            {allocation.material?.name || allocation.materialName}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant="outline">{allocation.color}</Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            {allocation.rollQuantity}
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            {Number(allocation.requestedQty)} {allocation.unit}
-                                                        </TableCell>
+                            {((assignBatch.materialColorAllocations && assignBatch.materialColorAllocations.length > 0) ||
+                                (assignBatch.materialAllocations && assignBatch.materialAllocations.length > 0)) && (
+                                    <div className="space-y-2">
+                                        <Label>Bahan Baku untuk Pemotongan</Label>
+                                        <p className="text-sm text-muted-foreground">
+                                            Material yang sudah dialokasikan dan siap diteruskan ke pemotong
+                                        </p>
+                                        <div className="rounded-md border">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Material</TableHead>
+                                                        <TableHead>Warna</TableHead>
+                                                        <TableHead className="text-right">Roll</TableHead>
+                                                        <TableHead className="text-right">Total</TableHead>
                                                     </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {assignBatch.materialColorAllocations && assignBatch.materialColorAllocations.length > 0 ? (
+                                                        assignBatch.materialColorAllocations.map((allocation, idx) => (
+                                                            <TableRow key={idx}>
+                                                                <TableCell className="font-medium">
+                                                                    {allocation.materialColorVariant.material.name}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Badge variant="outline">{allocation.materialColorVariant.colorName}</Badge>
+                                                                </TableCell>
+                                                                <TableCell className="text-right">
+                                                                    {allocation.rollQuantity}
+                                                                </TableCell>
+                                                                <TableCell className="text-right">
+                                                                    {Number(allocation.allocatedQty).toFixed(2)} m
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))
+                                                    ) : (
+                                                        assignBatch.materialAllocations?.map((allocation, idx) => (
+                                                            <TableRow key={idx}>
+                                                                <TableCell className="font-medium">
+                                                                    {allocation.material?.name || allocation.materialName}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Badge variant="outline">{allocation.color}</Badge>
+                                                                </TableCell>
+                                                                <TableCell className="text-right">
+                                                                    {allocation.rollQuantity}
+                                                                </TableCell>
+                                                                <TableCell className="text-right">
+                                                                    {Number(allocation.requestedQty).toFixed(2)} {allocation.unit}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
                             {/* Size & Color Requests */}
                             {assignBatch.sizeColorRequests && assignBatch.sizeColorRequests.length > 0 && (
@@ -1043,25 +1251,75 @@ export default function BatchManagementPage() {
                             {/* Cutting Results */}
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Hasil Pemotongan</CardTitle>
+                                    <CardTitle>Hasil Pemotongan per Size & Warna</CardTitle>
                                 </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="p-3 border rounded-lg">
-                                            <Label className="text-muted-foreground text-xs">Pieces Completed</Label>
-                                            <p className="text-2xl font-bold text-green-600">{cuttingTask.piecesCompleted}</p>
+                                <CardContent className="space-y-4">
+                                    {/* Table of cutting results */}
+                                    {verifyBatch.cuttingResults && verifyBatch.cuttingResults.length > 0 ? (
+                                        <>
+                                            <div className="border rounded-lg overflow-hidden">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead>Size</TableHead>
+                                                            <TableHead>Warna</TableHead>
+                                                            <TableHead className="text-right">Target</TableHead>
+                                                            <TableHead className="text-right">Actual Pieces</TableHead>
+                                                            <TableHead className="text-right">Selisih</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {verifyBatch.cuttingResults.map((result, idx) => {
+                                                            const request = verifyBatch.sizeColorRequests?.find(
+                                                                r => r.productSize === result.productSize && r.color === result.color
+                                                            )
+                                                            const target = request?.requestedPieces || 0
+                                                            const diff = result.actualPieces - target
+                                                            return (
+                                                                <TableRow key={idx}>
+                                                                    <TableCell>
+                                                                        <Badge variant="outline">{result.productSize}</Badge>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <Badge variant="secondary">{result.color}</Badge>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right font-medium">
+                                                                        {target} pcs
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right font-bold">
+                                                                        {result.actualPieces} pcs
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        <span className={diff === 0 ? "text-green-600" : diff > 0 ? "text-blue-600" : "text-red-600"}>
+                                                                            {diff > 0 ? '+' : ''}{diff} pcs
+                                                                        </span>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            )
+                                                        })}
+                                                        <TableRow className="bg-muted/50 font-bold">
+                                                            <TableCell colSpan={2}>Total</TableCell>
+                                                            <TableCell className="text-right">
+                                                                {verifyBatch.sizeColorRequests?.reduce((sum, r) => sum + r.requestedPieces, 0) || 0} pcs
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                {verifyBatch.cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0)} pcs
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                {verifyBatch.cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0) -
+                                                                    (verifyBatch.sizeColorRequests?.reduce((sum, r) => sum + r.requestedPieces, 0) || 0)} pcs
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-center py-8 text-muted-foreground">
+                                            Belum ada hasil potongan yang diinput
                                         </div>
-                                        <div className="p-3 border rounded-lg">
-                                            <Label className="text-muted-foreground text-xs">Reject Pieces</Label>
-                                            <p className="text-2xl font-bold text-red-600">{cuttingTask.rejectPieces}</p>
-                                        </div>
-                                        <div className="p-3 border rounded-lg">
-                                            <Label className="text-muted-foreground text-xs">Waste (kg)</Label>
-                                            <p className="text-2xl font-bold text-orange-600">
-                                                {cuttingTask.wasteQty ? Number(cuttingTask.wasteQty).toFixed(2) : "0.00"}
-                                            </p>
-                                        </div>
-                                    </div>
+                                    )}
+
                                     {cuttingTask.notes && (
                                         <div className="p-3 bg-muted rounded-lg">
                                             <Label className="text-xs text-muted-foreground">Catatan dari Pemotong</Label>
@@ -1160,6 +1418,129 @@ export default function BatchManagementPage() {
                             variant={verifyAction === "approve" ? "default" : "destructive"}
                         >
                             {verifying ? "Memverifikasi..." : verifyAction === "approve" ? "Approve" : "Reject"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Input Cutting Results Dialog */}
+            <Dialog open={showInputCuttingDialog} onOpenChange={setShowInputCuttingDialog}>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Input Hasil Potongan</DialogTitle>
+                        <DialogDescription>
+                            Input hasil potongan untuk batch yang sudah di-assign ke pemotong
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {inputCuttingBatch && (
+                        <div className="space-y-4 py-4">
+                            {/* Batch Info */}
+                            <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/50">
+                                <div>
+                                    <Label className="text-muted-foreground">Kode Batch</Label>
+                                    <p className="font-mono font-medium">{inputCuttingBatch.batchSku}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">Produk</Label>
+                                    <p className="font-medium">{inputCuttingBatch.product.name}</p>
+                                </div>
+                            </div>
+
+                            {/* Cutting Results by Size & Color */}
+                            <div className="space-y-3">
+                                <Label>Hasil Potongan per Size & Warna *</Label>
+                                <div className="border rounded-lg overflow-hidden">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Size</TableHead>
+                                                <TableHead>Warna</TableHead>
+                                                <TableHead>Target</TableHead>
+                                                <TableHead className="text-right">Actual Pieces</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {cuttingResults.map((result, idx) => {
+                                                const request = inputCuttingBatch.sizeColorRequests?.find(
+                                                    r => r.productSize === result.productSize && r.color === result.color
+                                                )
+                                                return (
+                                                    <TableRow key={idx}>
+                                                        <TableCell className="font-medium">{result.productSize}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">{result.color}</Badge>
+                                                        </TableCell>
+                                                        <TableCell>{request?.requestedPieces || 0} pcs</TableCell>
+                                                        <TableCell className="text-right">
+                                                            <Input
+                                                                type="number"
+                                                                min="0"
+                                                                value={result.actualPieces}
+                                                                onChange={(e) => {
+                                                                    const newResults = [...cuttingResults]
+                                                                    newResults[idx].actualPieces = parseInt(e.target.value) || 0
+                                                                    setCuttingResults(newResults)
+                                                                }}
+                                                                className="w-24 text-right"
+                                                            />
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )
+                                            })}
+                                            <TableRow className="font-bold bg-muted/50">
+                                                <TableCell colSpan={2}>Total</TableCell>
+                                                <TableCell>
+                                                    {inputCuttingBatch.sizeColorRequests?.reduce((sum, r) => sum + r.requestedPieces, 0) || 0} pcs
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0)} pcs
+                                                </TableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+
+                            {/* Notes */}
+                            <div className="space-y-2">
+                                <Label htmlFor="cuttingNotes">Catatan</Label>
+                                <Textarea
+                                    id="cuttingNotes"
+                                    placeholder="Tambahkan catatan hasil potongan (opsional)..."
+                                    value={cuttingNotes}
+                                    onChange={(e) => setCuttingNotes(e.target.value)}
+                                    rows={3}
+                                />
+                            </div>
+
+                            <Alert>
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                    Setelah menyimpan, hasil potongan akan tercatat dan batch akan berstatus CUTTING_COMPLETED.
+                                </AlertDescription>
+                            </Alert>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowInputCuttingDialog(false)
+                                setInputCuttingBatch(null)
+                                setCuttingResults([])
+                                setCuttingNotes("")
+                            }}
+                            disabled={submittingCutting}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            onClick={handleSubmitCuttingResults}
+                            disabled={submittingCutting || cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0) === 0}
+                        >
+                            {submittingCutting ? "Menyimpan..." : "Simpan Hasil Potongan"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -1575,64 +1956,93 @@ export default function BatchManagementPage() {
                             </Card>
 
                             {/* Material Allocations */}
-                            {detailBatch.materialAllocations && detailBatch.materialAllocations.length > 0 && (
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Alokasi Material</CardTitle>
-                                        <CardDescription>Material yang digunakan untuk batch ini</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="rounded-md border">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Material</TableHead>
-                                                        <TableHead className="text-right">Diminta</TableHead>
-                                                        <TableHead className="text-right">Dialokasi</TableHead>
-                                                        <TableHead className="text-center">Status</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {detailBatch.materialAllocations.map((allocation) => (
-                                                        <TableRow key={allocation.materialId}>
-                                                            <TableCell>
-                                                                <div>
-                                                                    <p className="font-medium">{allocation.material.name}</p>
-                                                                    <p className="text-sm text-muted-foreground">
-                                                                        {allocation.material.code}
-                                                                    </p>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                {Number(allocation.requestedQty).toFixed(2)} {allocation.material.unit}
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                {allocation.material.currentStock !== undefined
-                                                                    ? `${Number(allocation.material.currentStock).toFixed(2)} ${allocation.material.unit}`
-                                                                    : '-'
-                                                                }
-                                                            </TableCell>
-                                                            <TableCell className="text-center">
-                                                                {Number(allocation.material.currentStock || 0) >= Number(allocation.requestedQty) ? (
-                                                                    <Badge className="bg-green-500">
-                                                                        <CheckCircle className="h-3 w-3 mr-1" />
-                                                                        Cukup
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <Badge variant="destructive">
-                                                                        <AlertCircle className="h-3 w-3 mr-1" />
-                                                                        Kurang
-                                                                    </Badge>
-                                                                )}
-                                                            </TableCell>
+                            {((detailBatch.materialColorAllocations && detailBatch.materialColorAllocations.length > 0) ||
+                                (detailBatch.materialAllocations && detailBatch.materialAllocations.length > 0)) && (
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Alokasi Material</CardTitle>
+                                            <CardDescription>Material yang digunakan untuk batch ini</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="rounded-md border">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead>Material</TableHead>
+                                                            <TableHead>Warna</TableHead>
+                                                            <TableHead className="text-right">Diminta</TableHead>
+                                                            <TableHead className="text-right">Stok</TableHead>
+                                                            <TableHead className="text-center">Status</TableHead>
                                                         </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {detailBatch.materialColorAllocations && detailBatch.materialColorAllocations.length > 0 ? (
+                                                            detailBatch.materialColorAllocations.map((allocation) => (
+                                                                <TableRow key={allocation.id}>
+                                                                    <TableCell>
+                                                                        <div>
+                                                                            <p className="font-medium">{allocation.materialColorVariant.material.name}</p>
+                                                                            <p className="text-sm text-muted-foreground">
+                                                                                {allocation.materialColorVariant.material.code}
+                                                                            </p>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <Badge variant="outline">{allocation.materialColorVariant.colorName}</Badge>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        ~ {Number(allocation.allocatedQty).toFixed(2)} {allocation.materialColorVariant.material.unit}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        {Number(allocation.materialColorVariant.stock).toFixed(2)} {allocation.materialColorVariant.material.unit}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-center">
+                                                                        {Number(allocation.materialColorVariant.stock) >= Number(allocation.allocatedQty) ? (
+                                                                            <Badge className="bg-green-500">
+                                                                                <CheckCircle className="h-3 w-3 mr-1" />
+                                                                                Cukup
+                                                                            </Badge>
+                                                                        ) : (
+                                                                            <Badge variant="destructive">
+                                                                                <AlertCircle className="h-3 w-3 mr-1" />
+                                                                                Kurang
+                                                                            </Badge>
+                                                                        )}
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ))
+                                                        ) : (
+                                                            detailBatch.materialAllocations?.map((allocation) => (
+                                                                <TableRow key={allocation.materialId}>
+                                                                    <TableCell>
+                                                                        <div>
+                                                                            <p className="font-medium">{allocation.material.name}</p>
+                                                                            <p className="text-sm text-muted-foreground">
+                                                                                {allocation.material.code}
+                                                                            </p>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <Badge variant="outline">{allocation.color}</Badge>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        {Number(allocation.requestedQty).toFixed(2)} {allocation.material.unit}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        <span className="text-muted-foreground">-</span>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-center">
+                                                                        <Badge variant="secondary">Legacy (No Stock)</Badge>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ))
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
 
                             {/* Actions */}
                             {["PENDING", "MATERIAL_REQUESTED"].includes(detailBatch.status) && (
@@ -1755,6 +2165,16 @@ export default function BatchManagementPage() {
                                                                 >
                                                                     <UserPlus className="h-4 w-4 mr-1" />
                                                                     Assign Pemotong
+                                                                </Button>
+                                                            )}
+                                                            {["ASSIGNED_TO_CUTTER", "IN_CUTTING"].includes(batch.status) && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() => openInputCuttingDialog(batch)}
+                                                                >
+                                                                    <Scissors className="h-4 w-4 mr-1" />
+                                                                    Input Hasil Potongan
                                                                 </Button>
                                                             )}
                                                             {batch.status === "CUTTING_COMPLETED" && (
@@ -2049,6 +2469,6 @@ export default function BatchManagementPage() {
                     </Card>
                 </TabsContent>
             </Tabs>
-        </div>
+        </div >
     )
 }

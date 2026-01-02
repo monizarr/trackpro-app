@@ -10,52 +10,49 @@ export async function GET(request: Request) {
     const type = searchParams.get("type"); // 'materials' or 'products'
 
     if (type === "materials") {
-      // Get raw materials with stock info
-      const materials = await prisma.material.findMany({
+      // Get material color variants with stock info
+      const materialVariants = await prisma.materialColorVariant.findMany({
         where: {
           isActive: true,
+          material: {
+            isActive: true,
+          },
+        },
+        include: {
+          material: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              description: true,
+              unit: true,
+            },
+          },
         },
         orderBy: {
-          name: "asc",
-        },
-        select: {
-          id: true,
-          code: true,
-          name: true,
-          description: true,
-          unit: true,
-          currentStock: true,
-          minimumStock: true,
-          price: true,
-          createdAt: true,
-          updatedAt: true,
+          material: {
+            name: "asc",
+          },
         },
       });
 
       // Calculate statistics
-      const totalMaterials = materials.length;
-      const lowStockItems = materials.filter(
-        (m) =>
-          Number(m.currentStock) <= Number(m.minimumStock) &&
-          Number(m.currentStock) > 0
+      const totalMaterials = materialVariants.length;
+      const lowStockItems = materialVariants.filter(
+        (m) => Number(m.stock) <= Number(m.minimumStock) && Number(m.stock) > 0
       ).length;
-      const outOfStockItems = materials.filter(
-        (m) => Number(m.currentStock) === 0
+      const outOfStockItems = materialVariants.filter(
+        (m) => Number(m.stock) === 0
       ).length;
-      const totalValue = materials.reduce(
-        (sum, m) => sum + Number(m.currentStock) * Number(m.price),
-        0
-      );
 
       return NextResponse.json({
         success: true,
         data: {
-          materials,
+          materials: materialVariants,
           statistics: {
             totalMaterials,
             lowStockItems,
             outOfStockItems,
-            totalValue,
           },
         },
       });

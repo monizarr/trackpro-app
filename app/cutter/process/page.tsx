@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface CuttingTask {
     id: string
@@ -28,6 +29,18 @@ interface CuttingTask {
         product: {
             name: string
         }
+        sizeColorRequests?: Array<{
+            id: string
+            productSize: string
+            color: string
+            requestedPieces: number
+        }>
+        cuttingResults?: Array<{
+            id: string
+            productSize: string
+            color: string
+            actualPieces: number
+        }>
     }
 }
 
@@ -46,9 +59,11 @@ export default function CuttingProcessPage() {
     const [loading, setLoading] = useState(true)
     const [loadingTimeline, setLoadingTimeline] = useState(false)
     const [submitting, setSubmitting] = useState(false)
-    const [piecesCompleted, setPiecesCompleted] = useState("")
-    const [rejectPieces, setRejectPieces] = useState("")
-    const [wasteQty, setWasteQty] = useState("")
+    const [cuttingResults, setCuttingResults] = useState<Array<{
+        productSize: string
+        color: string
+        actualPieces: number
+    }>>([])
     const [notes, setNotes] = useState("")
     const { toast } = useToast()
 
@@ -65,9 +80,22 @@ export default function CuttingProcessPage() {
                     const updatedSelectedTask = data.find((t: CuttingTask) => t.id === selectedTask.id)
                     if (updatedSelectedTask) {
                         setSelectedTask(updatedSelectedTask)
-                        setPiecesCompleted(updatedSelectedTask.piecesCompleted?.toString() || "0")
-                        setRejectPieces(updatedSelectedTask.rejectPieces?.toString() || "0")
-                        setWasteQty(updatedSelectedTask.wasteQty?.toString() || "0")
+
+                        // Initialize cutting results from batch data
+                        if (updatedSelectedTask.batch.cuttingResults && updatedSelectedTask.batch.cuttingResults.length > 0) {
+                            setCuttingResults(updatedSelectedTask.batch.cuttingResults.map(r => ({
+                                productSize: r.productSize,
+                                color: r.color,
+                                actualPieces: r.actualPieces
+                            })))
+                        } else if (updatedSelectedTask.batch.sizeColorRequests) {
+                            setCuttingResults(updatedSelectedTask.batch.sizeColorRequests.map(r => ({
+                                productSize: r.productSize,
+                                color: r.color,
+                                actualPieces: r.requestedPieces
+                            })))
+                        }
+
                         setNotes(updatedSelectedTask.notes || "")
                         // Fetch timeline for the selected task
                         fetchTimeline(updatedSelectedTask.batchId)
@@ -82,9 +110,22 @@ export default function CuttingProcessPage() {
 
                 if (activeTask) {
                     setSelectedTask(activeTask)
-                    setPiecesCompleted(activeTask.piecesCompleted?.toString() || "0")
-                    setRejectPieces(activeTask.rejectPieces?.toString() || "0")
-                    setWasteQty(activeTask.wasteQty?.toString() || "0")
+
+                    // Initialize cutting results from batch data
+                    if (activeTask.batch.cuttingResults && activeTask.batch.cuttingResults.length > 0) {
+                        setCuttingResults(activeTask.batch.cuttingResults.map(r => ({
+                            productSize: r.productSize,
+                            color: r.color,
+                            actualPieces: r.actualPieces
+                        })))
+                    } else if (activeTask.batch.sizeColorRequests) {
+                        setCuttingResults(activeTask.batch.sizeColorRequests.map(r => ({
+                            productSize: r.productSize,
+                            color: r.color,
+                            actualPieces: r.requestedPieces
+                        })))
+                    }
+
                     setNotes(activeTask.notes || "")
                     // Fetch timeline for the active task
                     fetchTimeline(activeTask.batchId)
@@ -156,15 +197,24 @@ export default function CuttingProcessPage() {
     const handleUpdateProgress = async () => {
         if (!selectedTask || selectedTask.status !== 'IN_PROGRESS') return
 
+        // Validation
+        const totalActual = cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0)
+        if (totalActual === 0) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Total actual pieces harus lebih dari 0"
+            })
+            return
+        }
+
         setSubmitting(true)
         try {
             const response = await fetch(`/api/cutting-tasks/${selectedTask.id}/progress`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    piecesCompleted: parseInt(piecesCompleted) || 0,
-                    rejectPieces: parseInt(rejectPieces) || 0,
-                    wasteQty: parseFloat(wasteQty) || 0,
+                    cuttingResults,
                     notes
                 })
             })
@@ -192,11 +242,13 @@ export default function CuttingProcessPage() {
     const handleComplete = async () => {
         if (!selectedTask || selectedTask.status !== 'IN_PROGRESS') return
 
-        if (!piecesCompleted || !rejectPieces || !wasteQty) {
+        // Validation
+        const totalActual = cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0)
+        if (totalActual === 0) {
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: "Harap isi semua field sebelum submit"
+                description: "Total actual pieces harus lebih dari 0"
             })
             return
         }
@@ -207,9 +259,7 @@ export default function CuttingProcessPage() {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    piecesCompleted: parseInt(piecesCompleted),
-                    rejectPieces: parseInt(rejectPieces),
-                    wasteQty: parseFloat(wasteQty),
+                    cuttingResults,
                     notes
                 })
             })
@@ -221,9 +271,7 @@ export default function CuttingProcessPage() {
                 })
                 fetchTasks()
                 // Reset form
-                setPiecesCompleted("0")
-                setRejectPieces("0")
-                setWasteQty("0")
+                setCuttingResults([])
                 setNotes("")
             } else {
                 const error = await response.json()
@@ -272,9 +320,7 @@ export default function CuttingProcessPage() {
         code: selectedTask.batch.batchSku,
         product: selectedTask.batch.product.name,
         target: selectedTask.batch.targetQuantity,
-        completed: selectedTask.piecesCompleted || 0,
-        reject: selectedTask.rejectPieces || 0,
-        waste: selectedTask.wasteQty || 0,
+        completed: cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0),
         materialReceived: selectedTask.materialReceived,
         status: selectedTask.status
     } : null
@@ -387,9 +433,22 @@ export default function CuttingProcessPage() {
                                     className="justify-start"
                                     onClick={() => {
                                         setSelectedTask(task)
-                                        setPiecesCompleted(task.piecesCompleted?.toString() || "0")
-                                        setRejectPieces(task.rejectPieces?.toString() || "0")
-                                        setWasteQty(task.wasteQty?.toString() || "0")
+
+                                        // Initialize cutting results
+                                        if (task.batch.cuttingResults && task.batch.cuttingResults.length > 0) {
+                                            setCuttingResults(task.batch.cuttingResults.map(r => ({
+                                                productSize: r.productSize,
+                                                color: r.color,
+                                                actualPieces: r.actualPieces
+                                            })))
+                                        } else if (task.batch.sizeColorRequests) {
+                                            setCuttingResults(task.batch.sizeColorRequests.map(r => ({
+                                                productSize: r.productSize,
+                                                color: r.color,
+                                                actualPieces: r.requestedPieces
+                                            })))
+                                        }
+
                                         setNotes(task.notes || "")
                                         fetchTimeline(task.batchId)
                                     }}
@@ -435,21 +494,6 @@ export default function CuttingProcessPage() {
                             <p className="text-2xl font-bold">{currentBatch.target} pcs</p>
                         </div>
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                        <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-                            <p className="text-xs sm:text-sm text-muted-foreground">Completed</p>
-                            <p className="text-lg sm:text-xl font-bold text-green-600 dark:text-green-400">{currentBatch.completed}</p>
-                        </div>
-                        <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg">
-                            <p className="text-sm text-muted-foreground">Reject</p>
-                            <p className="text-xl font-bold text-red-600 dark:text-red-400">{currentBatch.reject}</p>
-                        </div>
-                        <div className="p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
-                            <p className="text-sm text-muted-foreground">Waste</p>
-                            <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{currentBatch.waste}m</p>
-                        </div>
-                    </div>
                 </CardContent>
             </Card>
 
@@ -487,43 +531,59 @@ export default function CuttingProcessPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Update Progress</CardTitle>
-                        <CardDescription>Catat progress pemotongan yang telah diselesaikan</CardDescription>
+                        <CardDescription>Input hasil potongan per ukuran dan warna</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="piecesCompleted">Jumlah Selesai</Label>
-                                <Input
-                                    id="piecesCompleted"
-                                    type="number"
-                                    value={piecesCompleted}
-                                    onChange={(e) => setPiecesCompleted(e.target.value)}
-                                    placeholder="0"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="rejectPieces">Reject</Label>
-                                <Input
-                                    id="rejectPieces"
-                                    type="number"
-                                    value={rejectPieces}
-                                    onChange={(e) => setRejectPieces(e.target.value)}
-                                    placeholder="0"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="wasteQty">Waste (meter)</Label>
-                                <Input
-                                    id="wasteQty"
-                                    type="number"
-                                    step="0.1"
-                                    value={wasteQty}
-                                    onChange={(e) => setWasteQty(e.target.value)}
-                                    placeholder="0"
-                                />
-                            </div>
+                        {/* Cutting Results Table */}
+                        <div className="border rounded-lg overflow-hidden">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Size</TableHead>
+                                        <TableHead>Warna</TableHead>
+                                        <TableHead>Target</TableHead>
+                                        <TableHead className="text-right">Actual Pieces</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {cuttingResults.map((result, idx) => {
+                                        const request = selectedTask?.batch.sizeColorRequests?.find(
+                                            r => r.productSize === result.productSize && r.color === result.color
+                                        )
+                                        return (
+                                            <TableRow key={idx}>
+                                                <TableCell className="font-medium">{result.productSize}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline">{result.color}</Badge>
+                                                </TableCell>
+                                                <TableCell>{request?.requestedPieces || 0} pcs</TableCell>
+                                                <TableCell className="text-right">
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        value={result.actualPieces}
+                                                        onChange={(e) => {
+                                                            const newResults = [...cuttingResults]
+                                                            newResults[idx].actualPieces = parseInt(e.target.value) || 0
+                                                            setCuttingResults(newResults)
+                                                        }}
+                                                        className="w-24 text-right"
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                    <TableRow className="font-bold bg-muted/50">
+                                        <TableCell colSpan={2}>Total</TableCell>
+                                        <TableCell>
+                                            {selectedTask?.batch.sizeColorRequests?.reduce((sum, r) => sum + r.requestedPieces, 0) || 0} pcs
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0)} pcs
+                                        </TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
                         </div>
 
                         <div className="space-y-2">

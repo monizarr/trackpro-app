@@ -11,7 +11,7 @@ const globalForPrisma = globalThis as unknown as {
 if (!globalForPrisma.pool) {
   const connectionString =
     process.env.DATABASE_URL ||
-    "postgresql://zar:iop@localhost:5432/trackpro-db?schema=public";
+    "postgresql://postgres:iop@localhost:5432/trackpro-db?schema=public";
   globalForPrisma.pool = new Pool({ connectionString });
 }
 

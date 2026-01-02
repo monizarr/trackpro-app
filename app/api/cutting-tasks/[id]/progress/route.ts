@@ -35,11 +35,26 @@ export async function PATCH(
 
     const taskId = params.id;
     const body = await request.json();
-    const { piecesCompleted, rejectPieces, wasteQty, notes } = body;
+    const { cuttingResults, notes } = body;
+
+    // Validate cutting results
+    if (!cuttingResults || !Array.isArray(cuttingResults)) {
+      return NextResponse.json(
+        { error: "Cutting results are required" },
+        { status: 400 }
+      );
+    }
 
     // Check if task exists and belongs to this user
     const task = await prisma.cuttingTask.findUnique({
       where: { id: taskId },
+      include: {
+        batch: {
+          include: {
+            sizeColorRequests: true,
+          },
+        },
+      },
     });
 
     if (!task) {
@@ -60,15 +75,62 @@ export async function PATCH(
       );
     }
 
-    // Update task progress
-    const updatedTask = await prisma.cuttingTask.update({
-      where: { id: taskId },
-      data: {
-        ...(piecesCompleted !== undefined && { piecesCompleted }),
-        ...(rejectPieces !== undefined && { rejectPieces }),
-        ...(wasteQty !== undefined && { wasteQty }),
-        ...(notes && { notes }),
-      },
+    // Calculate total actual pieces
+    const totalActualPieces = cuttingResults.reduce(
+      (sum: number, r: any) => sum + (r.actualPieces || 0),
+      0
+    );
+
+    // Update in transaction
+    const updatedTask = await prisma.$transaction(async (tx) => {
+      // Create or update cutting results
+      for (const result of cuttingResults) {
+        const { productSize, color, actualPieces } = result;
+
+        // Check if result already exists
+        const existingResult = await tx.cuttingResult.findFirst({
+          where: {
+            batchId: task.batchId,
+            productSize,
+            color,
+          },
+        });
+
+        if (existingResult) {
+          // Update existing
+          await tx.cuttingResult.update({
+            where: { id: existingResult.id },
+            data: {
+              actualPieces,
+              isConfirmed: false,
+            },
+          });
+        } else {
+          // Create new
+          await tx.cuttingResult.create({
+            data: {
+              batchId: task.batchId,
+              productSize,
+              color,
+              actualPieces,
+              isConfirmed: false,
+            },
+          });
+        }
+      }
+
+      // Update task progress
+      const updated = await tx.cuttingTask.update({
+        where: { id: taskId },
+        data: {
+          piecesCompleted: totalActualPieces,
+          rejectPieces: 0,
+          wasteQty: null,
+          notes: notes || null,
+        },
+      });
+
+      return updated;
     });
 
     return NextResponse.json(updatedTask);

@@ -36,7 +36,37 @@ export async function GET(
                 code: true,
                 name: true,
                 unit: true,
-                currentStock: true,
+              },
+            },
+          },
+        },
+        materialColorAllocations: {
+          include: {
+            materialColorVariant: {
+              include: {
+                material: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                    unit: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        sizeColorRequests: {
+          orderBy: {
+            productSize: "asc",
+          },
+        },
+        cuttingResults: {
+          include: {
+            confirmedBy: {
+              select: {
+                name: true,
+                role: true,
               },
             },
           },
@@ -98,10 +128,6 @@ export async function GET(
       materialAllocations: batch.materialAllocations.map((allocation) => ({
         ...allocation,
         requestedQty: Number(allocation.requestedQty),
-        material: {
-          ...allocation.material,
-          currentStock: Number(allocation.material.currentStock),
-        },
       })),
     };
 

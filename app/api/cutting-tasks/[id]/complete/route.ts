@@ -35,11 +35,26 @@ export async function PATCH(
 
     const taskId = params.id;
     const body = await request.json();
-    const { piecesCompleted, rejectPieces, wasteQty, notes } = body;
+    const { cuttingResults, notes } = body;
+
+    // Validate cutting results
+    if (!cuttingResults || !Array.isArray(cuttingResults)) {
+      return NextResponse.json(
+        { error: "Cutting results are required" },
+        { status: 400 }
+      );
+    }
 
     // Check if task exists and belongs to this user
     const task = await prisma.cuttingTask.findUnique({
       where: { id: taskId },
+      include: {
+        batch: {
+          include: {
+            sizeColorRequests: true,
+          },
+        },
+      },
     });
 
     if (!task) {
@@ -60,25 +75,83 @@ export async function PATCH(
       );
     }
 
-    // Update task to completed
-    const updatedTask = await prisma.cuttingTask.update({
-      where: { id: taskId },
-      data: {
-        status: "COMPLETED",
-        piecesCompleted,
-        rejectPieces,
-        wasteQty,
-        notes,
-        completedAt: new Date(),
-      },
-    });
+    // Calculate total actual pieces
+    const totalActualPieces = cuttingResults.reduce(
+      (sum: number, r: any) => sum + (r.actualPieces || 0),
+      0
+    );
 
-    // Update batch status
-    await prisma.productionBatch.update({
-      where: { id: task.batchId },
-      data: {
-        status: "CUTTING_COMPLETED",
-      },
+    // Update in transaction
+    const updatedTask = await prisma.$transaction(async (tx) => {
+      // Create or update cutting results
+      for (const result of cuttingResults) {
+        const { productSize, color, actualPieces } = result;
+
+        // Check if result already exists
+        const existingResult = await tx.cuttingResult.findFirst({
+          where: {
+            batchId: task.batchId,
+            productSize,
+            color,
+          },
+        });
+
+        if (existingResult) {
+          // Update existing
+          await tx.cuttingResult.update({
+            where: { id: existingResult.id },
+            data: {
+              actualPieces,
+              isConfirmed: false,
+            },
+          });
+        } else {
+          // Create new
+          await tx.cuttingResult.create({
+            data: {
+              batchId: task.batchId,
+              productSize,
+              color,
+              actualPieces,
+              isConfirmed: false,
+            },
+          });
+        }
+      }
+
+      // Update task to completed
+      const updated = await tx.cuttingTask.update({
+        where: { id: taskId },
+        data: {
+          status: "COMPLETED",
+          piecesCompleted: totalActualPieces,
+          rejectPieces: 0,
+          wasteQty: null,
+          notes: notes || null,
+          completedAt: new Date(),
+        },
+      });
+
+      // Update batch status and actual quantity
+      await tx.productionBatch.update({
+        where: { id: task.batchId },
+        data: {
+          status: "CUTTING_COMPLETED",
+          actualQuantity: totalActualPieces,
+          rejectQuantity: 0,
+        },
+      });
+
+      // Create timeline entry
+      await tx.batchTimeline.create({
+        data: {
+          batchId: task.batchId,
+          event: "CUTTING_COMPLETED",
+          details: `Pemotongan selesai oleh ${user.name}: ${totalActualPieces} pcs completed`,
+        },
+      });
+
+      return updated;
     });
 
     // Get production head user for notification
@@ -93,7 +166,7 @@ export async function PATCH(
           userId: produksiUser.id,
           type: "TASK_COMPLETED",
           title: "Cutting Task Selesai",
-          message: `Task pemotongan telah selesai dan menunggu verifikasi. Pieces: ${piecesCompleted}, Reject: ${rejectPieces}`,
+          message: `Task pemotongan telah selesai dan menunggu verifikasi. Total pieces: ${totalActualPieces}`,
           isRead: false,
         },
       });
