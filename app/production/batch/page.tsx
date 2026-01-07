@@ -23,6 +23,7 @@ interface Material {
     code: string
     name: string
     unit: string
+    currentStock?: number
 }
 
 interface MaterialColorVariant {
@@ -165,7 +166,6 @@ export default function BatchManagementPage() {
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState("")
     const [showCreateDialog, setShowCreateDialog] = useState(false)
-    const [creating, setCreating] = useState(false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
     const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null)
     const [confirming, setConfirming] = useState(false)
@@ -235,7 +235,7 @@ export default function BatchManagementPage() {
             setLoading(false)
         }
     }
-
+    console.log(batches)
     const fetchProducts = async () => {
         try {
             const response = await fetch("/api/products")
@@ -486,6 +486,7 @@ export default function BatchManagementPage() {
         }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const openAssignSewerDialog = async (batch: Batch) => {
         setAssignSewerBatch(batch)
         setSelectedSewerId("")
@@ -652,7 +653,7 @@ export default function BatchManagementPage() {
 
                 // Initialize cutting results from sizeColorRequests
                 if (result.data.sizeColorRequests) {
-                    setCuttingResults(result.data.sizeColorRequests.map((req: any) => ({
+                    setCuttingResults(result.data.sizeColorRequests.map((req: { productSize: string; color: string; requestedPieces: number }) => ({
                         productSize: req.productSize,
                         color: req.color,
                         actualPieces: req.requestedPieces // Default to requested
@@ -2284,7 +2285,7 @@ export default function BatchManagementPage() {
                                                     <div className="space-y-1">
                                                         <CardTitle
                                                             className="text-base font-mono cursor-pointer hover:text-primary"
-                                                            onClick={() => openDetailDialog(batch)}
+                                                            onClick={() => router.push(`/production/batch/${batch.id}`)}
                                                         >
                                                             {batch.batchSku}
                                                         </CardTitle>
@@ -2437,7 +2438,7 @@ export default function BatchManagementPage() {
                                                         {formatDate(batch.createdAt)}
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Badge>Completed</Badge>
+                                                        <Badge>Selesai</Badge>
                                                     </TableCell>
                                                 </TableRow>
                                             ))

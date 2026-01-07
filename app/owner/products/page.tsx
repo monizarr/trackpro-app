@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Search, Plus, ArrowUpDown, Package, X, Edit, Trash2 } from "lucide-react"
 import { toast } from "@/lib/toast"
 import { Button } from "@/components/ui/button"
@@ -105,6 +106,7 @@ export default function ProductsPage() {
         if (isDialogOpen && materials.length === 0) {
             fetchMaterials()
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isDialogOpen])
 
     const fetchProducts = async () => {
@@ -518,18 +520,18 @@ export default function ProductsPage() {
                                             <div className="space-y-3">
                                                 <div className="flex items-start justify-between">
                                                     <div className="flex-1">
-                                                        <a
+                                                        <Link
                                                             href={`/owner/products/${product.id}`}
                                                             className="font-medium text-primary hover:underline block"
                                                         >
                                                             {product.name}
-                                                        </a>
-                                                        <a
+                                                        </Link>
+                                                        <Link
                                                             href={`/owner/products/${product.id}`}
                                                             className="font-mono text-xs text-muted-foreground hover:underline"
                                                         >
                                                             {product.sku}
-                                                        </a>
+                                                        </Link>
                                                     </div>
                                                     <Badge variant={product.status === 'active' ? 'default' : 'secondary'}>
                                                         {product.status}
@@ -660,21 +662,21 @@ export default function ProductsPage() {
                                     sortedProducts.map((product) => (
                                         <TableRow key={product.id}>
                                             <TableCell>
-                                                <a
+                                                <Link
                                                     href={`/owner/products/${product.id}`}
                                                     className="font-mono text-sm text-primary hover:underline"
                                                 >
                                                     {product.sku}
-                                                </a>
+                                                </Link>
                                             </TableCell>
                                             <TableCell>
                                                 <div>
-                                                    <a
+                                                    <Link
                                                         href={`/owner/products/${product.id}`}
                                                         className="text-primary hover:underline font-medium"
                                                     >
                                                         {product.name}
-                                                    </a>
+                                                    </Link>
                                                     {product.materials && product.materials.length > 0 && (
                                                         <div className="text-xs text-muted-foreground mt-1">
                                                             {product.materials.length} materials

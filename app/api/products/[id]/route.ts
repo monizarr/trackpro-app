@@ -22,8 +22,6 @@ export async function GET(
                 code: true,
                 name: true,
                 unit: true,
-                currentStock: true,
-                price: true,
               },
             },
           },

@@ -87,8 +87,8 @@ export default function StockManagementPage() {
     }, [searchQuery, materials])
 
     const getStockStatus = (material: Material) => {
-        const stock = parseFloat(material.currentStock.toString())
-        const min = parseFloat(material.minimumStock.toString())
+        const stock = material.currentStock;
+        const min = material.minimumStock;
 
         if (stock <= min * 0.5) return "critical"
         if (stock <= min) return "low"
@@ -273,11 +273,11 @@ export default function StockManagementPage() {
                                                 <TableCell className="font-mono text-sm">{material.code}</TableCell>
                                                 <TableCell className="font-medium">{material.name}</TableCell>
                                                 <TableCell className="font-bold">
-                                                    {parseFloat(material.currentStock.toString()).toFixed(2)}
+                                                    {material.currentStock}
                                                 </TableCell>
                                                 <TableCell>{material.unit}</TableCell>
                                                 <TableCell>
-                                                    {parseFloat(material.minimumStock.toString()).toFixed(2)}
+                                                    {material.minimumStock}
                                                 </TableCell>
                                                 <TableCell>
                                                     {status === "good" && <Badge>Aman</Badge>}
@@ -352,13 +352,13 @@ export default function StockManagementPage() {
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">Stok Saat Ini:</span>
                                     <span className="font-bold">
-                                        {parseFloat(selectedMaterial.currentStock.toString()).toFixed(2)} {selectedMaterial.unit}
+                                        {selectedMaterial.currentStock} {selectedMaterial.unit}
                                     </span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">Min. Stok:</span>
                                     <span>
-                                        {parseFloat(selectedMaterial.minimumStock.toString()).toFixed(2)} {selectedMaterial.unit}
+                                        {selectedMaterial.minimumStock} {selectedMaterial.unit}
                                     </span>
                                 </div>
                             </div>

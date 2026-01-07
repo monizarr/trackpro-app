@@ -4,7 +4,20 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronLeft, Edit, Plus, Search, ChevronsUpDown, Package, Trash2, X, Loader2, Calendar, User, FileText, CheckCircle2 } from "lucide-react";
+import {
+    ChevronLeft,
+    Edit,
+    Plus,
+    Search,
+    ChevronsUpDown,
+    Package,
+    Trash2,
+    X,
+    CheckCircle2,
+    Target,
+    TrendingUp,
+    ExternalLink,
+} from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,8 +56,6 @@ interface Material {
     code: string;
     name: string;
     unit: string;
-    currentStock: number;
-    price: number;
 }
 
 interface ProductMaterial {
@@ -103,12 +114,6 @@ export default function ProductDetailPage() {
         notes: "",
     });
 
-    // Batch detail modal states
-    const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
-    const [isBatchDetailOpen, setIsBatchDetailOpen] = useState(false);
-    const [batchDetail, setBatchDetail] = useState<ProductionBatch | null>(null);
-    const [loadingBatchDetail, setLoadingBatchDetail] = useState(false);
-
     // Delete batch states
     const [isDeleteBatchDialogOpen, setIsDeleteBatchDialogOpen] = useState(false);
     const [batchToDelete, setBatchToDelete] = useState<ProductionBatch | null>(null);
@@ -130,12 +135,14 @@ export default function ProductDetailPage() {
 
     useEffect(() => {
         fetchProduct();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [productId]);
 
     useEffect(() => {
         if (isEditDialogOpen && materials.length === 0) {
             fetchMaterials();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isEditDialogOpen]);
 
     const fetchProduct = async () => {
@@ -277,25 +284,6 @@ export default function ProductDetailPage() {
         );
     };
 
-
-    const handleBatchClick = async (batchId: string) => {
-        setSelectedBatchId(batchId);
-        setIsBatchDetailOpen(true);
-        setLoadingBatchDetail(true);
-
-        try {
-            const response = await fetch(`/api/production-batches/${batchId}`);
-            const data = await response.json();
-
-            if (data.success) {
-                setBatchDetail(data.data);
-            }
-        } catch (error) {
-            console.error("Error fetching batch detail:", error);
-        } finally {
-            setLoadingBatchDetail(false);
-        }
-    };
 
     const handleDeleteBatchClick = (batch: ProductionBatch) => {
         setBatchToDelete(batch);
@@ -474,12 +462,90 @@ export default function ProductDetailPage() {
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
-            {/* Breadcrumb */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Link href="/owner/products" className="hover:text-foreground flex items-center">
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Products
-                </Link>
+            {/* Header with Breadcrumb */}
+            <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="space-y-1">
+                    <Link href="/owner/products" className="text-sm text-muted-foreground hover:text-foreground flex items-center mb-2">
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Kembali ke Products
+                    </Link>
+                    <h2 className="text-3xl font-bold tracking-tight">{product.name}</h2>
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="font-mono">{product.sku}</Badge>
+                        <Badge variant={product.status === "ACTIVE" ? "default" : "secondary"}>
+                            {product.status}
+                        </Badge>
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={handleEdit}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit Product
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleDeleteClick}>
+                        <Trash2 className="h-4 w-4 mr-2 text-destructive" />
+                        Delete
+                    </Button>
+                </div>
+            </div>
+
+            {/* Overview Stats */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Batches</CardTitle>
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{product.productionBatches.length}</div>
+                        <p className="text-xs text-muted-foreground">Production batches</p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Target Production</CardTitle>
+                        <Target className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">
+                            {product.productionBatches.reduce((sum, b) => sum + b.targetQuantity, 0)}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Total target pcs</p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Actual Production</CardTitle>
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-green-600">
+                            {product.productionBatches.reduce((sum, b) => sum + b.actualQuantity, 0)}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Total produced pcs</p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
+                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">
+                            {product.productionBatches.reduce((sum, b) => sum + b.targetQuantity, 0) > 0
+                                ? Math.round(
+                                    (product.productionBatches.reduce((sum, b) => sum + b.actualQuantity, 0) /
+                                        product.productionBatches.reduce((sum, b) => sum + b.targetQuantity, 0)) *
+                                    100
+                                )
+                                : 0}%
+                        </div>
+                        <p className="text-xs text-muted-foreground">Overall completion</p>
+                    </CardContent>
+                </Card>
             </div>
 
             <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-7">
@@ -636,12 +702,13 @@ export default function ProductDetailPage() {
                                         sortedProductions.map((batch) => (
                                             <TableRow key={batch.id}>
                                                 <TableCell className="font-medium">
-                                                    <button
-                                                        onClick={() => handleBatchClick(batch.id)}
-                                                        className="text-primary hover:underline"
+                                                    <Link
+                                                        href={`/production/batch/${batch.id}`}
+                                                        className="text-primary hover:underline flex items-center gap-1 font-mono"
                                                     >
                                                         {batch.batchSku}
-                                                    </button>
+                                                        <ExternalLink className="h-3 w-3" />
+                                                    </Link>
                                                 </TableCell>
                                                 <TableCell>
                                                     {new Date(batch.createdAt).toLocaleDateString("id-ID", {
@@ -892,7 +959,7 @@ export default function ProductDetailPage() {
                                             (m) => m.materialId === material.id
                                         )}
                                     >
-                                        {material.name} ({material.code}) - Stock: {material.currentStock} {material.unit}
+                                        {material.name} ({material.code})
                                     </option>
                                 ))}
                             </Select>
@@ -1041,163 +1108,6 @@ export default function ProductDetailPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-
-            {/* Batch Detail Modal */}
-            <Dialog open={isBatchDetailOpen} onOpenChange={setIsBatchDetailOpen}>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>Batch Production Detail</DialogTitle>
-                        <DialogDescription>
-                            Informasi lengkap tentang batch produksi
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    {loadingBatchDetail ? (
-                        <div className="flex items-center justify-center py-12">
-                            <Loader2 className="h-8 w-8 animate-spin" />
-                        </div>
-                    ) : batchDetail ? (
-                        <div className="space-y-6">
-                            {/* Batch Info */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-3">
-                                    <div>
-                                        <Label className="text-sm text-muted-foreground">Batch SKU</Label>
-                                        <p className="font-mono font-bold text-lg">{batchDetail.batchSku}</p>
-                                    </div>
-                                    <div>
-                                        <Label className="text-sm text-muted-foreground">Status</Label>
-                                        <div className="mt-1">
-                                            {getStatusBadge(batchDetail.status)}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <Label className="text-sm text-muted-foreground">Created By</Label>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <User className="h-4 w-4 text-muted-foreground" />
-                                            <p className="font-medium">{batchDetail.createdBy.name}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <div>
-                                        <Label className="text-sm text-muted-foreground">Target Quantity</Label>
-                                        <p className="font-bold text-lg">{batchDetail.targetQuantity} pcs</p>
-                                    </div>
-                                    <div>
-                                        <Label className="text-sm text-muted-foreground">Actual Quantity</Label>
-                                        <p className="font-bold text-lg text-green-600">{batchDetail.actualQuantity} pcs</p>
-                                    </div>
-                                    {batchDetail.rejectQuantity > 0 && (
-                                        <div>
-                                            <Label className="text-sm text-muted-foreground">Reject Quantity</Label>
-                                            <p className="font-bold text-lg text-red-600">{batchDetail.rejectQuantity} pcs</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <Separator />
-
-                            {/* Dates */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <Label className="text-sm text-muted-foreground">Start Date</Label>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                                        <p>
-                                            {new Date(batchDetail.startDate).toLocaleDateString("id-ID", {
-                                                day: "numeric",
-                                                month: "long",
-                                                year: "numeric",
-                                            })}
-                                        </p>
-                                    </div>
-                                </div>
-                                {batchDetail.completedDate && (
-                                    <div>
-                                        <Label className="text-sm text-muted-foreground">Completed Date</Label>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                            <p>
-                                                {new Date(batchDetail.completedDate).toLocaleDateString("id-ID", {
-                                                    day: "numeric",
-                                                    month: "long",
-                                                    year: "numeric",
-                                                })}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Notes */}
-                            {batchDetail.notes && (
-                                <>
-                                    <Separator />
-                                    <div>
-                                        <Label className="text-sm text-muted-foreground">Notes</Label>
-                                        <div className="flex items-start gap-2 mt-2 p-3 bg-muted rounded-md">
-                                            <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
-                                            <p className="text-sm">{batchDetail.notes}</p>
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-
-                            <Separator />
-
-                            {/* Progress Summary */}
-                            <div className="space-y-2">
-                                <Label className="text-sm text-muted-foreground">Progress Summary</Label>
-                                <div className="grid grid-cols-3 gap-3">
-                                    <Card>
-                                        <CardContent className="p-4 text-center">
-                                            <p className="text-2xl font-bold text-blue-600">{batchDetail.targetQuantity}</p>
-                                            <p className="text-xs text-muted-foreground">Target</p>
-                                        </CardContent>
-                                    </Card>
-                                    <Card>
-                                        <CardContent className="p-4 text-center">
-                                            <p className="text-2xl font-bold text-green-600">{batchDetail.actualQuantity}</p>
-                                            <p className="text-xs text-muted-foreground">Completed</p>
-                                        </CardContent>
-                                    </Card>
-                                    <Card>
-                                        <CardContent className="p-4 text-center">
-                                            <p className="text-2xl font-bold text-red-600">{batchDetail.rejectQuantity}</p>
-                                            <p className="text-xs text-muted-foreground">Rejected</p>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                                {batchDetail.targetQuantity > 0 && (
-                                    <div className="mt-2">
-                                        <div className="flex justify-between text-sm mb-1">
-                                            <span>Completion Rate</span>
-                                            <span className="font-medium">
-                                                {((batchDetail.actualQuantity / batchDetail.targetQuantity) * 100).toFixed(1)}%
-                                            </span>
-                                        </div>
-                                        <div className="w-full bg-muted rounded-full h-2">
-                                            <div
-                                                className="bg-green-600 h-2 rounded-full"
-                                                style={{
-                                                    width: `${Math.min((batchDetail.actualQuantity / batchDetail.targetQuantity) * 100, 100)}%`,
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                            Batch detail not found
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }

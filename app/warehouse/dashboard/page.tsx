@@ -85,16 +85,16 @@ export default function WarehouseDashboard() {
 
     const getCriticalMaterials = () => {
         return materials.filter(m => {
-            const stock = parseFloat(m.currentStock.toString())
-            const min = parseFloat(m.minimumStock.toString())
+            const stock = m.currentStock
+            const min = m.minimumStock
             return stock <= min * 0.5
         })
     }
 
     const getLowStockMaterials = () => {
         return materials.filter(m => {
-            const stock = parseFloat(m.currentStock.toString())
-            const min = parseFloat(m.minimumStock.toString())
+            const stock = m.currentStock
+            const min = m.minimumStock
             return stock > min * 0.5 && stock <= min
         })
     }
