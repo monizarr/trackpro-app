@@ -46,9 +46,10 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { SpinnerCustom } from "@/components/ui/spinner";
 
 // Types
-type ProductionStatus = "PENDING" | "MATERIAL_REQUESTED" | "MATERIAL_ALLOCATED" | "ASSIGNED_TO_CUTTER" | "IN_CUTTING" | "CUTTING_COMPLETED" | "CUTTING_VERIFIED" | "IN_SEWING" | "SEWING_COMPLETED" | "SEWING_VERIFIED" | "IN_FINISHING" | "FINISHING_COMPLETED" | "COMPLETED" | "CANCELLED";
+type ProductionStatus = "PENDING" | "MATERIAL_REQUESTED" | "MATERIAL_ALLOCATED" | "ASSIGNED_TO_CUTTER" | "IN_CUTTING" | "CUTTING_COMPLETED" | "CUTTING_VERIFIED" | "IN_SEWING" | "SEWING_COMPLETED" | "SEWING_VERIFIED" | "IN_FINISHING" | "FINISHING_COMPLETED" | "WAREHOUSE_VERIFIED" | "COMPLETED" | "CANCELLED";
 type ProductStatus = "ACTIVE" | "INACTIVE" | "DISCONTINUED";
 
 interface Material {
@@ -56,6 +57,26 @@ interface Material {
     code: string;
     name: string;
     unit: string;
+    currentStock?: number;
+}
+
+interface MaterialColorVariant {
+    id: string;
+    materialId: string;
+    colorName: string;
+    colorCode?: string;
+    stock: number;
+    minimumStock: number;
+    material: Material;
+}
+
+interface MaterialColorAllocation {
+    id: string;
+    materialColorVariantId: string;
+    rollQuantity: number;
+    allocatedQty: number;
+    meterPerRoll: number;
+    materialColorVariant: MaterialColorVariant;
 }
 
 interface ProductMaterial {
@@ -73,17 +94,35 @@ interface ProductMaterialInput {
 interface ProductionBatch {
     id: string;
     batchSku: string;
-    targetQuantity: number;
-    actualQuantity: number;
+    totalRolls: number;
+    actualQuantity: number | null;
     rejectQuantity: number;
     status: ProductionStatus;
-    startDate: string;
+    startDate?: string;
     completedDate: string | null;
     notes: string | null;
     createdAt: string;
-    createdBy: {
+    createdBy?: {
         name: string;
     };
+    materialColorAllocations?: MaterialColorAllocation[];
+    sizeColorRequests?: Array<{
+        id: string;
+        productSize: string;
+        color: string;
+        requestedPieces: number;
+    }>;
+    cuttingResults?: Array<{
+        id: string;
+        productSize: string;
+        color: string;
+        actualPieces: number;
+        isConfirmed: boolean;
+        confirmedBy?: {
+            name: string;
+            role: string;
+        };
+    }>;
 }
 
 interface Product {
@@ -110,7 +149,7 @@ export default function ProductDetailPage() {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [newProduction, setNewProduction] = useState({
-        targetQuantity: 0,
+        totalRolls: 0,
         notes: "",
     });
 
@@ -321,7 +360,7 @@ export default function ProductDetailPage() {
         return (
             <div className="flex-1 space-y-4 p-8 pt-6">
                 <div className="text-center py-12">
-                    <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
+                    <SpinnerCustom />
                     <p className="mt-4 text-lg text-muted-foreground">Loading product...</p>
                 </div>
             </div>
@@ -357,19 +396,13 @@ export default function ProductDetailPage() {
     };
 
     const handleAddProduction = async () => {
-        if (!newProduction.targetQuantity || newProduction.targetQuantity <= 0) {
-            toast.warning("Target Quantity Invalid", "Masukkan jumlah target yang valid");
+        if (!newProduction.totalRolls || newProduction.totalRolls <= 0) {
+            toast.warning("Total Rolls Invalid", "Masukkan jumlah roll yang valid");
             return;
         }
 
         try {
             setIsSaving(true);
-
-            // Prepare material allocations from product materials
-            const materialAllocations = product.materials.map((item) => ({
-                materialId: item.material.id,
-                requestedQty: Number(item.quantity) * newProduction.targetQuantity,
-            }));
 
             const response = await fetch("/api/production-batches", {
                 method: "POST",
@@ -378,9 +411,8 @@ export default function ProductDetailPage() {
                 },
                 body: JSON.stringify({
                     productId: product.id,
-                    targetQuantity: newProduction.targetQuantity,
+                    totalRolls: newProduction.totalRolls,
                     notes: newProduction.notes,
-                    materialAllocations,
                 }),
             });
 
@@ -390,7 +422,7 @@ export default function ProductDetailPage() {
                 // Refresh product data to get updated batches
                 await fetchProduct();
                 setIsAddDialogOpen(false);
-                setNewProduction({ targetQuantity: 0, notes: "" });
+                setNewProduction({ totalRolls: 0, notes: "" });
                 toast.success("Batch Dibuat", `Batch produksi ${data.data.batchSku} berhasil dibuat`);
             } else {
                 toast.error("Gagal Membuat Batch", data.error || "Tidak dapat membuat batch produksi");
@@ -428,20 +460,22 @@ export default function ProductDetailPage() {
 
     const getStatusBadge = (status: ProductionStatus) => {
         const statusMap = {
-            PENDING: { label: "Pending", variant: "secondary" as const },
-            MATERIAL_REQUESTED: { label: "Material Requested", variant: "secondary" as const },
-            MATERIAL_ALLOCATED: { label: "Material Allocated", variant: "default" as const },
-            ASSIGNED_TO_CUTTER: { label: "Assigned to Cutter", variant: "default" as const },
-            IN_CUTTING: { label: "In Cutting", variant: "default" as const },
-            CUTTING_COMPLETED: { label: "Cutting Completed", variant: "default" as const },
-            CUTTING_VERIFIED: { label: "Cutting Verified", variant: "default" as const },
-            IN_SEWING: { label: "In Sewing", variant: "default" as const },
-            SEWING_COMPLETED: { label: "Sewing Completed", variant: "default" as const },
-            SEWING_VERIFIED: { label: "Sewing Verified", variant: "default" as const },
-            IN_FINISHING: { label: "In Finishing", variant: "default" as const },
-            FINISHING_COMPLETED: { label: "Finishing Completed", variant: "default" as const },
-            COMPLETED: { label: "Completed", variant: "default" as const },
-            CANCELLED: { label: "Cancelled", variant: "destructive" as const },
+            PENDING: { label: "Menunggu", variant: "secondary" as const },
+            MATERIAL_REQUESTED: { label: "Material Diminta", variant: "secondary" as const },
+            MATERIAL_ALLOCATED: { label: "Material Dialokasi", variant: "default" as const },
+            ASSIGNED_TO_CUTTER: { label: "Di-assign ke Pemotong", variant: "default" as const },
+            IN_CUTTING: { label: "Proses Pemotongan", variant: "default" as const },
+            CUTTING_COMPLETED: { label: "Pemotongan Selesai", variant: "default" as const },
+            CUTTING_VERIFIED: { label: "Potongan Terverifikasi", variant: "default" as const },
+            ASSIGNED_TO_SEWER: { label: "Di-assign ke Penjahit", variant: "default" as const },
+            IN_SEWING: { label: "Proses Penjahitan", variant: "default" as const },
+            SEWING_COMPLETED: { label: "Penjahitan Selesai", variant: "default" as const },
+            SEWING_VERIFIED: { label: "Jahitan Terverifikasi", variant: "default" as const },
+            IN_FINISHING: { label: "Proses Finishing", variant: "default" as const },
+            FINISHING_COMPLETED: { label: "Finishing Selesai", variant: "default" as const },
+            WAREHOUSE_VERIFIED: { label: "Terverifikasi Gudang", variant: "default" as const },
+            COMPLETED: { label: "Selesai", variant: "default" as const },
+            CANCELLED: { label: "Dibatalkan", variant: "destructive" as const },
         };
 
         const statusInfo = statusMap[status] || statusMap.PENDING;
@@ -450,6 +484,22 @@ export default function ProductDetailPage() {
                 {statusInfo.label}
             </Badge>
         );
+    };
+
+    const getCurrentStage = (status: ProductionStatus) => {
+        if (["PENDING", "MATERIAL_REQUESTED", "MATERIAL_ALLOCATED"].includes(status)) return "Persiapan";
+        if (["ASSIGNED_TO_CUTTER", "IN_CUTTING", "CUTTING_COMPLETED", "CUTTING_VERIFIED"].includes(status)) return "Pemotongan";
+        if (["ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED", "SEWING_VERIFIED"].includes(status)) return "Penjahitan";
+        if (["IN_FINISHING", "FINISHING_COMPLETED"].includes(status)) return "Finishing";
+        if (status === "WAREHOUSE_VERIFIED") return "Gudang";
+        if (status === "COMPLETED") return "Selesai";
+        if (status === "CANCELLED") return "Dibatalkan";
+        return status;
+    };
+
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
     };
 
     const formatPrice = (price: number) => {
@@ -504,14 +554,14 @@ export default function ProductDetailPage() {
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Target Production</CardTitle>
+                        <CardTitle className="text-sm font-medium">Total Rolls</CardTitle>
                         <Target className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {product.productionBatches.reduce((sum, b) => sum + b.targetQuantity, 0)}
+                            {product.productionBatches.reduce((sum, b) => sum + b.totalRolls, 0)}
                         </div>
-                        <p className="text-xs text-muted-foreground">Total target pcs</p>
+                        <p className="text-xs text-muted-foreground">Total roll bahan</p>
                     </CardContent>
                 </Card>
 
@@ -522,28 +572,22 @@ export default function ProductDetailPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-green-600">
-                            {product.productionBatches.reduce((sum, b) => sum + b.actualQuantity, 0)}
+                            {product.productionBatches.reduce((sum, b) => sum + (b.actualQuantity || 0), 0)}
                         </div>
-                        <p className="text-xs text-muted-foreground">Total produced pcs</p>
+                        <p className="text-xs text-muted-foreground">Total pieces produced</p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
+                        <CardTitle className="text-sm font-medium">Active Batches</CardTitle>
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {product.productionBatches.reduce((sum, b) => sum + b.targetQuantity, 0) > 0
-                                ? Math.round(
-                                    (product.productionBatches.reduce((sum, b) => sum + b.actualQuantity, 0) /
-                                        product.productionBatches.reduce((sum, b) => sum + b.targetQuantity, 0)) *
-                                    100
-                                )
-                                : 0}%
+                            {product.productionBatches.filter(b => !["COMPLETED", "CANCELLED", "WAREHOUSE_VERIFIED"].includes(b.status)).length}
                         </div>
-                        <p className="text-xs text-muted-foreground">Overall completion</p>
+                        <p className="text-xs text-muted-foreground">In production</p>
                     </CardContent>
                 </Card>
             </div>
@@ -566,7 +610,7 @@ export default function ProductDetailPage() {
                                         Add Production
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent>
+                                <DialogContent className="max-w-[95vw] sm:max-w-lg">
                                     <DialogHeader>
                                         <DialogTitle>Add New Production Batch</DialogTitle>
                                         <DialogDescription>
@@ -575,37 +619,20 @@ export default function ProductDetailPage() {
                                     </DialogHeader>
                                     <div className="space-y-4 py-4">
                                         <div className="space-y-2">
-                                            <Label htmlFor="target">Target Quantity (PCS)</Label>
+                                            <Label htmlFor="rolls">Total Rolls Bahan</Label>
                                             <Input
-                                                id="target"
+                                                id="rolls"
                                                 type="number"
-                                                placeholder="Enter production target"
-                                                value={newProduction.targetQuantity || ""}
-                                                onChange={(e) => setNewProduction({ ...newProduction, targetQuantity: Number(e.target.value) })}
+                                                placeholder="Masukkan jumlah roll bahan"
+                                                value={newProduction.totalRolls || ""}
+                                                onChange={(e) => setNewProduction({ ...newProduction, totalRolls: Number(e.target.value) })}
                                                 min="1"
                                                 required
                                             />
+                                            <p className="text-xs text-muted-foreground">
+                                                Jumlah roll bahan yang akan digunakan untuk produksi batch ini
+                                            </p>
                                         </div>
-
-                                        {/* Show material requirements */}
-                                        {product.materials && product.materials.length > 0 && newProduction.targetQuantity > 0 && (
-                                            <div className="space-y-2">
-                                                <Label>Material Requirements</Label>
-                                                <div className="border rounded-md p-3 space-y-2 bg-muted/50">
-                                                    {product.materials.map((item) => {
-                                                        const totalRequired = Number(item.quantity) * newProduction.targetQuantity;
-                                                        return (
-                                                            <div key={item.id} className="flex justify-between text-sm">
-                                                                <span>{item.material.name}</span>
-                                                                <span className="font-medium">
-                                                                    {totalRequired.toFixed(2)} {item.unit}
-                                                                </span>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
 
                                         <div className="space-y-2">
                                             <Label htmlFor="notes">Notes</Label>
@@ -618,7 +645,7 @@ export default function ProductDetailPage() {
                                             />
                                         </div>
                                     </div>
-                                    <div className="flex justify-end gap-2">
+                                    <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
                                         <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isSaving}>
                                             Cancel
                                         </Button>
@@ -665,24 +692,8 @@ export default function ProductDetailPage() {
                                                 <ChevronsUpDown className="ml-2 h-4 w-4" />
                                             </div>
                                         </TableHead>
-                                        <TableHead
-                                            className="cursor-pointer hover:bg-muted"
-                                            onClick={() => handleSort("completedDate")}
-                                        >
-                                            <div className="flex items-center">
-                                                Finish Date
-                                                <ChevronsUpDown className="ml-2 h-4 w-4" />
-                                            </div>
-                                        </TableHead>
-                                        <TableHead
-                                            className="cursor-pointer hover:bg-muted"
-                                            onClick={() => handleSort("targetQuantity")}
-                                        >
-                                            <div className="flex items-center">
-                                                Target
-                                                <ChevronsUpDown className="ml-2 h-4 w-4" />
-                                            </div>
-                                        </TableHead>
+                                        <TableHead>Rolls / Pieces</TableHead>
+                                        <TableHead>Tahap</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
@@ -710,31 +721,21 @@ export default function ProductDetailPage() {
                                                         <ExternalLink className="h-3 w-3" />
                                                     </Link>
                                                 </TableCell>
-                                                <TableCell>
-                                                    {new Date(batch.createdAt).toLocaleDateString("id-ID", {
-                                                        day: "numeric",
-                                                        month: "long",
-                                                        year: "numeric",
-                                                    })}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {batch.completedDate
-                                                        ? new Date(batch.completedDate).toLocaleDateString("id-ID", {
-                                                            day: "numeric",
-                                                            month: "long",
-                                                            year: "numeric",
-                                                        })
-                                                        : <span className="text-muted-foreground">-</span>}
+                                                <TableCell className="text-sm">
+                                                    {formatDate(batch.createdAt)}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col">
-                                                        <span className="font-medium">{batch.targetQuantity} pcs</span>
-                                                        {batch.actualQuantity > 0 && (
+                                                        <span className="font-medium">{batch.totalRolls} roll</span>
+                                                        {(batch.actualQuantity !== null && batch.actualQuantity > 0) && (
                                                             <span className="text-xs text-muted-foreground">
-                                                                Actual: {batch.actualQuantity} pcs
+                                                                → {batch.actualQuantity} pcs
                                                             </span>
                                                         )}
                                                     </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="secondary">{getCurrentStage(batch.status)}</Badge>
                                                 </TableCell>
                                                 <TableCell>{getStatusBadge(batch.status)}</TableCell>
                                                 <TableCell className="text-right">

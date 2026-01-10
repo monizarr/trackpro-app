@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useRouter } from "next/navigation"
 import { CreateBatchDialog } from "@/components/create-batch-dialog"
 import { CreateSubBatchDialog } from "@/components/create-sub-batch-dialog"
+import { SpinnerCustom } from "@/components/ui/spinner"
 
 interface Material {
     id: string
@@ -235,7 +236,7 @@ export default function BatchManagementPage() {
             setLoading(false)
         }
     }
-    console.log(batches)
+    
     const fetchProducts = async () => {
         try {
             const response = await fetch("/api/products")
@@ -800,6 +801,7 @@ export default function BatchManagementPage() {
     if (loading) {
         return (
             <div className="flex-1 space-y-4 p-8 pt-6">
+                <SpinnerCustom />
                 <div className="text-center">Loading...</div>
             </div>
         )

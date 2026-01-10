@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useEffect, useState } from "react"
+import { SpinnerCustom } from "@/components/ui/spinner"
 
 interface Statistics {
     activeBatches: number
@@ -155,6 +156,7 @@ export default function ProductionDashboard() {
     if (loading) {
         return (
             <div className="flex-1 space-y-4 p-8 pt-6">
+                <SpinnerCustom />
                 <div className="text-center">Loading...</div>
             </div>
         )

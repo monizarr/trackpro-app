@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { SpinnerCustom } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Activity, AlertCircle, AlertTriangle, Boxes, CheckCircle, Clock, Package, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -145,7 +146,7 @@ export default function DashboardPage() {
             <div className="flex-1 space-y-4 p-8 pt-6">
                 <div className="flex items-center justify-center h-96">
                     <div className="text-center">
-                        <Activity className="h-8 w-8 animate-spin mx-auto mb-4" />
+                        <SpinnerCustom />
                         <p className="text-muted-foreground">Loading dashboard...</p>
                     </div>
                 </div>

@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { SpinnerCustom } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/lib/toast";
 import {
@@ -653,8 +654,8 @@ export default function BatchActionPage({ params }: { params: Promise<{ id: stri
 
     if (status === "loading" || loading) {
         return (
-            <div className="flex-1 flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="flex-1 flex items-center justify-center h-screen">
+                <SpinnerCustom />
             </div>
         );
     }

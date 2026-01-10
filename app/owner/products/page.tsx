@@ -37,6 +37,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { SpinnerCustom } from "@/components/ui/spinner"
 
 type ProductStatus = "active" | "inactive"
 
@@ -506,6 +507,7 @@ export default function ProductsPage() {
                     <div className="block sm:hidden">
                         {isLoading ? (
                             <div className="flex items-center justify-center py-12">
+                                <SpinnerCustom />
                                 <p className="text-muted-foreground">Loading products...</p>
                             </div>
                         ) : sortedProducts.length === 0 ? (
