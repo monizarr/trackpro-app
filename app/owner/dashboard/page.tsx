@@ -1,10 +1,10 @@
 ﻿"use client";
 
-import { Package, Users, AlertTriangle, CheckCircle, Clock, Activity, TrendingUp, Boxes, AlertCircle } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Separator } from "@/components/ui/separator"
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Activity, AlertCircle, AlertTriangle, Boxes, CheckCircle, Clock, Package, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface Product {
