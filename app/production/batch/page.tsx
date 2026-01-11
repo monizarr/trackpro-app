@@ -2164,10 +2164,7 @@ export default function BatchManagementPage() {
                                                 <TableRow key={batch.id}>
                                                     <TableCell
                                                         className="font-mono text-sm font-medium cursor-pointer hover:text-primary hover:underline"
-                                                        onClick={() => {
-                                                            setSelectedBatch(batch)
-                                                            openDetailDialog(batch)
-                                                        }}
+                                                        onClick={() => router.push(`/production/batch/${batch.id}`)}
                                                     >
                                                         {batch.batchSku}
                                                     </TableCell>

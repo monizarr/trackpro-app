@@ -1032,7 +1032,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             )}
 
             {/* Production Progress */}
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 ">
                 {/* Cutting Task */}
                 {batch.cuttingTask && (
                     <Card>

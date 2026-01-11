@@ -151,7 +151,7 @@ function LoginForm() {
                                     className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
                                 />
                                 <Label htmlFor="remember-me" className="text-sm font-normal">
-                                    Remember me for 30 days
+                                    Ingat saya selama 30 hari
                                 </Label>
                             </div>
                         </div>
@@ -164,10 +164,10 @@ function LoginForm() {
                             {isLoading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Signing in...
+                                    Masuk...
                                 </>
                             ) : (
-                                "Sign in"
+                                "Masuk"
                             )}
                         </Button>
 
@@ -182,14 +182,15 @@ function LoginForm() {
             </div>
 
             {/* Right Side - Branding */}
-            <div className="hidden lg:flex flex-1 bg-linear-to-br from-primary via-secondary to-accent p-12 items-center justify-center relative overflow-hidden">
+            <div className="hidden lg:flex flex-1 bg-linear-to-tr from-primary to-accent p-12 items-center justify-center relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
                 <div className="relative z-10 text-white max-w-lg">
                     <h2 className="text-4xl font-bold mb-6">
-                        Track. Manage. Succeed.
+                        Lacak, Kelola, dan Optimalkan Produksi Anda
                     </h2>
                     <p className="text-lg text-primary-foreground/80 mb-8">
-                        TrackPro helps you manage your production workflow efficiently with real-time tracking and comprehensive reporting.
+                        {/* TrackPro helps you manage your production workflow efficiently with real-time tracking and comprehensive reporting. */}
+                            TrackPro membantu Anda mengelola alur produksi dengan efisien melalui pelacakan waktu nyata dan pelaporan komprehensif.
                     </p>
                     <div className="space-y-4">
                         <div className="flex items-center space-x-3">
@@ -198,7 +199,7 @@ function LoginForm() {
                                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
                             </div>
-                            <span className="text-primary-foreground/90">Production batch tracking</span>
+                            <span className="text-primary-foreground/90">Pelacakan batch produksi</span>
                         </div>
                         <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 rounded-full bg-primary-foreground/20 flex items-center justify-center">
@@ -206,7 +207,7 @@ function LoginForm() {
                                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
                             </div>
-                            <span className="text-primary-foreground/90">Material inventory management</span>
+                            <span className="text-primary-foreground/90">Manajemen inventaris material</span>
                         </div>
                         <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 rounded-full bg-primary-foreground/20 flex items-center justify-center">
@@ -214,7 +215,7 @@ function LoginForm() {
                                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
                             </div>
-                            <span className="text-primary-foreground/90">Quality control & reporting</span>
+                            <span className="text-primary-foreground/90">Kontrol kualitas & pelaporan</span>
                         </div>
                     </div>
                 </div>

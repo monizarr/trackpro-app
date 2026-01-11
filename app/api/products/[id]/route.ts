@@ -161,7 +161,7 @@ export async function PATCH(
                   code: true,
                   name: true,
                   unit: true,
-                  currentStock: true,
+                  // currentStock: true,
                 },
               },
             },

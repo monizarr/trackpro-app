@@ -19,9 +19,10 @@ import {
     ExternalLink,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
+import { CreateBatchDialog } from "@/components/create-batch-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -147,11 +148,6 @@ export default function ProductDetailPage() {
     const [sortField, setSortField] = useState<keyof ProductionBatch | null>(null);
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [newProduction, setNewProduction] = useState({
-        totalRolls: 0,
-        notes: "",
-    });
 
     // Delete batch states
     const [isDeleteBatchDialogOpen, setIsDeleteBatchDialogOpen] = useState(false);
@@ -171,6 +167,7 @@ export default function ProductDetailPage() {
         status: "ACTIVE" as ProductStatus,
     });
     const [selectedMaterials, setSelectedMaterials] = useState<ProductMaterialInput[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         fetchProduct();
@@ -395,45 +392,45 @@ export default function ProductDetailPage() {
         }
     };
 
-    const handleAddProduction = async () => {
-        if (!newProduction.totalRolls || newProduction.totalRolls <= 0) {
-            toast.warning("Total Rolls Invalid", "Masukkan jumlah roll yang valid");
-            return;
-        }
+    // const handleAddProduction = async () => {
+    //     if (!newProduction.totalRolls || newProduction.totalRolls <= 0) {
+    //         toast.warning("Total Rolls Invalid", "Masukkan jumlah roll yang valid");
+    //         return;
+    //     }
 
-        try {
-            setIsSaving(true);
+    //     try {
+    //         setIsSaving(true);
 
-            const response = await fetch("/api/production-batches", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    productId: product.id,
-                    totalRolls: newProduction.totalRolls,
-                    notes: newProduction.notes,
-                }),
-            });
+    //         const response = await fetch("/api/production-batches", {
+    //             method: "POST",
+    //             headers: {
+    //                 "Content-Type": "application/json",
+    //             },
+    //             body: JSON.stringify({
+    //                 productId: product.id,
+    //                 totalRolls: newProduction.totalRolls,
+    //                 notes: newProduction.notes,
+    //             }),
+    //         });
 
-            const data = await response.json();
+    //         const data = await response.json();
 
-            if (data.success) {
-                // Refresh product data to get updated batches
-                await fetchProduct();
-                setIsAddDialogOpen(false);
-                setNewProduction({ totalRolls: 0, notes: "" });
-                toast.success("Batch Dibuat", `Batch produksi ${data.data.batchSku} berhasil dibuat`);
-            } else {
-                toast.error("Gagal Membuat Batch", data.error || "Tidak dapat membuat batch produksi");
-            }
-        } catch (error) {
-            console.error("Error creating production batch:", error);
-            toast.error("Error", "Gagal membuat batch produksi");
-        } finally {
-            setIsSaving(false);
-        }
-    };
+    //         if (data.success) {
+    //             // Refresh product data to get updated batches
+    //             await fetchProduct();
+    //             setIsAddDialogOpen(false);
+    //             setNewProduction({ totalRolls: 0, notes: "" });
+    //             toast.success("Batch Dibuat", `Batch produksi ${data.data.batchSku} berhasil dibuat`);
+    //         } else {
+    //             toast.error("Gagal Membuat Batch", data.error || "Tidak dapat membuat batch produksi");
+    //         }
+    //     } catch (error) {
+    //         console.error("Error creating production batch:", error);
+    //         toast.error("Error", "Gagal membuat batch produksi");
+    //     } finally {
+    //         setIsSaving(false);
+    //     }
+    // };
 
     const filteredProductions = product.productionBatches.filter((batch) =>
         batch.batchSku.toLowerCase().includes(searchQuery.toLowerCase())
@@ -603,58 +600,10 @@ export default function ProductDetailPage() {
                                     Manage production batches for this product
                                 </CardDescription>
                             </div>
-                            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                                <DialogTrigger asChild>
-                                    <Button>
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add Production
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-[95vw] sm:max-w-lg">
-                                    <DialogHeader>
-                                        <DialogTitle>Add New Production Batch</DialogTitle>
-                                        <DialogDescription>
-                                            Create a new production batch for this product
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="space-y-4 py-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="rolls">Total Rolls Bahan</Label>
-                                            <Input
-                                                id="rolls"
-                                                type="number"
-                                                placeholder="Masukkan jumlah roll bahan"
-                                                value={newProduction.totalRolls || ""}
-                                                onChange={(e) => setNewProduction({ ...newProduction, totalRolls: Number(e.target.value) })}
-                                                min="1"
-                                                required
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                Jumlah roll bahan yang akan digunakan untuk produksi batch ini
-                                            </p>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="notes">Notes</Label>
-                                            <Textarea
-                                                id="notes"
-                                                placeholder="Additional notes (optional)"
-                                                value={newProduction.notes}
-                                                onChange={(e) => setNewProduction({ ...newProduction, notes: e.target.value })}
-                                                rows={3}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
-                                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isSaving}>
-                                            Cancel
-                                        </Button>
-                                        <Button onClick={handleAddProduction} disabled={isSaving}>
-                                            {isSaving ? "Creating..." : "Create Batch"}
-                                        </Button>
-                                    </div>
-                                </DialogContent>
-                            </Dialog>
+                            <Button onClick={() => setIsAddDialogOpen(true)}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Production
+                            </Button>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -1109,6 +1058,24 @@ export default function ProductDetailPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Create Batch Dialog - same as production page */}
+            {product && (
+                <CreateBatchDialog
+                    open={isAddDialogOpen}
+                    onOpenChange={setIsAddDialogOpen}
+                    products={[{
+                        id: product.id,
+                        sku: product.sku,
+                        name: product.name,
+                        materials: product.materials.map(m => ({
+                            materialId: m.material.id,
+                            material: m.material
+                        }))
+                    }]}
+                    onSuccess={fetchProduct}
+                />
+            )}
         </div>
     );
 }
