@@ -938,7 +938,7 @@ export default function BatchManagementPage() {
                 </div>
                 <Button onClick={() => setShowCreateDialog(true)} className="w-full sm:w-auto">
                     <Plus className="h-4 w-4 mr-2" />
-                    Buat Batch Baru
+                    Mulai Produksi
                 </Button>
             </div>
 
