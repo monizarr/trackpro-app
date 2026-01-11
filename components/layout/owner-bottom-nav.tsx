@@ -11,6 +11,7 @@ import {
     Users,
     User,
     LogOut,
+    Factory,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -34,14 +35,14 @@ const navItems = [
         icon: ShoppingBag,
     },
     {
+        title: "Batch",
+        href: "/owner/production-batches",
+        icon: Factory,
+    },
+    {
         title: "Stok",
         href: "/owner/stocks",
         icon: Package,
-    },
-    {
-        title: "Staff",
-        href: "/owner/employees",
-        icon: Users,
     },
 ]
 

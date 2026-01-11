@@ -7,6 +7,7 @@ import {
     Users,
     Wallet,
     Crown,
+    Factory,
 } from "lucide-react"
 import { AppSidebar, NavGroup } from "./app-sidebar"
 
@@ -28,6 +29,11 @@ const navigation: NavGroup[] = [
                 title: "Stok Bahan Baku",
                 href: "/owner/stocks",
                 icon: Package,
+            },
+            {
+                title: "Production Monitoring",
+                href: "/owner/production-batches",
+                icon: Factory,
             },
         ],
     },
