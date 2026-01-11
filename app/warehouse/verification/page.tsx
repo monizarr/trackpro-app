@@ -194,7 +194,7 @@ export default function WarehouseVerificationPage() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Total Batches
+                            Total Batch
                         </CardTitle>
                         <Package className="h-4 w-4 text-blue-600" />
                     </CardHeader>
@@ -211,7 +211,7 @@ export default function WarehouseVerificationPage() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Total Pieces
+                            Total Pcs
                         </CardTitle>
                         <CheckCircle className="h-4 w-4 text-green-600" />
                     </CardHeader>
@@ -303,19 +303,19 @@ export default function WarehouseVerificationPage() {
                                             {/* Items breakdown */}
                                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
                                                 <div className="bg-muted/50 p-2 rounded">
-                                                    <p className="text-muted-foreground text-xs">Assigned</p>
+                                                    <p className="text-muted-foreground text-xs">Ditugaskan</p>
                                                     <p className="font-medium">{subBatch.piecesAssigned} pcs</p>
                                                 </div>
                                                 <div className="bg-green-50 dark:bg-green-950 p-2 rounded">
-                                                    <p className="text-muted-foreground text-xs">Finishing Output</p>
+                                                    <p className="text-muted-foreground text-xs">Output Finishing</p>
                                                     <p className="font-medium text-green-600">{subBatch.finishingOutput} pcs</p>
                                                 </div>
                                                 <div className="bg-red-50 dark:bg-red-950 p-2 rounded">
-                                                    <p className="text-muted-foreground text-xs">Sewing Reject</p>
+                                                    <p className="text-muted-foreground text-xs">Reject Jahit</p>
                                                     <p className="font-medium text-red-600">{subBatch.sewingReject} pcs</p>
                                                 </div>
                                                 <div className="bg-red-50 dark:bg-red-950 p-2 rounded">
-                                                    <p className="text-muted-foreground text-xs">Finishing Reject</p>
+                                                    <p className="text-muted-foreground text-xs">Reject Finishing</p>
                                                     <p className="font-medium text-red-600">{subBatch.finishingReject} pcs</p>
                                                 </div>
                                             </div>
@@ -376,20 +376,20 @@ export default function WarehouseVerificationPage() {
                                     <p className="text-3xl font-bold text-green-600">
                                         {selectedSubBatch.finishingOutput}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">pieces</p>
+                                    <p className="text-xs text-muted-foreground">pcs</p>
                                 </div>
                                 <div className="bg-red-50 dark:bg-red-950 p-4 rounded-lg text-center">
                                     <p className="text-sm text-muted-foreground">Barang Gagal</p>
                                     <p className="text-3xl font-bold text-red-600">
                                         {selectedSubBatch.sewingReject + selectedSubBatch.finishingReject}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">pieces</p>
+                                    <p className="text-xs text-muted-foreground">pcs</p>
                                 </div>
                             </div>
 
                             {/* Items detail */}
                             <div>
-                                <Label className="text-sm text-muted-foreground">Detail per Size/Warna</Label>
+                                <Label className="text-sm text-muted-foreground">Detail per Ukuran/Warna</Label>
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     {selectedSubBatch.items.map((item) => (
                                         <Badge key={item.id} variant="outline">

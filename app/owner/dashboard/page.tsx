@@ -119,17 +119,17 @@ export default function DashboardPage() {
 
     const getStatusBadge = (status: string) => {
         const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-            MATERIAL_REQUESTED: { label: "Material Requested", variant: "secondary" },
-            MATERIAL_ALLOCATED: { label: "Material Allocated", variant: "outline" },
-            CUTTING: { label: "Cutting", variant: "default" },
-            SEWING: { label: "Sewing", variant: "default" },
+            MATERIAL_REQUESTED: { label: "Material Diminta", variant: "secondary" },
+            MATERIAL_ALLOCATED: { label: "Material Dialokasi", variant: "outline" },
+            CUTTING: { label: "Pemotongan", variant: "default" },
+            SEWING: { label: "Penjahitan", variant: "default" },
             FINISHING: { label: "Finishing", variant: "default" },
-            CUTTING_COMPLETED: { label: "Cutting Done", variant: "secondary" },
-            SEWING_COMPLETED: { label: "Sewing Done", variant: "secondary" },
-            FINISHING_COMPLETED: { label: "Finishing Done", variant: "secondary" },
-            WAREHOUSE_VERIFIED: { label: "Verified", variant: "outline" },
-            COMPLETED: { label: "Completed", variant: "default" },
-            CANCELLED: { label: "Cancelled", variant: "destructive" },
+            CUTTING_COMPLETED: { label: "Pemotongan Selesai", variant: "secondary" },
+            SEWING_COMPLETED: { label: "Penjahitan Selesai", variant: "secondary" },
+            FINISHING_COMPLETED: { label: "Finishing Selesai", variant: "secondary" },
+            WAREHOUSE_VERIFIED: { label: "Terverifikasi", variant: "outline" },
+            COMPLETED: { label: "Selesai", variant: "default" },
+            CANCELLED: { label: "Dibatalkan", variant: "destructive" },
         };
         const config = statusConfig[status] || { label: status, variant: "outline" };
         return <Badge variant={config.variant}>{config.label}</Badge>;
@@ -147,7 +147,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-center h-96">
                     <div className="text-center">
                         <SpinnerCustom />
-                        <p className="text-muted-foreground">Loading dashboard...</p>
+                        <p className="text-muted-foreground">Memuat dashboard...</p>
                     </div>
                 </div>
             </div>
@@ -162,8 +162,8 @@ export default function DashboardPage() {
 
             <Tabs defaultValue="overview" className="space-y-4">
                 <TabsList className="w-full sm:w-auto">
-                    <TabsTrigger value="overview" className="flex-1 sm:flex-none">Overview</TabsTrigger>
-                    <TabsTrigger value="analytics" className="flex-1 sm:flex-none">Analytics</TabsTrigger>
+                    <TabsTrigger value="overview" className="flex-1 sm:flex-none">Ringkasan</TabsTrigger>
+                    <TabsTrigger value="analytics" className="flex-1 sm:flex-none">Analitik</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="space-y-4">
@@ -231,11 +231,11 @@ export default function DashboardPage() {
                         {/* Recent Production Batches */}
                         <Card className="col-span-4">
                             <CardHeader>
-                                <CardTitle>Recent Production Batches</CardTitle>
+                                <CardTitle>Batch Produksi Terbaru</CardTitle>
                                 <CardDescription>
                                     {stats.activeBatches > 0
-                                        ? `You have ${stats.activeBatches} active production batch${stats.activeBatches > 1 ? 'es' : ''}.`
-                                        : "No active production batches."}
+                                        ? `Anda memiliki ${stats.activeBatches} batch produksi aktif.`
+                                        : "Tidak ada batch produksi aktif."}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -265,7 +265,7 @@ export default function DashboardPage() {
                                 ) : (
                                     <div className="text-center py-8 text-muted-foreground">
                                         <Package className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                                        <p>No production batches yet</p>
+                                        <p>Belum ada batch produksi</p>
                                     </div>
                                 )}
                             </CardContent>
@@ -281,7 +281,7 @@ export default function DashboardPage() {
                                     </CardTitle>
                                     <CardDescription>
                                         {stats.criticalMaterials > 0
-                                            ? `${stats.criticalMaterials} material${stats.criticalMaterials > 1 ? 's' : ''} need${stats.criticalMaterials === 1 ? 's' : ''} immediate attention`
+                                            ? `${stats.criticalMaterials} material perlu perhatian segera`
                                             : "Semua material dalam stok yang baik"}
                                     </CardDescription>
                                 </CardHeader>
@@ -358,14 +358,14 @@ export default function DashboardPage() {
                 <TabsContent value="analytics" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Analytics</CardTitle>
-                            <CardDescription>Detailed production analytics and reports</CardDescription>
+                            <CardTitle>Analitik</CardTitle>
+                            <CardDescription>Analitik produksi dan laporan detail</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="text-center py-12 text-muted-foreground">
                                 <Activity className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                                <p className="text-lg font-medium mb-2">Analytics Dashboard</p>
-                                <p className="text-sm">Detailed analytics and reports coming soon</p>
+                                <p className="text-lg font-medium mb-2">Dashboard Analitik</p>
+                                <p className="text-sm">Analitik dan laporan detail segera hadir</p>
                             </div>
                         </CardContent>
                     </Card>

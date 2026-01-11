@@ -45,17 +45,17 @@ export default function TailorDashboard() {
 
                 // Fetch stats
                 const statsRes = await fetch('/api/sewing-tasks/stats')
-                if (!statsRes.ok) throw new Error('Failed to fetch stats')
+                if (!statsRes.ok) throw new Error('Gagal mengambil statistik')
                 const statsData = await statsRes.json()
                 setStats(statsData)
 
                 // Fetch active tasks
                 const tasksRes = await fetch('/api/sewing-tasks/active')
-                if (!tasksRes.ok) throw new Error('Failed to fetch tasks')
+                if (!tasksRes.ok) throw new Error('Gagal mengambil data task')
                 const tasksData = await tasksRes.json()
                 setActiveTasks(tasksData)
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to load data')
+                setError(err instanceof Error ? err.message : 'Gagal memuat data')
             } finally {
                 setLoading(false)
             }

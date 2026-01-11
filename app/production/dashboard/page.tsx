@@ -157,7 +157,7 @@ export default function ProductionDashboard() {
         return (
             <div className="flex-1 space-y-4 p-8 pt-6">
                 <SpinnerCustom />
-                <div className="text-center">Loading...</div>
+                <div className="text-center">Memuat...</div>
             </div>
         )
     }
@@ -166,7 +166,7 @@ export default function ProductionDashboard() {
         <div className="flex-1 space-y-4 p-8 pt-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Production Dashboard</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">Dashboard Produksi</h2>
                     <p className="text-muted-foreground">
                         Monitor dan kelola proses produksi
                     </p>
@@ -215,7 +215,7 @@ export default function ProductionDashboard() {
                     <CardContent>
                         <div className="text-2xl font-bold">{statistics.completedToday}</div>
                         <p className="text-xs text-muted-foreground">
-                            Batch completed
+                            Batch selesai
                         </p>
                     </CardContent>
                 </Card>
@@ -230,7 +230,7 @@ export default function ProductionDashboard() {
                     <CardContent>
                         <div className="text-2xl font-bold">{statistics.productivity}%</div>
                         <p className="text-xs text-muted-foreground">
-                            On track batches
+                            Batch sesuai target
                         </p>
                     </CardContent>
                 </Card>

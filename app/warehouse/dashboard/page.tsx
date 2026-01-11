@@ -216,7 +216,7 @@ export default function WarehouseDashboard() {
                 {/* Stock Alerts */}
                 <Card className="lg:col-span-4">
                     <CardHeader>
-                        <CardTitle>Stock Alerts</CardTitle>
+                        <CardTitle>Peringatan Stok</CardTitle>
                         <CardDescription>
                             Bahan baku yang perlu perhatian
                         </CardDescription>

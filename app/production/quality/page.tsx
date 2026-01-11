@@ -177,7 +177,7 @@ export default function QualityControlPage() {
     if (loading) {
         return (
             <div className="flex-1 space-y-4 p-8 pt-6">
-                <div className="text-center">Loading...</div>
+                <div className="text-center">Memuat...</div>
             </div>
         )
     }
@@ -213,7 +213,7 @@ export default function QualityControlPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{approvedToday}</div>
-                        <p className="text-xs text-muted-foreground">Verifikasi passed</p>
+                        <p className="text-xs text-muted-foreground">Verifikasi lolos</p>
                     </CardContent>
                 </Card>
 
@@ -224,7 +224,7 @@ export default function QualityControlPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{rejectRate}%</div>
-                        <p className="text-xs text-muted-foreground">Total rejection rate</p>
+                        <p className="text-xs text-muted-foreground">Total tingkat penolakan</p>
                     </CardContent>
                 </Card>
             </div>
@@ -232,9 +232,9 @@ export default function QualityControlPage() {
             {/* Verification Queue */}
             <Tabs defaultValue="pending" className="space-y-4">
                 <TabsList>
-                    <TabsTrigger value="pending">Pending Verifikasi ({pendingVerification.length})</TabsTrigger>
-                    <TabsTrigger value="approved">Approved</TabsTrigger>
-                    <TabsTrigger value="rejected">Rejected</TabsTrigger>
+                    <TabsTrigger value="pending">Menunggu Verifikasi ({pendingVerification.length})</TabsTrigger>
+                    <TabsTrigger value="approved">Disetujui</TabsTrigger>
+                    <TabsTrigger value="rejected">Ditolak</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="pending" className="space-y-4">
@@ -264,7 +264,7 @@ export default function QualityControlPage() {
                                             <p className="font-medium">{item.worker}</p>
                                         </div>
                                         <div>
-                                            <p className="text-muted-foreground">Quantity</p>
+                                            <p className="text-muted-foreground">Jumlah</p>
                                             <p className="font-medium">{item.qty} pcs</p>
                                         </div>
                                         <div>
@@ -279,7 +279,7 @@ export default function QualityControlPage() {
                                             disabled={processing === item.id}
                                         >
                                             <CheckCircle className="h-4 w-4 mr-2" />
-                                            {processing === item.id ? "Processing..." : "Setujui"}
+                                            {processing === item.id ? "Memproses..." : "Setujui"}
                                         </Button>
                                         <Button
                                             variant="destructive"
@@ -288,7 +288,7 @@ export default function QualityControlPage() {
                                             disabled={processing === item.id}
                                         >
                                             <XCircle className="h-4 w-4 mr-2" />
-                                            {processing === item.id ? "Processing..." : "Reject"}
+                                            {processing === item.id ? "Memproses..." : "Tolak"}
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -303,7 +303,7 @@ export default function QualityControlPage() {
                             {approvedItems.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-12">
                                     <CheckCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                                    <p className="text-muted-foreground">Riwayat approved akan ditampilkan di sini</p>
+                                    <p className="text-muted-foreground">Riwayat disetujui akan ditampilkan di sini</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
@@ -331,7 +331,7 @@ export default function QualityControlPage() {
                             {rejectedItems.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-12">
                                     <XCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                                    <p className="text-muted-foreground">Riwayat rejected akan ditampilkan di sini</p>
+                                    <p className="text-muted-foreground">Riwayat ditolak akan ditampilkan di sini</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">

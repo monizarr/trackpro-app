@@ -186,7 +186,7 @@ export default function MaterialAllocationPage() {
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Permintaan Pending</CardTitle>
+                        <CardTitle className="text-sm font-medium">Permintaan Menunggu</CardTitle>
                         <Clock className="h-4 w-4 text-orange-500" />
                     </CardHeader>
                     <CardContent>
@@ -208,14 +208,14 @@ export default function MaterialAllocationPage() {
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Pieces</CardTitle>
+                        <CardTitle className="text-sm font-medium">Total Pcs</CardTitle>
                         <Box className="h-4 w-4 text-blue-500" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
                             {pendingBatches.reduce((sum, b) => sum + b.targetQuantity, 0)}
                         </div>
-                        <p className="text-xs text-muted-foreground">Target produksi pending</p>
+                        <p className="text-xs text-muted-foreground">Target produksi menunggu</p>
                     </CardContent>
                 </Card>
             </div>
@@ -224,7 +224,7 @@ export default function MaterialAllocationPage() {
             <Tabs defaultValue="pending" className="space-y-4">
                 <TabsList>
                     <TabsTrigger value="pending">
-                        Permintaan Pending ({pendingBatches.length})
+                        Permintaan Menunggu ({pendingBatches.length})
                     </TabsTrigger>
                     <TabsTrigger value="allocated">
                         Teralokasi ({allocatedBatches.length})
@@ -251,7 +251,7 @@ export default function MaterialAllocationPage() {
                                 <div className="flex flex-col items-center justify-center py-12 text-center">
                                     <Package className="h-12 w-12 text-muted-foreground mb-4" />
                                     <p className="text-muted-foreground">
-                                        {searchQuery ? "Tidak ada batch yang sesuai pencarian" : "Tidak ada permintaan alokasi pending"}
+                                        {searchQuery ? "Tidak ada batch yang sesuai pencarian" : "Tidak ada permintaan alokasi menunggu"}
                                     </p>
                                 </div>
                             ) : (
@@ -289,7 +289,7 @@ export default function MaterialAllocationPage() {
                                                     <TableCell>
                                                         <Badge variant="secondary">
                                                             <Clock className="h-3 w-3 mr-1" />
-                                                            Pending
+                                                            Menunggu
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell className="text-right">
@@ -367,9 +367,9 @@ export default function MaterialAllocationPage() {
             <Dialog open={showAllocateDialog} onOpenChange={setShowAllocateDialog}>
                 <DialogContent className="sm:max-w-[600px]">
                     <DialogHeader>
-                        <DialogTitle>Alokasikan Material</DialogTitle>
+                        <DialogTitle>Alokasikan Bahan</DialogTitle>
                         <DialogDescription>
-                            Tinjau dan alokasikan material untuk batch produksi
+                            Tinjau dan alokasikan bahan untuk batch produksi
                         </DialogDescription>
                     </DialogHeader>
 
@@ -393,12 +393,12 @@ export default function MaterialAllocationPage() {
 
                             {/* Material Allocations */}
                             <div className="space-y-2">
-                                <Label>Material yang Diminta:</Label>
+                                <Label>Bahan yang Diminta:</Label>
                                 <div className="rounded-md border">
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>Material</TableHead>
+                                                <TableHead>Bahan</TableHead>
                                                 <TableHead>Diminta</TableHead>
                                                 <TableHead>Stok</TableHead>
                                                 <TableHead>Status</TableHead>
@@ -462,7 +462,7 @@ export default function MaterialAllocationPage() {
                                             <div>
                                                 <p className="font-medium text-red-600">Stok Tidak Mencukupi</p>
                                                 <p className="text-sm text-red-600">
-                                                    Beberapa material tidak memiliki stok yang cukup untuk dialokasikan.
+                                                    Beberapa bahan tidak memiliki stok yang cukup untuk dialokasikan.
                                                 </p>
                                             </div>
                                         </div>
@@ -495,7 +495,7 @@ export default function MaterialAllocationPage() {
                                     ) : (
                                         <>
                                             <CheckCircle className="h-4 w-4 mr-2" />
-                                            Alokasikan Material
+                                            Alokasikan Bahan
                                         </>
                                     )}
                                 </Button>

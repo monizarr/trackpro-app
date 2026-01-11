@@ -134,7 +134,7 @@ export default function CuttingProcessPage() {
         } catch (err) {
             toast({
                 variant: "destructive",
-                title: "Error",
+                title: "Gagal",
                 description: "Gagal memuat data task: " + err
             })
         } finally {
@@ -181,12 +181,12 @@ export default function CuttingProcessPage() {
                 })
                 fetchTasks()
             } else {
-                throw new Error('Failed to start task')
+                throw new Error('Gagal memulai task')
             }
         } catch {
             toast({
                 variant: "destructive",
-                title: "Error",
+                title: "Gagal",
                 description: "Gagal memulai task"
             })
         } finally {
@@ -202,7 +202,7 @@ export default function CuttingProcessPage() {
         if (totalActual === 0) {
             toast({
                 variant: "destructive",
-                title: "Error",
+                title: "Gagal",
                 description: "Total actual pieces harus lebih dari 0"
             })
             return
@@ -226,12 +226,12 @@ export default function CuttingProcessPage() {
                 })
                 fetchTasks()
             } else {
-                throw new Error('Failed to update progress')
+                throw new Error('Gagal update progress')
             }
         } catch {
             toast({
                 variant: "destructive",
-                title: "Error",
+                title: "Gagal",
                 description: "Gagal menyimpan progress"
             })
         } finally {
@@ -247,7 +247,7 @@ export default function CuttingProcessPage() {
         if (totalActual === 0) {
             toast({
                 variant: "destructive",
-                title: "Error",
+                title: "Gagal",
                 description: "Total actual pieces harus lebih dari 0"
             })
             return
@@ -275,12 +275,12 @@ export default function CuttingProcessPage() {
                 setNotes("")
             } else {
                 const error = await response.json()
-                throw new Error(error.error || 'Failed to complete task')
+                throw new Error(error.error || 'Gagal menyelesaikan task')
             }
         } catch (error) {
             toast({
                 variant: "destructive",
-                title: "Error",
+                title: "Gagal",
                 description: error instanceof Error ? error.message : "Gagal menyelesaikan task"
             })
         } finally {
@@ -539,7 +539,7 @@ export default function CuttingProcessPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Size</TableHead>
+                                        <TableHead>Ukuran</TableHead>
                                         <TableHead>Warna</TableHead>
                                         <TableHead>Target</TableHead>
                                         <TableHead className="text-right">Actual Pieces</TableHead>

@@ -127,7 +127,7 @@ export default function FinishedGoodsPage() {
                     <CardContent>
                         <div className="text-2xl font-bold text-green-600">{stats.totalFinished}</div>
                         <p className="text-xs text-muted-foreground">
-                            Pieces siap distribusi
+                            Pcs siap distribusi
                         </p>
                     </CardContent>
                 </Card>
@@ -142,7 +142,7 @@ export default function FinishedGoodsPage() {
                     <CardContent>
                         <div className="text-2xl font-bold text-red-600">{stats.totalReject}</div>
                         <p className="text-xs text-muted-foreground">
-                            Pieces reject/gagal
+                            Pcs reject/gagal
                         </p>
                     </CardContent>
                 </Card>
@@ -214,7 +214,7 @@ export default function FinishedGoodsPage() {
                                             <TableHead>Batch / Sub-Batch</TableHead>
                                             <TableHead>Produk</TableHead>
                                             <TableHead>Tipe</TableHead>
-                                            <TableHead className="text-right">Quantity</TableHead>
+                                            <TableHead className="text-right">Jumlah</TableHead>
                                             <TableHead>Lokasi</TableHead>
                                             <TableHead>Verifikasi</TableHead>
                                             <TableHead>Catatan</TableHead>

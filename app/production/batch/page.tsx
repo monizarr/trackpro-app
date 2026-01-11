@@ -1,6 +1,7 @@
 "use client"
 
-import { Plus, Search, Eye, CheckCircle, AlertCircle, Package, UserPlus, Scissors } from "lucide-react"
+import { Plus, Search, Eye, CheckCircle, AlertCircle, Package, UserPlus, Scissors, Clock, Users, TrendingUp, ChevronDown, ChevronRight } from "lucide-react"
+import { Fragment } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -87,6 +88,7 @@ interface Batch {
             role: string
         }
     }>
+    subBatches?: SubBatch[]
 }
 
 interface MaterialAllocation {
@@ -160,18 +162,49 @@ interface Finisher {
     }
 }
 
+interface SubBatchItem {
+    id: string
+    productSize: string
+    color: string
+    pieces: number
+}
+
+interface SubBatch {
+    id: string
+    subBatchSku: string
+    piecesAssigned: number
+    sewingOutput: number
+    sewingReject: number
+    finishingOutput: number
+    finishingReject: number
+    status: string
+    createdAt: string
+    assignedSewer?: {
+        id: string
+        name: string
+        username: string
+    }
+    assignedFinisher?: {
+        id: string
+        name: string
+        username: string
+    }
+    items: SubBatchItem[]
+}
+
 export default function BatchManagementPage() {
     const router = useRouter()
     const [batches, setBatches] = useState<Batch[]>([])
     const [products, setProducts] = useState<Product[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState("")
+    const [activeTab, setActiveTab] = useState("PENDING")
+    const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set())
+    const [loadingSubBatches, setLoadingSubBatches] = useState<Set<string>>(new Set())
     const [showCreateDialog, setShowCreateDialog] = useState(false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
     const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null)
     const [confirming, setConfirming] = useState(false)
-    const [showDetailDialog, setShowDetailDialog] = useState(false)
-    const [detailBatch, setDetailBatch] = useState<Batch | null>(null)
     const [showAssignDialog, setShowAssignDialog] = useState(false)
     const [assignBatch, setAssignBatch] = useState<Batch | null>(null)
     const [cutters, setCutters] = useState<Cutter[]>([])
@@ -236,7 +269,7 @@ export default function BatchManagementPage() {
             setLoading(false)
         }
     }
-    
+
     const fetchProducts = async () => {
         try {
             const response = await fetch("/api/products")
@@ -248,6 +281,73 @@ export default function BatchManagementPage() {
         } catch (error) {
             console.error("Error fetching products:", error)
         }
+    }
+
+    const fetchSubBatches = async (batchId: string) => {
+        try {
+            setLoadingSubBatches(prev => new Set(prev).add(batchId))
+
+            const response = await fetch(`/api/production-batches/${batchId}/sub-batches`)
+            const data = await response.json()
+
+            if (data.success) {
+                // Update batch with sub-batches
+                setBatches(prev => prev.map(batch =>
+                    batch.id === batchId
+                        ? { ...batch, subBatches: data.data }
+                        : batch
+                ))
+            } else {
+                toast.error("Error", data.error || "Failed to fetch sub-batches")
+            }
+        } catch (error) {
+            console.error("Error fetching sub-batches:", error)
+            toast.error("Error", "Failed to fetch sub-batches")
+        } finally {
+            setLoadingSubBatches(prev => {
+                const newSet = new Set(prev)
+                newSet.delete(batchId)
+                return newSet
+            })
+        }
+    }
+
+    const toggleBatchExpand = (batchId: string) => {
+        const newExpanded = new Set(expandedBatches)
+        if (newExpanded.has(batchId)) {
+            newExpanded.delete(batchId)
+        } else {
+            newExpanded.add(batchId)
+            // Fetch sub-batches if not already loaded
+            const batch = batches.find(b => b.id === batchId)
+            if (batch && !batch.subBatches) {
+                fetchSubBatches(batchId)
+            }
+        }
+        setExpandedBatches(newExpanded)
+    }
+
+    const getSubBatchStatusBadge = (status: string) => {
+        const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+            ASSIGNED_TO_SEWER: { label: "Di-assign ke Penjahit", variant: "secondary" },
+            SEWING_IN_PROGRESS: { label: "Proses Jahit", variant: "outline" },
+            SEWING_COMPLETED: { label: "Jahitan Selesai", variant: "default" },
+            SEWING_CONFIRMED: { label: "Jahitan Dikonfirmasi", variant: "default" },
+            ASSIGNED_TO_FINISHER: { label: "Di-assign ke Finisher", variant: "secondary" },
+            FINISHING_IN_PROGRESS: { label: "Proses Finishing", variant: "outline" },
+            FINISHING_COMPLETED: { label: "Finishing Selesai", variant: "default" },
+            FINISHING_CONFIRMED: { label: "Finishing Dikonfirmasi", variant: "default" },
+            SUBMITTED_TO_WAREHOUSE: { label: "Ke Gudang", variant: "default" },
+            WAREHOUSE_VERIFIED: { label: "Terverifikasi", variant: "default" },
+        }
+
+        const config = statusConfig[status] || { label: status, variant: "secondary" }
+
+        return (
+            <Badge variant={config.variant} className="text-xs">
+                {config.label}
+            </Badge>
+        )
     }
 
     // Batch creation handled by CreateBatchDialog component
@@ -302,22 +402,6 @@ export default function BatchManagementPage() {
             if (result.success) {
                 setSelectedBatch(result.data)
                 setShowConfirmDialog(true)
-            }
-        } catch (error) {
-            console.error("Error fetching batch details:", error)
-            toast.error("Error", "Gagal memuat detail batch")
-        }
-    }
-
-    const openDetailDialog = async (batch: Batch) => {
-        // Fetch full batch details including material allocations
-        try {
-            const response = await fetch(`/api/production-batches/${batch.id}`)
-            const result = await response.json()
-
-            if (result.success) {
-                setDetailBatch(result.data)
-                setShowDetailDialog(true)
             }
         } catch (error) {
             console.error("Error fetching batch details:", error)
@@ -774,28 +858,64 @@ export default function BatchManagementPage() {
         return statusMap[status] || status
     }
 
-    const getCurrentStage = (status: string) => {
-        if (["PENDING", "MATERIAL_REQUESTED", "MATERIAL_ALLOCATED"].includes(status)) return "Persiapan"
-        if (["ASSIGNED_TO_CUTTER", "IN_CUTTING", "CUTTING_COMPLETED", "CUTTING_VERIFIED"].includes(status)) return "Pemotongan"
-        if (["ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED", "SEWING_VERIFIED"].includes(status)) return "Penjahitan"
-        if (["IN_FINISHING", "FINISHING_COMPLETED"].includes(status)) return "Finishing"
-        if (status === "WAREHOUSE_VERIFIED") return "Gudang"
-        if (status === "COMPLETED") return "Selesai"
-        if (status === "CANCELLED") return "Dibatalkan"
-        return status
-    }
-
-    const isActive = (batch: Batch) => {
-        return !["COMPLETED", "CANCELLED", "WAREHOUSE_VERIFIED"].includes(batch.status)
-    }
-
-    const isCompleted = (batch: Batch) => {
-        return batch.status === "COMPLETED" || batch.status === "WAREHOUSE_VERIFIED"
-    }
-
     const formatDate = (dateString: string) => {
         const date = new Date(dateString)
         return date.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
+    }
+
+    // Status groups for tabs
+    const STATUS_GROUPS = {
+        PENDING: {
+            label: "Menunggu",
+            statuses: ["PENDING", "MATERIAL_REQUESTED", "MATERIAL_ALLOCATED"],
+            icon: Clock,
+            color: "text-yellow-600"
+        },
+        CUTTING: {
+            label: "Pemotongan",
+            statuses: ["ASSIGNED_TO_CUTTER", "CUTTING_IN_PROGRESS", "CUTTING_COMPLETED"],
+            icon: Scissors,
+            color: "text-blue-600"
+        },
+        SEWING: {
+            label: "Penjahitan",
+            statuses: ["ASSIGNED_TO_SEWER", "SEWING_IN_PROGRESS", "SEWING_COMPLETED", "CUTTING_VERIFIED"],
+            icon: Users,
+            color: "text-purple-600"
+        },
+        FINISHING: {
+            label: "Finishing",
+            statuses: ["ASSIGNED_TO_FINISHING", "FINISHING_IN_PROGRESS", "FINISHING_COMPLETED", "SEWING_VERIFIED"],
+            icon: CheckCircle,
+            color: "text-green-600"
+        },
+        COMPLETED: {
+            label: "Selesai",
+            statuses: ["VERIFIED_READY", "COMPLETED", "WAREHOUSE_VERIFIED"],
+            icon: CheckCircle,
+            color: "text-green-600"
+        }
+    }
+
+    const filterBatches = (groupStatuses: string[]) => {
+        return batches.filter(batch => {
+            const matchesStatus = groupStatuses.includes(batch.status)
+            const matchesSearch = search.trim() === "" ||
+                batch.batchSku.toLowerCase().includes(search.toLowerCase()) ||
+                batch.product.name.toLowerCase().includes(search.toLowerCase()) ||
+                batch.product.sku.toLowerCase().includes(search.toLowerCase())
+
+            return matchesStatus && matchesSearch
+        })
+    }
+
+    const getGroupStats = (groupStatuses: string[]) => {
+        const groupBatches = batches.filter(b => groupStatuses.includes(b.status))
+        return {
+            total: groupBatches.length,
+            totalRolls: groupBatches.reduce((sum, b) => sum + b.totalRolls, 0),
+            totalPieces: groupBatches.reduce((sum, b) => sum + (b.actualQuantity || 0), 0),
+        }
     }
 
     if (loading) {
@@ -805,14 +925,6 @@ export default function BatchManagementPage() {
                 <div className="text-center">Loading...</div>
             </div>
         )
-    }
-
-    const filteredBatches = (filterFn: (batch: Batch) => boolean) => {
-        return batches.filter((batch) => {
-            const matchSearch = batch.batchSku.toLowerCase().includes(search.toLowerCase()) ||
-                batch.product.name.toLowerCase().includes(search.toLowerCase())
-            return filterFn(batch) && matchSearch
-        })
     }
 
     return (
@@ -1927,584 +2039,587 @@ export default function BatchManagementPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Detail Batch Dialog */}
-            <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>Detail Batch Produksi</DialogTitle>
-                        <DialogDescription>
-                            Informasi lengkap tentang batch produksi
-                        </DialogDescription>
-                    </DialogHeader>
+            {/* Search */}
+            <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Cari batch, produk, atau SKU..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-10"
+                />
+            </div>
 
-                    {detailBatch && (
-                        <div className="space-y-6 py-4">
-                            {/* Batch Info */}
-                            <Card>
+            {/* Tabs by Status Group */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                <TabsList className="grid w-full grid-cols-5">
+                    {Object.entries(STATUS_GROUPS).map(([key, group]) => {
+                        const stats = getGroupStats(group.statuses)
+                        const Icon = group.icon
+                        return (
+                            <TabsTrigger key={key} value={key} className="relative">
+                                <Icon className={`h-4 w-4 mr-2 ${group.color}`} />
+                                <span className="hidden sm:inline">{group.label}</span>
+                                <span className="sm:hidden">{group.label.substring(0, 4)}</span>
+                                {stats.total > 0 && (
+                                    <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                                        {stats.total}
+                                    </Badge>
+                                )}
+                            </TabsTrigger>
+                        )
+                    })}
+                </TabsList>
+
+                {Object.entries(STATUS_GROUPS).map(([key, group]) => {
+                    const filteredGroupBatches = filterBatches(group.statuses)
+                    const stats = getGroupStats(group.statuses)
+
+                    return (
+                        <TabsContent key={key} value={key} className="space-y-4">
+                            {/* Stats Cards */}
+                            <div className="grid gap-4 md:grid-cols-3">
+                                <Card>
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                        <CardTitle className="text-sm font-medium">Total Batch</CardTitle>
+                                        <Package className="h-4 w-4 text-muted-foreground" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold">{stats.total}</div>
+                                        <p className="text-xs text-muted-foreground">
+                                            {stats.total} batch
+                                        </p>
+                                    </CardContent>
+                                </Card>
+
+                                <Card>
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                        <CardTitle className="text-sm font-medium">Total Roll</CardTitle>
+                                        <Package className="h-4 w-4 text-muted-foreground" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold">{stats.totalRolls}</div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Roll bahan
+                                        </p>
+                                    </CardContent>
+                                </Card>
+
+                                <Card>
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                        <CardTitle className="text-sm font-medium">Total Produksi</CardTitle>
+                                        <TrendingUp className="h-4 w-4 text-green-600" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold text-green-600">{stats.totalPieces}</div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Pcs diproduksi
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Batches Table */}
+                            <Card className="bg-accent/5">
                                 <CardHeader>
-                                    <CardTitle>Informasi Batch</CardTitle>
+                                    <CardTitle>Batch {group.label}</CardTitle>
+                                    <CardDescription>
+                                        {filteredGroupBatches.length} batch{filteredGroupBatches.length !== 1 ? 'es' : ''} dalam tahap {group.label.toLowerCase()}
+                                    </CardDescription>
                                 </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <Label className="text-muted-foreground">Kode Batch</Label>
-                                            <p className="font-mono font-medium text-lg">{detailBatch.batchSku}</p>
+                                <CardContent>
+                                    {filteredGroupBatches.length === 0 ? (
+                                        <div className="text-center py-12 text-muted-foreground">
+                                            <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                                            <p>Tidak ada batch dalam tahap ini</p>
                                         </div>
-                                        <div>
-                                            <Label className="text-muted-foreground">Status</Label>
-                                            <div className="mt-1">
-                                                <Badge className="text-sm">{getStatusLabel(detailBatch.status)}</Badge>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <Label className="text-muted-foreground">Produk</Label>
-                                            <p className="font-medium">{detailBatch.product.name}</p>
-                                            <p className="text-sm text-muted-foreground">{detailBatch.product.sku}</p>
-                                        </div>
-                                        <div>
-                                            <Label className="text-muted-foreground">Tahap</Label>
-                                            <div className="mt-1">
-                                                <Badge variant="secondary">{getCurrentStage(detailBatch.status)}</Badge>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <Label className="text-muted-foreground">Target Produksi</Label>
-                                            <p className="font-medium">{detailBatch.totalRolls} roll</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-muted-foreground">Hasil Pemotongan</p>
-                                            <p className="font-medium">{detailBatch.actualQuantity || 0} pcs</p>
-                                        </div>
-                                        <div>
-                                            <Label className="text-muted-foreground">Tanggal Dibuat</Label>
-                                            <p className="text-sm">{formatDate(detailBatch.createdAt)}</p>
-                                        </div>
-                                        {detailBatch.actualQuantity !== null && (
-                                            <div>
-                                                <Label className="text-muted-foreground">Jumlah Aktual</Label>
-                                                <p className="font-medium">{detailBatch.actualQuantity} pcs</p>
-                                            </div>
-                                        )}
-                                        {detailBatch.rejectQuantity > 0 && (
-                                            <div>
-                                                <Label className="text-muted-foreground">Reject</Label>
-                                                <p className="font-medium text-destructive">{detailBatch.rejectQuantity} pcs</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Material Allocations */}
-                            {((detailBatch.materialColorAllocations && detailBatch.materialColorAllocations.length > 0) ||
-                                (detailBatch.materialAllocations && detailBatch.materialAllocations.length > 0)) && (
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle>Alokasi Material</CardTitle>
-                                            <CardDescription>Material yang digunakan untuk batch ini</CardDescription>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="rounded-md border">
+                                    ) : (
+                                        <>
+                                            {/* Desktop Table View */}
+                                            <div className="hidden md:block rounded-md border">
                                                 <Table>
                                                     <TableHeader>
                                                         <TableRow>
-                                                            <TableHead>Material</TableHead>
-                                                            <TableHead>Warna</TableHead>
-                                                            <TableHead className="text-right">Diminta</TableHead>
-                                                            <TableHead className="text-right">Stok</TableHead>
-                                                            <TableHead className="text-center">Status</TableHead>
+                                                            <TableHead>Kode Batch</TableHead>
+                                                            <TableHead>Produk</TableHead>
+                                                            <TableHead>Rolls/Pieces</TableHead>
+                                                            <TableHead>Tanggal</TableHead>
+                                                            <TableHead>Status</TableHead>
+                                                            <TableHead className="text-right">Aksi</TableHead>
                                                         </TableRow>
                                                     </TableHeader>
                                                     <TableBody>
-                                                        {detailBatch.materialColorAllocations && detailBatch.materialColorAllocations.length > 0 ? (
-                                                            detailBatch.materialColorAllocations.map((allocation) => (
-                                                                <TableRow key={allocation.id}>
+                                                        {filteredGroupBatches.map((batch) => (
+                                                            <Fragment key={batch.id}>
+                                                                <TableRow>
                                                                     <TableCell>
-                                                                        <div>
-                                                                            <p className="font-medium">{allocation.materialColorVariant.material.name}</p>
-                                                                            <p className="text-sm text-muted-foreground">
-                                                                                {allocation.materialColorVariant.material.code}
-                                                                            </p>
+                                                                        <div className="flex items-center gap-2">
+                                                                            {["CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "SEWING_IN_PROGRESS", "SEWING_COMPLETED", "SEWING_VERIFIED", "ASSIGNED_TO_FINISHING", "FINISHING_IN_PROGRESS", "FINISHING_COMPLETED", "VERIFIED_READY", "COMPLETED"].includes(batch.status) && (
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    className="h-6 w-6 p-0"
+                                                                                    onClick={() => toggleBatchExpand(batch.id)}
+                                                                                >
+                                                                                    {expandedBatches.has(batch.id) ? (
+                                                                                        <ChevronDown className="h-4 w-4" />
+                                                                                    ) : (
+                                                                                        <ChevronRight className="h-4 w-4" />
+                                                                                    )}
+                                                                                </Button>
+                                                                            )}
+                                                                            <span
+                                                                                className="font-mono text-sm font-medium cursor-pointer hover:text-primary hover:underline"
+                                                                                onClick={() => router.push(`/production/batch/${batch.id}`)}
+                                                                            >
+                                                                                {batch.batchSku}
+                                                                            </span>
                                                                         </div>
                                                                     </TableCell>
                                                                     <TableCell>
-                                                                        <Badge variant="outline">{allocation.materialColorVariant.colorName}</Badge>
+                                                                        {batch.product.name}
                                                                     </TableCell>
-                                                                    <TableCell className="text-right">
-                                                                        ~ {Number(allocation.allocatedQty).toFixed(2)} {allocation.materialColorVariant.material.unit}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-right">
-                                                                        {Number(allocation.materialColorVariant.stock).toFixed(2)} {allocation.materialColorVariant.material.unit}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-center">
-                                                                        {Number(allocation.materialColorVariant.stock) >= Number(allocation.allocatedQty) ? (
-                                                                            <Badge className="bg-green-500">
-                                                                                <CheckCircle className="h-3 w-3 mr-1" />
-                                                                                Cukup
-                                                                            </Badge>
-                                                                        ) : (
-                                                                            <Badge variant="destructive">
-                                                                                <AlertCircle className="h-3 w-3 mr-1" />
-                                                                                Kurang
-                                                                            </Badge>
-                                                                        )}
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            ))
-                                                        ) : (
-                                                            detailBatch.materialAllocations?.map((allocation) => (
-                                                                <TableRow key={allocation.materialId}>
                                                                     <TableCell>
-                                                                        <div>
-                                                                            <p className="font-medium">{allocation.material.name}</p>
-                                                                            <p className="text-sm text-muted-foreground">
-                                                                                {allocation.material.code}
-                                                                            </p>
+                                                                        <div className="flex flex-col">
+                                                                            <span className="font-medium">{batch.totalRolls} roll</span>
+                                                                            {batch.actualQuantity !== null && batch.actualQuantity > 0 && (
+                                                                                <span className="text-xs text-green-600">
+                                                                                    → {batch.actualQuantity} pcs
+                                                                                </span>
+                                                                            )}
                                                                         </div>
                                                                     </TableCell>
+                                                                    <TableCell className="text-sm text-muted-foreground">
+                                                                        {formatDate(batch.createdAt)}
+                                                                    </TableCell>
                                                                     <TableCell>
-                                                                        <Badge variant="outline">{allocation.color}</Badge>
+                                                                        <Badge>{getStatusLabel(batch.status)}</Badge>
                                                                     </TableCell>
                                                                     <TableCell className="text-right">
-                                                                        {Number(allocation.requestedQty).toFixed(2)} {allocation.material.unit}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-right">
-                                                                        <span className="text-muted-foreground">-</span>
-                                                                    </TableCell>
-                                                                    <TableCell className="text-center">
-                                                                        <Badge variant="secondary">Legacy (No Stock)</Badge>
+                                                                        <div className="flex items-center justify-end gap-2">
+                                                                            {["PENDING"].includes(batch.status) && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    onClick={() => openConfirmDialog(batch)}
+                                                                                >
+                                                                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                                                                    Konfirmasi
+                                                                                </Button>
+                                                                            )}
+                                                                            {batch.status === "MATERIAL_ALLOCATED" && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="default"
+                                                                                    onClick={() => openAssignDialog(batch)}
+                                                                                >
+                                                                                    <UserPlus className="h-4 w-4 mr-1" />
+                                                                                    Assign Pemotong
+                                                                                </Button>
+                                                                            )}
+                                                                            {["ASSIGNED_TO_CUTTER", "CUTTING_IN_PROGRESS"].includes(batch.status) && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="outline"
+                                                                                    onClick={() => openInputCuttingDialog(batch)}
+                                                                                >
+                                                                                    <Scissors className="h-4 w-4 mr-1" />
+                                                                                    Input Hasil
+                                                                                </Button>
+                                                                            )}
+                                                                            {batch.status === "CUTTING_COMPLETED" && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="default"
+                                                                                    onClick={() => openVerifyDialog(batch)}
+                                                                                >
+                                                                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                                                                    Verifikasi
+                                                                                </Button>
+                                                                            )}
+                                                                            {batch.status === "CUTTING_VERIFIED" && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="default"
+                                                                                    onClick={() => openSubBatchDialog(batch)}
+                                                                                >
+                                                                                    <UserPlus className="h-4 w-4 mr-1" />
+                                                                                    Assign Penjahit
+                                                                                </Button>
+                                                                            )}
+                                                                            {batch.status === "SEWING_COMPLETED" && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="default"
+                                                                                    onClick={() => openVerifySewingDialog(batch)}
+                                                                                >
+                                                                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                                                                    Verifikasi
+                                                                                </Button>
+                                                                            )}
+                                                                            {batch.status === "SEWING_VERIFIED" && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="default"
+                                                                                    onClick={() => openAssignFinisherDialog(batch)}
+                                                                                >
+                                                                                    <UserPlus className="h-4 w-4 mr-1" />
+                                                                                    Assign Finisher
+                                                                                </Button>
+                                                                            )}
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                onClick={() => router.push(`/production/batch/${batch.id}`)}
+                                                                            >
+                                                                                <Eye className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </div>
                                                                     </TableCell>
                                                                 </TableRow>
-                                                            ))
-                                                        )}
+
+                                                                {/* Sub-Batches Row */}
+                                                                {expandedBatches.has(batch.id) && (
+                                                                    <TableRow>
+                                                                        <TableCell colSpan={6} className="bg-muted/30 p-0">
+                                                                            <div className="p-4">
+                                                                                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                                                                    <Package className="h-4 w-4" />
+                                                                                    Sub-Batch
+                                                                                </h4>
+                                                                                {loadingSubBatches.has(batch.id) ? (
+                                                                                    <div className="text-center py-4">
+                                                                                        <SpinnerCustom />
+                                                                                    </div>
+                                                                                ) : batch.subBatches && batch.subBatches.length > 0 ? (
+                                                                                    <div className="space-y-3">
+                                                                                        {batch.subBatches.map((subBatch) => (
+                                                                                            <div
+                                                                                                key={subBatch.id}
+                                                                                                className="border rounded-lg p-3 bg-background hover:bg-accent/10 transition-colors"
+                                                                                            >
+                                                                                                <div className="flex items-start justify-between mb-2">
+                                                                                                    <div>
+                                                                                                        <p className="font-mono text-sm font-semibold text-primary">
+                                                                                                            {subBatch.subBatchSku}
+                                                                                                        </p>
+                                                                                                        {subBatch.items && subBatch.items.length > 0 && (
+                                                                                                            <p className="text-xs text-muted-foreground">
+                                                                                                                {subBatch.items.map(item => `${item.productSize}-${item.color}`).join(', ')}
+                                                                                                            </p>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                    {getSubBatchStatusBadge(subBatch.status)}
+                                                                                                </div>
+
+                                                                                                <div className="grid grid-cols-4 gap-2 text-sm">
+                                                                                                    <div>
+                                                                                                        <p className="text-xs text-muted-foreground">Di-assign</p>
+                                                                                                        <p className="font-semibold">{subBatch.piecesAssigned} pcs</p>
+                                                                                                    </div>
+                                                                                                    <div>
+                                                                                                        <p className="text-xs text-muted-foreground">Jahitan</p>
+                                                                                                        <p className="font-semibold text-blue-600">{subBatch.sewingOutput} pcs</p>
+                                                                                                    </div>
+                                                                                                    <div>
+                                                                                                        <p className="text-xs text-muted-foreground">Finishing</p>
+                                                                                                        <p className="font-semibold text-green-600">{subBatch.finishingOutput} pcs</p>
+                                                                                                    </div>
+                                                                                                    <div>
+                                                                                                        <p className="text-xs text-muted-foreground">Total Reject</p>
+                                                                                                        <p className="font-semibold text-red-600">{subBatch.sewingReject + subBatch.finishingReject} pcs</p>
+                                                                                                    </div>
+                                                                                                </div>
+
+                                                                                                {/* Assigned Workers */}
+                                                                                                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                                                                                                    {subBatch.assignedSewer && (
+                                                                                                        <div className="flex items-center gap-1 text-muted-foreground">
+                                                                                                            <Users className="h-3 w-3" />
+                                                                                                            <span>{subBatch.assignedSewer.name}</span>
+                                                                                                            <Badge variant="outline" className="text-xs">Penjahit</Badge>
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                    {subBatch.assignedFinisher && (
+                                                                                                        <div className="flex items-center gap-1 text-muted-foreground">
+                                                                                                            <Users className="h-3 w-3" />
+                                                                                                            <span>{subBatch.assignedFinisher.name}</span>
+                                                                                                            <Badge variant="outline" className="text-xs">Finisher</Badge>
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                </div>
+
+                                                                                                {/* Sub-Batch Items */}
+                                                                                                {subBatch.items && subBatch.items.length > 0 && (
+                                                                                                    <div className="mt-3 pt-3 border-t">
+                                                                                                        <p className="text-xs font-semibold mb-2">Items:</p>
+                                                                                                        <div className="grid grid-cols-2 gap-2">
+                                                                                                            {subBatch.items.map((item) => (
+                                                                                                                <div
+                                                                                                                    key={item.id}
+                                                                                                                    className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1"
+                                                                                                                >
+                                                                                                                    <span>{item.productSize} - {item.color}</span>
+                                                                                                                    <span className="font-semibold">{item.pieces} pcs</span>
+                                                                                                                </div>
+                                                                                                            ))}
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <p className="text-sm text-muted-foreground text-center py-4">
+                                                                                        Belum ada sub-batch
+                                                                                    </p>
+                                                                                )}
+                                                                            </div>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                )}
+                                                            </Fragment>
+                                                        ))}
                                                     </TableBody>
                                                 </Table>
                                             </div>
-                                        </CardContent>
-                                    </Card>
-                                )}
 
-                            {/* Actions */}
-                            {["PENDING", "MATERIAL_REQUESTED"].includes(detailBatch.status) && (
-                                <div className="flex justify-end">
-                                    <Button
-                                        onClick={() => {
-                                            setShowDetailDialog(false)
-                                            openConfirmDialog(detailBatch)
-                                        }}
-                                    >
-                                        <CheckCircle className="h-4 w-4 mr-2" />
-                                        Konfirmasi Batch
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                            {/* Mobile Card View */}
+                                            <div className="md:hidden space-y-4">
+                                                {filteredGroupBatches.map((batch) => (
+                                                    <Card key={batch.id} className="overflow-hidden">
+                                                        <CardHeader className="pb-3">
+                                                            <div className="flex items-start justify-between">
+                                                                <div className="flex items-start gap-2 flex-1">
+                                                                    {["CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "SEWING_IN_PROGRESS", "SEWING_COMPLETED", "SEWING_VERIFIED", "ASSIGNED_TO_FINISHING", "FINISHING_IN_PROGRESS", "FINISHING_COMPLETED", "VERIFIED_READY", "COMPLETED"].includes(batch.status) && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="h-6 w-6 p-0 mt-1"
+                                                                            onClick={() => toggleBatchExpand(batch.id)}
+                                                                        >
+                                                                            {expandedBatches.has(batch.id) ? (
+                                                                                <ChevronDown className="h-4 w-4" />
+                                                                            ) : (
+                                                                                <ChevronRight className="h-4 w-4" />
+                                                                            )}
+                                                                        </Button>
+                                                                    )}
+                                                                    <div className="space-y-1 flex-1">
+                                                                        <CardTitle
+                                                                            className="text-base font-mono cursor-pointer hover:text-primary"
+                                                                            onClick={() => router.push(`/production/batch/${batch.id}`)}
+                                                                        >
+                                                                            {batch.batchSku}
+                                                                        </CardTitle>
+                                                                        <CardDescription className="text-sm">
+                                                                            {batch.product.name}
+                                                                        </CardDescription>
+                                                                    </div>
+                                                                </div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => router.push(`/production/batch/${batch.id}`)}
+                                                                >
+                                                                    <Eye className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </CardHeader>
+                                                        <CardContent className="space-y-3">
+                                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                                <div>
+                                                                    <p className="text-muted-foreground text-xs">Total Roll</p>
+                                                                    <p className="font-medium">{batch.totalRolls} roll</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-muted-foreground text-xs">Hasil</p>
+                                                                    <p className="font-medium text-green-600">{batch.actualQuantity || 0} pcs</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                <Badge>{getStatusLabel(batch.status)}</Badge>
+                                                            </div>
+                                                            <div className="flex flex-col gap-2 pt-2">
+                                                                {["PENDING"].includes(batch.status) && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="w-full"
+                                                                        onClick={() => openConfirmDialog(batch)}
+                                                                    >
+                                                                        <CheckCircle className="h-4 w-4 mr-2" />
+                                                                        Konfirmasi
+                                                                    </Button>
+                                                                )}
+                                                                {batch.status === "MATERIAL_ALLOCATED" && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="w-full"
+                                                                        onClick={() => openAssignDialog(batch)}
+                                                                    >
+                                                                        <UserPlus className="h-4 w-4 mr-2" />
+                                                                        Assign Pemotong
+                                                                    </Button>
+                                                                )}
+                                                                {["ASSIGNED_TO_CUTTER", "CUTTING_IN_PROGRESS"].includes(batch.status) && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        className="w-full"
+                                                                        onClick={() => openInputCuttingDialog(batch)}
+                                                                    >
+                                                                        <Scissors className="h-4 w-4 mr-2" />
+                                                                        Input Hasil Potongan
+                                                                    </Button>
+                                                                )}
+                                                                {batch.status === "CUTTING_COMPLETED" && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="w-full"
+                                                                        onClick={() => openVerifyDialog(batch)}
+                                                                    >
+                                                                        <CheckCircle className="h-4 w-4 mr-2" />
+                                                                        Verifikasi Potongan
+                                                                    </Button>
+                                                                )}
+                                                                {batch.status === "CUTTING_VERIFIED" && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="w-full"
+                                                                        onClick={() => openSubBatchDialog(batch)}
+                                                                    >
+                                                                        <UserPlus className="h-4 w-4 mr-2" />
+                                                                        Assign Penjahit
+                                                                    </Button>
+                                                                )}
+                                                                {batch.status === "SEWING_COMPLETED" && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="w-full"
+                                                                        onClick={() => openVerifySewingDialog(batch)}
+                                                                    >
+                                                                        <CheckCircle className="h-4 w-4 mr-2" />
+                                                                        Verifikasi Jahitan
+                                                                    </Button>
+                                                                )}
+                                                                {batch.status === "SEWING_VERIFIED" && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="w-full"
+                                                                        onClick={() => openAssignFinisherDialog(batch)}
+                                                                    >
+                                                                        <UserPlus className="h-4 w-4 mr-2" />
+                                                                        Assign Finisher
+                                                                    </Button>
+                                                                )}
+                                                            </div>
 
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                setShowDetailDialog(false)
-                                setDetailBatch(null)
-                            }}
-                        >
-                            Tutup
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                                                            {/* Sub-Batches Mobile */}
+                                                            {expandedBatches.has(batch.id) && (
+                                                                <div className="mt-4 pt-4 border-t">
+                                                                    <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+                                                                        <Package className="h-4 w-4" />
+                                                                        Sub-Batch
+                                                                    </h4>
+                                                                    {loadingSubBatches.has(batch.id) ? (
+                                                                        <div className="text-center py-4">
+                                                                            <SpinnerCustom />
+                                                                        </div>
+                                                                    ) : batch.subBatches && batch.subBatches.length > 0 ? (
+                                                                        <div className="space-y-3">
+                                                                            {batch.subBatches.map((subBatch) => (
+                                                                                <div
+                                                                                    key={subBatch.id}
+                                                                                    className="border rounded-lg p-3 bg-muted/20"
+                                                                                >
+                                                                                    <div className="flex items-start justify-between mb-2">
+                                                                                        <div>
+                                                                                            <p className="font-mono text-sm font-semibold text-primary">
+                                                                                                {subBatch.subBatchSku}
+                                                                                            </p>
+                                                                                            {subBatch.items && subBatch.items.length > 0 && (
+                                                                                                <p className="text-xs text-muted-foreground">
+                                                                                                    {subBatch.items.map(item => `${item.productSize}-${item.color}`).join(', ')}
+                                                                                                </p>
+                                                                                            )}
+                                                                                        </div>
+                                                                                        {getSubBatchStatusBadge(subBatch.status)}
+                                                                                    </div>
 
-            <Tabs defaultValue="active" className="space-y-4">
-                <TabsList className="w-full md:w-auto">
-                    <TabsTrigger value="active">Batch Aktif</TabsTrigger>
-                    <TabsTrigger value="completed">Selesai</TabsTrigger>
-                    <TabsTrigger value="all">Semua</TabsTrigger>
-                </TabsList>
+                                                                                    <div className="grid grid-cols-2 gap-2 text-xs mb-2">
+                                                                                        <div>
+                                                                                            <p className="text-muted-foreground">Di-assign</p>
+                                                                                            <p className="font-semibold">{subBatch.piecesAssigned}</p>
+                                                                                        </div>
+                                                                                        <div>
+                                                                                            <p className="text-muted-foreground">Jahitan</p>
+                                                                                            <p className="font-semibold text-blue-600">{subBatch.sewingOutput}</p>
+                                                                                        </div>
+                                                                                        <div>
+                                                                                            <p className="text-muted-foreground">Finishing</p>
+                                                                                            <p className="font-semibold text-green-600">{subBatch.finishingOutput}</p>
+                                                                                        </div>
+                                                                                        <div>
+                                                                                            <p className="text-muted-foreground">Reject</p>
+                                                                                            <p className="font-semibold text-red-600">{subBatch.sewingReject + subBatch.finishingReject}</p>
+                                                                                        </div>
+                                                                                    </div>
 
-                <TabsContent value="active" className="space-y-4">
-                    <Card className="bg-accent/5">
-                        <CardHeader>
-                            <CardTitle>Batch Produksi Aktif</CardTitle>
-                            <CardDescription>Batch yang sedang dalam proses produksi</CardDescription>
-                            <div className="relative mt-4">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="Cari batch..."
-                                    className="pl-10"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            {/* Desktop Table View */}
-                            <div className="hidden md:block rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Kode Batch</TableHead>
-                                            <TableHead>Produk</TableHead>
-                                            <TableHead>Target</TableHead>
-                                            <TableHead>Tahap</TableHead>
-                                            <TableHead>Tanggal</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead className="text-right">Aksi</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredBatches(isActive).length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                                                    Tidak ada batch aktif
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            filteredBatches(isActive).map((batch) => (
-                                                <TableRow key={batch.id}>
-                                                    <TableCell
-                                                        className="font-mono text-sm font-medium cursor-pointer hover:text-primary hover:underline"
-                                                        onClick={() => router.push(`/production/batch/${batch.id}`)}
-                                                    >
-                                                        {batch.batchSku}
-                                                    </TableCell>
-                                                    <TableCell
-                                                        className="cursor-pointer hover:text-primary hover:underline"
-                                                    >
-                                                        {batch.product.name}
-                                                    </TableCell>
-                                                    <TableCell>{batch.totalRolls} roll</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="secondary">{getCurrentStage(batch.status)}</Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground">
-                                                        {formatDate(batch.createdAt)}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge>{getStatusLabel(batch.status)}</Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <div className="flex items-center justify-end gap-2">
-                                                            {["PENDING"].includes(batch.status) && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    onClick={() => openConfirmDialog(batch)}
-                                                                >
-                                                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                                                    Konfirmasi
-                                                                </Button>
-                                                            )}
-                                                            {batch.status === "MATERIAL_ALLOCATED" && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="default"
-                                                                    onClick={() => openAssignDialog(batch)}
-                                                                >
-                                                                    <UserPlus className="h-4 w-4 mr-1" />
-                                                                    Assign Pemotong
-                                                                </Button>
-                                                            )}
-                                                            {["ASSIGNED_TO_CUTTER", "IN_CUTTING"].includes(batch.status) && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() => openInputCuttingDialog(batch)}
-                                                                >
-                                                                    <Scissors className="h-4 w-4 mr-1" />
-                                                                    Input Hasil Potongan
-                                                                </Button>
-                                                            )}
-                                                            {batch.status === "CUTTING_COMPLETED" && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="default"
-                                                                    onClick={() => openVerifyDialog(batch)}
-                                                                >
-                                                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                                                    Verifikasi Potongan
-                                                                </Button>
-                                                            )}
-                                                            {batch.status === "CUTTING_VERIFIED" && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="default"
-                                                                    onClick={() => openSubBatchDialog(batch)}
-                                                                >
-                                                                    <UserPlus className="h-4 w-4 mr-1" />
-                                                                    Assign Penjahit
-                                                                </Button>
-                                                            )}
-                                                            {batch.status === "SEWING_COMPLETED" && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="default"
-                                                                    onClick={() => openVerifySewingDialog(batch)}
-                                                                >
-                                                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                                                    Verifikasi Jahitan
-                                                                </Button>
-                                                            )}
-                                                            {batch.status === "SEWING_VERIFIED" && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="default"
-                                                                    onClick={() => openAssignFinisherDialog(batch)}
-                                                                >
-                                                                    <UserPlus className="h-4 w-4 mr-1" />
-                                                                    Assign Finisher
-                                                                </Button>
-                                                            )}
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => router.push(`/production/batch/${batch.id}`)}
-                                                            >
-                                                                <Eye className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                                                                                    {/* Workers */}
+                                                                                    <div className="flex flex-col gap-1 text-xs mb-2">
+                                                                                        {subBatch.assignedSewer && (
+                                                                                            <div className="flex items-center gap-1 text-muted-foreground">
+                                                                                                <Users className="h-3 w-3" />
+                                                                                                <span>{subBatch.assignedSewer.name}</span>
+                                                                                                <Badge variant="outline" className="text-xs">Penjahit</Badge>
+                                                                                            </div>
+                                                                                        )}
+                                                                                        {subBatch.assignedFinisher && (
+                                                                                            <div className="flex items-center gap-1 text-muted-foreground">
+                                                                                                <Users className="h-3 w-3" />
+                                                                                                <span>{subBatch.assignedFinisher.name}</span>
+                                                                                                <Badge variant="outline" className="text-xs">Finisher</Badge>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
 
-                            {/* Mobile Card View */}
-                            <div className="md:hidden space-y-4">
-                                {filteredBatches(isActive).length === 0 ? (
-                                    <div className="text-center text-muted-foreground py-8">
-                                        Tidak ada batch aktif
-                                    </div>
-                                ) : (
-                                    filteredBatches(isActive).map((batch) => (
-                                        <Card key={batch.id} className="overflow-hidden">
-                                            <CardHeader className="pb-3">
-                                                <div className="flex items-start justify-between">
-                                                    <div className="space-y-1">
-                                                        <CardTitle
-                                                            className="text-base font-mono cursor-pointer hover:text-primary"
-                                                            onClick={() => router.push(`/production/batch/${batch.id}`)}
-                                                        >
-                                                            {batch.batchSku}
-                                                        </CardTitle>
-                                                        <CardDescription className="text-sm">
-                                                            {batch.product.name}
-                                                        </CardDescription>
-                                                    </div>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => router.push(`/production/batch/${batch.id}`)}
-                                                    >
-                                                        <Eye className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </CardHeader>
-                                            <CardContent className="space-y-3">
-                                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                                    <div>
-                                                        <p className="text-muted-foreground text-xs">Total Roll</p>
-                                                        <p className="font-medium">{batch.totalRolls} roll</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-muted-foreground text-xs">Hasil</p>
-                                                        <p className="font-medium">{batch.actualQuantity || 0} pcs</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex flex-wrap gap-2">
-                                                    <Badge variant="secondary">{getCurrentStage(batch.status)}</Badge>
-                                                    <Badge>{getStatusLabel(batch.status)}</Badge>
-                                                </div>
-                                                <div className="flex flex-col gap-2 pt-2">
-                                                    {["PENDING"].includes(batch.status) && (
-                                                        <Button
-                                                            size="sm"
-                                                            className="w-full"
-                                                            onClick={() => openConfirmDialog(batch)}
-                                                        >
-                                                            <CheckCircle className="h-4 w-4 mr-2" />
-                                                            Konfirmasi
-                                                        </Button>
-                                                    )}
-                                                    {batch.status === "MATERIAL_ALLOCATED" && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="default"
-                                                            className="w-full"
-                                                            onClick={() => openAssignDialog(batch)}
-                                                        >
-                                                            <UserPlus className="h-4 w-4 mr-2" />
-                                                            Assign Pemotong
-                                                        </Button>
-                                                    )}
-                                                    {batch.status === "CUTTING_COMPLETED" && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="default"
-                                                            className="w-full"
-                                                            onClick={() => openVerifyDialog(batch)}
-                                                        >
-                                                            <CheckCircle className="h-4 w-4 mr-2" />
-                                                            Verifikasi Potongan
-                                                        </Button>
-                                                    )}
-                                                    {batch.status === "CUTTING_VERIFIED" && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="default"
-                                                            className="w-full"
-                                                            onClick={() => openSubBatchDialog(batch)}
-                                                        >
-                                                            <UserPlus className="h-4 w-4 mr-2" />
-                                                            Assign Penjahit
-                                                        </Button>
-                                                    )}
-                                                    {batch.status === "SEWING_COMPLETED" && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="default"
-                                                            className="w-full"
-                                                            onClick={() => openVerifySewingDialog(batch)}
-                                                        >
-                                                            <CheckCircle className="h-4 w-4 mr-2" />
-                                                            Verifikasi Jahitan
-                                                        </Button>
-                                                    )}
-                                                    {batch.status === "SEWING_VERIFIED" && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="default"
-                                                            className="w-full"
-                                                            onClick={() => openAssignFinisherDialog(batch)}
-                                                        >
-                                                            <UserPlus className="h-4 w-4 mr-2" />
-                                                            Assign Finisher
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="completed">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Batch Selesai</CardTitle>
-                            <CardDescription>Batch yang telah diselesaikan</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Kode Batch</TableHead>
-                                            <TableHead>Produk</TableHead>
-                                            <TableHead>Target</TableHead>
-                                            <TableHead>Tanggal</TableHead>
-                                            <TableHead>Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredBatches(isCompleted).length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                                                    Tidak ada batch selesai
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            filteredBatches(isCompleted).map((batch) => (
-                                                <TableRow key={batch.id}>
-                                                    <TableCell
-                                                        className="font-mono text-sm font-medium cursor-pointer hover:text-primary hover:underline"
-                                                        onClick={() => router.push(`/production/batch/${batch.id}`)}
-                                                    >
-                                                        {batch.batchSku}
-                                                    </TableCell>
-                                                    <TableCell
-                                                        className="cursor-pointer hover:text-primary hover:underline"
-                                                        onClick={() => router.push(`/production/batch/${batch.id}`)}
-                                                    >
-                                                        {batch.product.name}
-                                                    </TableCell>
-                                                    <TableCell>{batch.totalRolls} roll → {batch.actualQuantity || 0} pcs</TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground">
-                                                        {formatDate(batch.createdAt)}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge>Selesai</Badge>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="all">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Semua Batch</CardTitle>
-                            <CardDescription>Daftar lengkap batch produksi</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Kode Batch</TableHead>
-                                            <TableHead>Produk</TableHead>
-                                            <TableHead>Target</TableHead>
-                                            <TableHead>Tahap</TableHead>
-                                            <TableHead>Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredBatches(() => true).length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                                                    Tidak ada batch ditemukan
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            filteredBatches(() => true).map((batch) => (
-                                                <TableRow key={batch.id}>
-                                                    <TableCell
-                                                        className="font-mono text-sm font-medium cursor-pointer hover:text-primary hover:underline"
-                                                        onClick={() => router.push(`/production/batch/${batch.id}`)}
-                                                    >
-                                                        {batch.batchSku}
-                                                    </TableCell>
-                                                    <TableCell
-                                                        className="cursor-pointer hover:text-primary hover:underline"
-                                                        onClick={() => router.push(`/production/batch/${batch.id}`)}
-                                                    >
-                                                        {batch.product.name}
-                                                    </TableCell>
-                                                    <TableCell>{batch.totalRolls} roll → {batch.actualQuantity || 0} pcs</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="secondary">{getCurrentStage(batch.status)}</Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge>{getStatusLabel(batch.status)}</Badge>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+                                                                                    {/* Items */}
+                                                                                    {subBatch.items && subBatch.items.length > 0 && (
+                                                                                        <div className="mt-2 pt-2 border-t">
+                                                                                            <p className="text-xs font-semibold mb-1">Items:</p>
+                                                                                            <div className="space-y-1">
+                                                                                                {subBatch.items.map((item) => (
+                                                                                                    <div
+                                                                                                        key={item.id}
+                                                                                                        className="flex items-center justify-between text-xs bg-background rounded px-2 py-1"
+                                                                                                    >
+                                                                                                        <span>{item.productSize} - {item.color}</span>
+                                                                                                        <span className="font-semibold">{item.pieces} pcs</span>
+                                                                                                    </div>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <p className="text-sm text-muted-foreground text-center py-4">
+                                                                            Belum ada sub-batch
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </CardContent>
+                                                    </Card>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    )
+                })}
             </Tabs>
         </div >
     )

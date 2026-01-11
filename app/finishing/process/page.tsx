@@ -89,7 +89,7 @@ export default function FinishingProcessPage() {
         } catch (err) {
             toast({
                 variant: "destructive",
-                title: "Error",
+                title: "Gagal",
                 description: "Gagal memuat data task: " + err
             })
         } finally {
@@ -118,12 +118,12 @@ export default function FinishingProcessPage() {
                 })
                 fetchTasks()
             } else {
-                throw new Error('Failed to start task')
+                throw new Error('Gagal memulai task')
             }
         } catch {
             toast({
                 variant: "destructive",
-                title: "Error",
+                title: "Gagal",
                 description: "Gagal memulai task"
             })
         } finally {
@@ -140,7 +140,7 @@ export default function FinishingProcessPage() {
         if (completedToAdd === 0 && rejectToAdd === 0) {
             toast({
                 variant: "destructive",
-                title: "Error",
+                title: "Gagal",
                 description: "Harap isi minimal satu field untuk update progress"
             })
             return
@@ -167,12 +167,12 @@ export default function FinishingProcessPage() {
                 setRejectPieces("0")
                 fetchTasks()
             } else {
-                throw new Error('Failed to update progress')
+                throw new Error('Gagal update progress')
             }
         } catch {
             toast({
                 variant: "destructive",
-                title: "Error",
+                title: "Gagal",
                 description: "Gagal menyimpan progress"
             })
         } finally {
@@ -194,7 +194,7 @@ export default function FinishingProcessPage() {
         if (finalCompleted + finalReject > selectedTask.piecesReceived) {
             toast({
                 variant: "destructive",
-                title: "Error",
+                title: "Gagal",
                 description: `Total pieces (${finalCompleted + finalReject}) melebihi pieces yang diterima (${selectedTask.piecesReceived})`
             })
             return
@@ -224,12 +224,12 @@ export default function FinishingProcessPage() {
                 setQualityChecks({})
             } else {
                 const error = await response.json()
-                throw new Error(error.error || 'Failed to complete task')
+                throw new Error(error.error || 'Gagal menyelesaikan task')
             }
         } catch (error) {
             toast({
                 variant: "destructive",
-                title: "Error",
+                title: "Gagal",
                 description: error instanceof Error ? error.message : "Gagal menyelesaikan task"
             })
         } finally {

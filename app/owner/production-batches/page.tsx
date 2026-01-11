@@ -120,19 +120,19 @@ interface Batch {
 // Status groups for tabs
 const STATUS_GROUPS = {
     PENDING: {
-        label: "Pending",
+        label: "Menunggu",
         statuses: ["PENDING", "MATERIAL_REQUESTED", "MATERIAL_ALLOCATED"],
         icon: Clock,
         color: "text-yellow-600"
     },
     CUTTING: {
-        label: "Cutting",
+        label: "Pemotongan",
         statuses: ["ASSIGNED_TO_CUTTER", "CUTTING_IN_PROGRESS", "CUTTING_COMPLETED"],
         icon: Package,
         color: "text-blue-600"
     },
     SEWING: {
-        label: "Sewing",
+        label: "Penjahitan",
         statuses: ["ASSIGNED_TO_SEWER", "SEWING_IN_PROGRESS", "SEWING_COMPLETED"],
         icon: Users,
         color: "text-purple-600"
@@ -144,7 +144,7 @@ const STATUS_GROUPS = {
         color: "text-green-600"
     },
     COMPLETED: {
-        label: "Completed",
+        label: "Selesai",
         statuses: ["VERIFIED_READY", "COMPLETED"],
         icon: CheckCircle2,
         color: "text-green-600"
@@ -387,20 +387,20 @@ export default function OwnerBatchMonitoring() {
                             <div className="grid gap-4 md:grid-cols-3">
                                 <Card>
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="text-sm font-medium">Total Batches</CardTitle>
+                                        <CardTitle className="text-sm font-medium">Total Batch</CardTitle>
                                         <Package className="h-4 w-4 text-muted-foreground" />
                                     </CardHeader>
                                     <CardContent>
                                         <div className="text-2xl font-bold">{stats.total}</div>
                                         <p className="text-xs text-muted-foreground">
-                                            Active {group.label.toLowerCase()} batches
+                                            {stats.total} batch aktif
                                         </p>
                                     </CardContent>
                                 </Card>
 
                                 <Card>
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="text-sm font-medium">Total Rolls</CardTitle>
+                                        <CardTitle className="text-sm font-medium">Total Roll</CardTitle>
                                         <Package className="h-4 w-4 text-muted-foreground" />
                                     </CardHeader>
                                     <CardContent>
@@ -413,13 +413,13 @@ export default function OwnerBatchMonitoring() {
 
                                 <Card>
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="text-sm font-medium">Total Production</CardTitle>
+                                        <CardTitle className="text-sm font-medium">Total Produksi</CardTitle>
                                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                                     </CardHeader>
                                     <CardContent>
                                         <div className="text-2xl font-bold text-green-600">{stats.totalPieces}</div>
                                         <p className="text-xs text-muted-foreground">
-                                            Pieces produced
+                                            Pcs diproduksi
                                         </p>
                                     </CardContent>
                                 </Card>
@@ -428,7 +428,7 @@ export default function OwnerBatchMonitoring() {
                             {/* Batches Table */}
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>{group.label} Batches</CardTitle>
+                                    <CardTitle>Batch {group.label}</CardTitle>
                                     <CardDescription>
                                         {filteredBatches.length} batch{filteredBatches.length !== 1 ? 'es' : ''} dalam tahap {group.label.toLowerCase()}
                                     </CardDescription>

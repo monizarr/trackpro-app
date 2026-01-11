@@ -48,7 +48,7 @@ export default function QRScannerPage() {
             const qrData = JSON.parse(decodedText);
 
             if (qrData.type !== "production-batch") {
-                toast.error("QR Code Tidak Valid", "Bukan QR Code batch produksi");
+                toast.error("Kode QR Tidak Valid", "Bukan kode QR batch produksi");
                 return;
             }
 
@@ -58,13 +58,13 @@ export default function QRScannerPage() {
 
             if (result.success) {
                 setScannedBatch(result.data);
-                toast.success("QR Code Berhasil Di-scan!", `Batch: ${result.data.batchSku}`);
+                toast.success("Kode QR Berhasil Dipindai!", `Batch: ${result.data.batchSku}`);
             } else {
                 toast.error("Batch Tidak Ditemukan", result.error || "Silakan coba lagi");
             }
         } catch (err: unknown) {
             console.error("Error processing scan:", err);
-            toast.error("Error", "Format QR Code tidak valid atau terjadi kesalahan");
+            toast.error("Error", "Format kode QR tidak valid atau terjadi kesalahan");
         } finally {
             setLoading(false);
         }
@@ -103,9 +103,9 @@ export default function QRScannerPage() {
         <div className="flex-1 space-y-6 p-8 pt-6">
             {/* Header */}
             <div>
-                <h2 className="text-3xl font-bold tracking-tight">QR Code Scanner</h2>
+                <h2 className="text-3xl font-bold tracking-tight">Pemindai Kode QR</h2>
                 <p className="text-muted-foreground">
-                    Scan QR Code batch produksi untuk verifikasi dan tracking
+                    Pindai kode QR batch produksi untuk verifikasi dan tracking
                 </p>
             </div>
 
@@ -114,7 +114,7 @@ export default function QRScannerPage() {
                 <div>
                     <QRCodeScanner
                         onScanSuccess={handleScanSuccess}
-                        onScanError={(err) => toast.error("Error Scanner", err)}
+                        onScanError={(err) => toast.error("Error Pemindai", err)}
                     />
                 </div>
 
@@ -141,7 +141,7 @@ export default function QRScannerPage() {
                                             Batch Ditemukan
                                         </CardTitle>
                                         <CardDescription className="mt-2">
-                                            QR Code berhasil di-scan dan batch terverifikasi
+                                            Kode QR berhasil dipindai dan batch terverifikasi
                                         </CardDescription>
                                     </div>
                                 </div>
@@ -181,7 +181,7 @@ export default function QRScannerPage() {
                                     </div>
                                     <div className="text-center p-3 bg-green-50 dark:bg-green-950 rounded-lg">
                                         <CheckCircle className="h-5 w-5 mx-auto mb-1 text-green-600" />
-                                        <p className="text-xs text-muted-foreground">Completed</p>
+                                        <p className="text-xs text-muted-foreground">Selesai</p>
                                         <p className="text-lg font-bold text-green-600">{scannedBatch.actualQuantity}</p>
                                     </div>
                                     <div className="text-center p-3 bg-red-50 dark:bg-red-950 rounded-lg">
@@ -222,7 +222,7 @@ export default function QRScannerPage() {
                                         Lihat Detail
                                     </Button>
                                     <Button onClick={handleScanAnother} variant="outline" className="flex-1">
-                                        Scan Lagi
+                                        Pindai Lagi
                                     </Button>
                                 </div>
                             </CardContent>
@@ -235,9 +235,9 @@ export default function QRScannerPage() {
                                 <div className="text-center space-y-4">
                                     <Package className="h-16 w-16 mx-auto text-muted-foreground opacity-20" />
                                     <div>
-                                        <p className="font-medium">Belum Ada Scan</p>
+                                        <p className="font-medium">Belum Ada Pemindaian</p>
                                         <p className="text-sm text-muted-foreground">
-                                            Hasil scan akan muncul di sini
+                                            Hasil pemindaian akan muncul di sini
                                         </p>
                                     </div>
                                 </div>

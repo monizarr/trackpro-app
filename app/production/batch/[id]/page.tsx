@@ -830,13 +830,13 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
 
                     {batch.status === "CUTTING_VERIFIED" && (
                         <>
-                            <Button
+                            {/* <Button
                                 size="sm"
                                 onClick={() => setShowAssignSewerDialog(true)}
                             >
                                 <UserPlus className="h-4 w-4 mr-2" />
                                 Assign ke Penjahit
-                            </Button>
+                            </Button> */}
                             <Button
                                 size="sm"
                                 variant="outline"

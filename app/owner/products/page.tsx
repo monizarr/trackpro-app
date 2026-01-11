@@ -303,9 +303,9 @@ export default function ProductsPage() {
         <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Products</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Produk</h2>
                     <p className="text-sm sm:text-base text-muted-foreground">
-                        Manage your product catalog
+                        Kelola katalog produk Anda
                     </p>
                 </div>
                 <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -315,14 +315,14 @@ export default function ProductsPage() {
                     <DialogTrigger asChild>
                         <Button className="w-full sm:w-auto">
                             <Plus className="h-4 w-4 mr-2" />
-                            Add Product
+                            Tambah Produk
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-full sm:max-w-2xl mx-4 max-h-[90vh] overflow-y-auto  p-4 sm:p-6 rounded-lg shadow-lg">
                         <DialogHeader>
-                            <DialogTitle>{editingProduct ? 'Edit Product' : 'Create Product'}</DialogTitle>
+                            <DialogTitle>{editingProduct ? 'Edit Produk' : 'Buat Produk Baru'}</DialogTitle>
                             <DialogDescription>
-                                {editingProduct ? 'Update product information' : 'Add a new product to your catalog.'}
+                                {editingProduct ? 'Perbarui informasi produk' : 'Tambahkan produk baru ke katalog Anda.'}
                             </DialogDescription>
                         </DialogHeader>
                         <form onSubmit={handleSubmit} className="space-y-4">
@@ -340,7 +340,7 @@ export default function ProductsPage() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="name">Name</Label>
+                                    <Label htmlFor="name">Nama</Label>
                                     <Input
                                         id="name"
                                         placeholder="Nama Produk"
@@ -381,13 +381,13 @@ export default function ProductsPage() {
                                             })
                                         }
                                     >
-                                        <option value="active">Active</option>
-                                        <option value="inactive">Inactive</option>
+                                        <option value="active">Aktif</option>
+                                        <option value="inactive">Tidak Aktif</option>
                                     </Select>
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="description">Description</Label>
+                                <Label htmlFor="description">Deskripsi</Label>
                                 <Textarea
                                     id="description"
                                     placeholder="Deskripsi Produk"
@@ -399,7 +399,7 @@ export default function ProductsPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="materials">Materials</Label>
+                                <Label htmlFor="materials">Bahan</Label>
                                 <Select
                                     id="materials"
                                     onChange={(e) => {
@@ -475,7 +475,7 @@ export default function ProductsPage() {
                                 )}
                             </div>
                             <Button type="submit" className="w-full" disabled={isSaving}>
-                                {isSaving ? "Saving..." : editingProduct ? "Update Product" : "Create Product"}
+                                {isSaving ? "Menyimpan..." : editingProduct ? "Perbarui Produk" : "Buat Produk"}
                             </Button>
                         </form>
                     </DialogContent>
@@ -486,15 +486,15 @@ export default function ProductsPage() {
                 <CardHeader>
                     <div className="flex flex-col gap-4">
                         <div>
-                            <CardTitle>Product List</CardTitle>
+                            <CardTitle>Daftar Produk</CardTitle>
                             <CardDescription>
-                                Manage your product inventory
+                                Kelola inventori produk Anda
                             </CardDescription>
                         </div>
                         <div className="relative w-full">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search products..."
+                                placeholder="Cari produk..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pl-10"
@@ -508,11 +508,11 @@ export default function ProductsPage() {
                         {isLoading ? (
                             <div className="flex items-center justify-center py-12">
                                 <SpinnerCustom />
-                                <p className="text-muted-foreground">Loading products...</p>
+                                <p className="text-muted-foreground">Memuat produk...</p>
                             </div>
                         ) : sortedProducts.length === 0 ? (
                             <div className="flex items-center justify-center py-12">
-                                <p className="text-muted-foreground">No products found</p>
+                                <p className="text-muted-foreground">Tidak ada produk ditemukan</p>
                             </div>
                         ) : (
                             <div className="space-y-3 p-4">
@@ -542,11 +542,11 @@ export default function ProductsPage() {
 
                                                 <div className="grid grid-cols-2 gap-2 text-sm">
                                                     <div>
-                                                        <p className="text-xs text-muted-foreground">Price</p>
+                                                        <p className="text-xs text-muted-foreground">Harga</p>
                                                         <p className="font-medium">Rp {product.price.toLocaleString('id-ID')}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-muted-foreground">Stock</p>
+                                                        <p className="text-xs text-muted-foreground">Stok</p>
                                                         <div className="flex items-center gap-1">
                                                             <Package className="h-3 w-3 text-muted-foreground" />
                                                             <span className="font-medium">{product.availableStock || 0} pcs</span>
@@ -556,7 +556,7 @@ export default function ProductsPage() {
 
                                                 {product.materials && product.materials.length > 0 && (
                                                     <p className="text-xs text-muted-foreground">
-                                                        {product.materials.length} materials
+                                                        {product.materials.length} bahan
                                                     </p>
                                                 )}
 
@@ -577,7 +577,7 @@ export default function ProductsPage() {
                                                         className="flex-1"
                                                     >
                                                         <Trash2 className="h-3 w-3 mr-1 text-destructive" />
-                                                        Delete
+                                                        Hapus
                                                     </Button>
                                                 </div>
                                             </div>
@@ -611,7 +611,7 @@ export default function ProductsPage() {
                                             onClick={() => handleSort("name")}
                                             className="flex items-center gap-1"
                                         >
-                                            Name
+                                            Nama
                                             <ArrowUpDown className="h-3 w-3" />
                                         </Button>
                                     </TableHead>
@@ -622,11 +622,11 @@ export default function ProductsPage() {
                                             onClick={() => handleSort("price")}
                                             className="flex items-center gap-1"
                                         >
-                                            Price
+                                            Harga
                                             <ArrowUpDown className="h-3 w-3" />
                                         </Button>
                                     </TableHead>
-                                    <TableHead>Stock</TableHead>
+                                    <TableHead>Stok</TableHead>
                                     <TableHead>
                                         <Button
                                             variant="ghost"
@@ -638,7 +638,7 @@ export default function ProductsPage() {
                                             <ArrowUpDown className="h-3 w-3" />
                                         </Button>
                                     </TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                    <TableHead className="text-right">Aksi</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -648,7 +648,7 @@ export default function ProductsPage() {
                                             colSpan={6}
                                             className="text-center text-muted-foreground h-24"
                                         >
-                                            Loading products...
+                                            Memuat produk...
                                         </TableCell>
                                     </TableRow>
                                 ) : sortedProducts.length === 0 ? (
@@ -657,7 +657,7 @@ export default function ProductsPage() {
                                             colSpan={6}
                                             className="text-center text-muted-foreground h-24"
                                         >
-                                            No products found
+                                            Tidak ada produk ditemukan
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -681,7 +681,7 @@ export default function ProductsPage() {
                                                     </Link>
                                                     {product.materials && product.materials.length > 0 && (
                                                         <div className="text-xs text-muted-foreground mt-1">
-                                                            {product.materials.length} materials
+                                                            {product.materials.length} bahan
                                                         </div>
                                                     )}
                                                 </div>
@@ -730,7 +730,7 @@ export default function ProductsPage() {
 
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 px-4 sm:px-0 pb-4 sm:pb-0">
                         <div className="text-sm text-muted-foreground">
-                            Page {currentPage} of {Math.max(1, Math.ceil(sortedProducts.length / 10))}
+                            Halaman {currentPage} dari {Math.max(1, Math.ceil(sortedProducts.length / 10))}
                         </div>
                         <div className="flex gap-2">
                             <Button
@@ -739,7 +739,7 @@ export default function ProductsPage() {
                                 disabled={currentPage === 1}
                                 onClick={() => setCurrentPage(currentPage - 1)}
                             >
-                                Previous
+                                Sebelumnya
                             </Button>
                             <Button
                                 variant="outline"
@@ -750,7 +750,7 @@ export default function ProductsPage() {
                                 }
                                 onClick={() => setCurrentPage(currentPage + 1)}
                             >
-                                Next
+                                Berikutnya
                             </Button>
                         </div>
                     </div>
@@ -761,24 +761,24 @@ export default function ProductsPage() {
             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
                 <AlertDialogContent >
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will permanently delete the product <strong>{deletingProduct?.name}</strong>.
+                            Ini akan menghapus produk <strong>{deletingProduct?.name}</strong> secara permanen.
                             {deletingProduct?.materials && deletingProduct.materials.length > 0 && (
                                 <span className="block mt-2 text-muted-foreground">
-                                    Note: This product has {deletingProduct.materials.length} associated material(s).
+                                    Catatan: Produk ini memiliki {deletingProduct.materials.length} bahan terkait.
                                 </span>
                             )}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleDelete}
                             disabled={isDeleting}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                            {isDeleting ? "Deleting..." : "Delete"}
+                            {isDeleting ? "Menghapus..." : "Hapus"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

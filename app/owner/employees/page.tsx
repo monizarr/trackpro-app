@@ -6,18 +6,18 @@ export default function EmployeesPage() {
         <div className="flex-1 space-y-4 p-8 pt-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Employees</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">Karyawan</h2>
                     <p className="text-muted-foreground">
-                        Manage your workforce and team members
+                        Kelola tenaga kerja dan anggota tim Anda
                     </p>
                 </div>
             </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Employee Management</CardTitle>
+                    <CardTitle>Manajemen Karyawan</CardTitle>
                     <CardDescription>
-                        This feature is under development
+                        Fitur ini sedang dalam pengembangan
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
