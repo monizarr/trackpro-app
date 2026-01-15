@@ -253,9 +253,9 @@ export default function DashboardPage() {
                                                 <div className="ml-auto flex items-center gap-3">
                                                     {getStatusBadge(batch.status)}
                                                     <div className="text-right">
-                                                        <p className="text-sm font-medium">{getProgressPercentage(batch)}%</p>
+                                                        {/* <p className="text-sm font-medium">{getProgressPercentage(batch)}%</p> */}
                                                         <p className="text-xs text-muted-foreground">
-                                                            {batch.actualQuantity}/{batch.targetQuantity}
+                                                            {batch.actualQuantity} Pcs
                                                         </p>
                                                     </div>
                                                 </div>

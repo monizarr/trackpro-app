@@ -186,23 +186,43 @@ async function handleStartSewing(subBatch: SubBatchWithRelations) {
     );
   }
 
-  const updated = await prisma.subBatch.update({
-    where: { id: subBatch.id },
-    data: {
-      status: "IN_SEWING",
-      sewingStartedAt: new Date(),
-      timeline: {
-        create: {
-          event: "SEWING_STARTED",
-          details: `Penjahit ${subBatch.assignedSewer.name} memulai jahitan`,
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.subBatch.update({
+      where: { id: subBatch.id },
+      data: {
+        status: "IN_SEWING",
+        sewingStartedAt: new Date(),
+        timeline: {
+          create: {
+            event: "SEWING_STARTED",
+            details: `Penjahit ${subBatch.assignedSewer.name} memulai jahitan`,
+          },
         },
       },
-    },
+    });
+
+    // Update batch status to IN_SEWING if not already
+    if (subBatch.batch.status === "ASSIGNED_TO_SEWER") {
+      await tx.productionBatch.update({
+        where: { id: subBatch.batchId },
+        data: { status: "IN_SEWING" },
+      });
+
+      await tx.batchTimeline.create({
+        data: {
+          batchId: subBatch.batchId,
+          event: "SEWING_STARTED",
+          details: "Proses penjahitan dimulai",
+        },
+      });
+    }
+
+    return updated;
   });
 
   return NextResponse.json({
     success: true,
-    data: updated,
+    data: result,
     message: "Jahitan dimulai",
   });
 }
@@ -290,24 +310,66 @@ async function handleConfirmSewing(
     );
   }
 
-  const updated = await prisma.subBatch.update({
-    where: { id: subBatch.id },
-    data: {
-      status: "SEWING_COMPLETED",
-      sewingCompletedAt: new Date(),
-      sewingConfirmedAt: new Date(),
-      timeline: {
-        create: {
-          event: "SEWING_CONFIRMED",
-          details: `Hasil jahitan dikonfirmasi oleh ${session.user.name}. Total: ${subBatch.sewingOutput} pcs`,
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.subBatch.update({
+      where: { id: subBatch.id },
+      data: {
+        status: "SEWING_COMPLETED",
+        sewingCompletedAt: new Date(),
+        sewingConfirmedAt: new Date(),
+        timeline: {
+          create: {
+            event: "SEWING_CONFIRMED",
+            details: `Hasil jahitan dikonfirmasi oleh ${session.user.name}. Total: ${subBatch.sewingOutput} pcs`,
+          },
         },
       },
-    },
+    });
+
+    // Check if all sub-batches have completed sewing
+    const allSubBatches = await tx.subBatch.findMany({
+      where: { batchId: subBatch.batchId },
+    });
+
+    const allSewingCompleted = allSubBatches.every(
+      (sb) =>
+        sb.id === subBatch.id ||
+        [
+          "SEWING_COMPLETED",
+          "ASSIGNED_TO_FINISHING",
+          "IN_FINISHING",
+          "FINISHING_COMPLETED",
+          "SUBMITTED_TO_WAREHOUSE",
+          "WAREHOUSE_VERIFIED",
+          "COMPLETED",
+        ].includes(sb.status)
+    );
+
+    // Update batch status if all sub-batches have completed sewing
+    if (
+      allSewingCompleted &&
+      ["IN_SEWING", "ASSIGNED_TO_SEWER"].includes(subBatch.batch.status)
+    ) {
+      await tx.productionBatch.update({
+        where: { id: subBatch.batchId },
+        data: { status: "SEWING_COMPLETED" },
+      });
+
+      await tx.batchTimeline.create({
+        data: {
+          batchId: subBatch.batchId,
+          event: "SEWING_COMPLETED",
+          details: `Semua sub-batch telah selesai dijahit. Dikonfirmasi oleh ${session.user.name}`,
+        },
+      });
+    }
+
+    return updated;
   });
 
   return NextResponse.json({
     success: true,
-    data: updated,
+    data: result,
     message: "Hasil jahitan dikonfirmasi",
   });
 }
@@ -348,26 +410,67 @@ async function handleAssignFinishing(
     );
   }
 
-  const updated = await prisma.subBatch.update({
-    where: { id: subBatch.id },
-    data: {
-      status: "ASSIGNED_TO_FINISHING",
-      assignedFinisherId: finisherId as string,
-      timeline: {
-        create: {
-          event: "ASSIGNED_TO_FINISHING",
-          details: `Ditugaskan ke finishing: ${finisher.name} oleh ${session.user.name}`,
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.subBatch.update({
+      where: { id: subBatch.id },
+      data: {
+        status: "ASSIGNED_TO_FINISHING",
+        assignedFinisherId: finisherId as string,
+        timeline: {
+          create: {
+            event: "ASSIGNED_TO_FINISHING",
+            details: `Ditugaskan ke finishing: ${finisher.name} oleh ${session.user.name}`,
+          },
         },
       },
-    },
-    include: {
-      assignedFinisher: { select: { id: true, name: true, username: true } },
-    },
+      include: {
+        assignedFinisher: { select: { id: true, name: true, username: true } },
+      },
+    });
+
+    // Check if all sub-batches are assigned to finishing or beyond
+    const allSubBatches = await tx.subBatch.findMany({
+      where: { batchId: subBatch.batchId },
+    });
+
+    const allAssignedToFinishing = allSubBatches.every(
+      (sb) =>
+        sb.id === subBatch.id ||
+        [
+          "ASSIGNED_TO_FINISHING",
+          "IN_FINISHING",
+          "FINISHING_COMPLETED",
+          "SUBMITTED_TO_WAREHOUSE",
+          "WAREHOUSE_VERIFIED",
+          "COMPLETED",
+        ].includes(sb.status)
+    );
+
+    // Update batch status if all sub-batches are in finishing phase
+    if (
+      allAssignedToFinishing &&
+      ["SEWING_COMPLETED", "SEWING_VERIFIED"].includes(subBatch.batch.status)
+    ) {
+      await tx.productionBatch.update({
+        where: { id: subBatch.batchId },
+        data: { status: "IN_FINISHING" },
+      });
+
+      await tx.batchTimeline.create({
+        data: {
+          batchId: subBatch.batchId,
+          event: "FINISHING_STARTED",
+          details: `Semua sub-batch telah di-assign ke finishing`,
+        },
+      });
+    }
+
+    return updated;
   });
 
   return NextResponse.json({
     success: true,
-    data: updated,
+    data: result,
     message: `Berhasil assign ke ${finisher.name}`,
   });
 }
@@ -380,25 +483,47 @@ async function handleStartFinishing(subBatch: SubBatchWithRelations) {
     );
   }
 
-  const updated = await prisma.subBatch.update({
-    where: { id: subBatch.id },
-    data: {
-      status: "IN_FINISHING",
-      finishingStartedAt: new Date(),
-      timeline: {
-        create: {
-          event: "FINISHING_STARTED",
-          details: `Finishing dimulai oleh ${
-            subBatch.assignedFinisher?.name || "finisher"
-          }`,
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.subBatch.update({
+      where: { id: subBatch.id },
+      data: {
+        status: "IN_FINISHING",
+        finishingStartedAt: new Date(),
+        timeline: {
+          create: {
+            event: "FINISHING_STARTED",
+            details: `Finishing dimulai oleh ${
+              subBatch.assignedFinisher?.name || "finisher"
+            }`,
+          },
         },
       },
-    },
+    });
+
+    // Update batch status to IN_FINISHING if not already
+    if (
+      ["SEWING_COMPLETED", "SEWING_VERIFIED"].includes(subBatch.batch.status)
+    ) {
+      await tx.productionBatch.update({
+        where: { id: subBatch.batchId },
+        data: { status: "IN_FINISHING" },
+      });
+
+      await tx.batchTimeline.create({
+        data: {
+          batchId: subBatch.batchId,
+          event: "FINISHING_STARTED",
+          details: "Proses finishing dimulai",
+        },
+      });
+    }
+
+    return updated;
   });
 
   return NextResponse.json({
     success: true,
-    data: updated,
+    data: result,
     message: "Finishing dimulai",
   });
 }
@@ -484,24 +609,60 @@ async function handleConfirmFinishing(
     );
   }
 
-  const updated = await prisma.subBatch.update({
-    where: { id: subBatch.id },
-    data: {
-      status: "FINISHING_COMPLETED",
-      finishingCompletedAt: new Date(),
-      finishingConfirmedAt: new Date(),
-      timeline: {
-        create: {
-          event: "FINISHING_CONFIRMED",
-          details: `Hasil finishing dikonfirmasi oleh ${session.user.name}. Total: ${subBatch.finishingOutput} pcs`,
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.subBatch.update({
+      where: { id: subBatch.id },
+      data: {
+        status: "FINISHING_COMPLETED",
+        finishingCompletedAt: new Date(),
+        finishingConfirmedAt: new Date(),
+        timeline: {
+          create: {
+            event: "FINISHING_CONFIRMED",
+            details: `Hasil finishing dikonfirmasi oleh ${session.user.name}. Total: ${subBatch.finishingOutput} pcs`,
+          },
         },
       },
-    },
+    });
+
+    // Check if all sub-batches have completed finishing
+    const allSubBatches = await tx.subBatch.findMany({
+      where: { batchId: subBatch.batchId },
+    });
+
+    const allFinishingCompleted = allSubBatches.every(
+      (sb) =>
+        sb.id === subBatch.id ||
+        [
+          "FINISHING_COMPLETED",
+          "SUBMITTED_TO_WAREHOUSE",
+          "WAREHOUSE_VERIFIED",
+          "COMPLETED",
+        ].includes(sb.status)
+    );
+
+    // Update batch status if all sub-batches have completed finishing
+    if (allFinishingCompleted && subBatch.batch.status === "IN_FINISHING") {
+      await tx.productionBatch.update({
+        where: { id: subBatch.batchId },
+        data: { status: "FINISHING_COMPLETED" },
+      });
+
+      await tx.batchTimeline.create({
+        data: {
+          batchId: subBatch.batchId,
+          event: "FINISHING_COMPLETED",
+          details: `Semua sub-batch telah selesai finishing. Dikonfirmasi oleh ${session.user.name}`,
+        },
+      });
+    }
+
+    return updated;
   });
 
   return NextResponse.json({
     success: true,
-    data: updated,
+    data: result,
     message: "Hasil finishing dikonfirmasi",
   });
 }
@@ -520,23 +681,27 @@ async function handleSubmitToWarehouse(
     );
   }
 
-  const updated = await prisma.subBatch.update({
-    where: { id: subBatch.id },
-    data: {
-      status: "SUBMITTED_TO_WAREHOUSE",
-      submittedToWarehouseAt: new Date(),
-      timeline: {
-        create: {
-          event: "SUBMITTED_TO_WAREHOUSE",
-          details: `Diserahkan ke gudang oleh ${session.user.name}. Jumlah: ${subBatch.finishingOutput} pcs`,
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.subBatch.update({
+      where: { id: subBatch.id },
+      data: {
+        status: "SUBMITTED_TO_WAREHOUSE",
+        submittedToWarehouseAt: new Date(),
+        timeline: {
+          create: {
+            event: "SUBMITTED_TO_WAREHOUSE",
+            details: `Diserahkan ke gudang oleh ${session.user.name}. Jumlah: ${subBatch.finishingOutput} pcs`,
+          },
         },
       },
-    },
+    });
+
+    return updated;
   });
 
   return NextResponse.json({
     success: true,
-    data: updated,
+    data: result,
     message: "Berhasil diserahkan ke gudang",
   });
 }

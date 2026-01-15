@@ -1,18 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Package, Clock, Users, CheckCircle2, XCircle, AlertTriangle, Eye, ChevronDown, ChevronRight } from "lucide-react"
+import { Search, Package, Clock, Users, CheckCircle2, XCircle, Eye, ChevronDown, ChevronRight, Calendar, RefreshCw, TrendingUp, Scissors, Sparkles } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "@/lib/toast"
 import Link from "next/link"
 import { SpinnerCustom } from "@/components/ui/spinner"
 import { Separator } from "@/components/ui/separator"
+import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
 
 // Types
 type ProductionStatus =
@@ -20,16 +21,18 @@ type ProductionStatus =
     | "MATERIAL_REQUESTED"
     | "MATERIAL_ALLOCATED"
     | "ASSIGNED_TO_CUTTER"
-    | "CUTTING_IN_PROGRESS"
+    | "IN_CUTTING"
     | "CUTTING_COMPLETED"
+    | "CUTTING_VERIFIED"
     | "ASSIGNED_TO_SEWER"
-    | "SEWING_IN_PROGRESS"
+    | "IN_SEWING"
     | "SEWING_COMPLETED"
-    | "ASSIGNED_TO_FINISHING"
-    | "FINISHING_IN_PROGRESS"
+    | "SEWING_VERIFIED"
+    | "IN_FINISHING"
     | "FINISHING_COMPLETED"
-    | "VERIFIED_READY"
+    | "WAREHOUSE_VERIFIED"
     | "COMPLETED"
+    | "CANCELLED"
 
 interface MaterialColorVariant {
     id: string
@@ -118,7 +121,18 @@ interface Batch {
 }
 
 // Status groups for tabs
-const STATUS_GROUPS = {
+const STATUS_GROUPS: Record<string, {
+    label: string
+    statuses: ProductionStatus[]
+    icon: typeof Package
+    color: string
+}> = {
+    ALL: {
+        label: "Semua",
+        statuses: ["PENDING", "MATERIAL_REQUESTED", "MATERIAL_ALLOCATED", "ASSIGNED_TO_CUTTER", "IN_CUTTING", "CUTTING_COMPLETED", "CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED", "SEWING_VERIFIED", "IN_FINISHING", "FINISHING_COMPLETED", "WAREHOUSE_VERIFIED", "COMPLETED"],
+        icon: Package,
+        color: "text-gray-600"
+    },
     PENDING: {
         label: "Menunggu",
         statuses: ["PENDING", "MATERIAL_REQUESTED", "MATERIAL_ALLOCATED"],
@@ -127,39 +141,60 @@ const STATUS_GROUPS = {
     },
     CUTTING: {
         label: "Pemotongan",
-        statuses: ["ASSIGNED_TO_CUTTER", "CUTTING_IN_PROGRESS", "CUTTING_COMPLETED"],
-        icon: Package,
+        statuses: ["ASSIGNED_TO_CUTTER", "IN_CUTTING", "CUTTING_COMPLETED", "CUTTING_VERIFIED"],
+        icon: Scissors,
         color: "text-blue-600"
     },
     SEWING: {
         label: "Penjahitan",
-        statuses: ["ASSIGNED_TO_SEWER", "SEWING_IN_PROGRESS", "SEWING_COMPLETED"],
+        statuses: ["ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED", "SEWING_VERIFIED"],
         icon: Users,
         color: "text-purple-600"
     },
     FINISHING: {
         label: "Finishing",
-        statuses: ["ASSIGNED_TO_FINISHING", "FINISHING_IN_PROGRESS", "FINISHING_COMPLETED"],
-        icon: CheckCircle2,
-        color: "text-green-600"
+        statuses: ["IN_FINISHING", "FINISHING_COMPLETED"],
+        icon: Sparkles,
+        color: "text-orange-600"
     },
     COMPLETED: {
         label: "Selesai",
-        statuses: ["VERIFIED_READY", "COMPLETED"],
+        statuses: ["WAREHOUSE_VERIFIED", "COMPLETED"],
         icon: CheckCircle2,
         color: "text-green-600"
     }
 }
 
+// Month names in Indonesian
+const MONTHS = [
+    { value: 0, label: "Januari" },
+    { value: 1, label: "Februari" },
+    { value: 2, label: "Maret" },
+    { value: 3, label: "April" },
+    { value: 4, label: "Mei" },
+    { value: 5, label: "Juni" },
+    { value: 6, label: "Juli" },
+    { value: 7, label: "Agustus" },
+    { value: 8, label: "September" },
+    { value: 9, label: "Oktober" },
+    { value: 10, label: "November" },
+    { value: 11, label: "Desember" },
+]
+
 export default function OwnerBatchMonitoring() {
     const [batches, setBatches] = useState<Batch[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState("")
-    const [activeTab, setActiveTab] = useState("PENDING")
+    const [activeTab, setActiveTab] = useState("ALL")
     const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set())
     const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null)
     const [showDetailDialog, setShowDetailDialog] = useState(false)
     const [loadingSubBatches, setLoadingSubBatches] = useState<Set<string>>(new Set())
+
+    // Month filter state
+    const currentYear = new Date().getFullYear()
+    const currentMonth = new Date().getMonth()
+    const [selectedMonth, setSelectedMonth] = useState<number | null>(null) // null means all months
 
     useEffect(() => {
         fetchBatches()
@@ -234,33 +269,37 @@ export default function OwnerBatchMonitoring() {
             MATERIAL_REQUESTED: "secondary",
             MATERIAL_ALLOCATED: "outline",
             ASSIGNED_TO_CUTTER: "outline",
-            CUTTING_IN_PROGRESS: "default",
+            IN_CUTTING: "default",
             CUTTING_COMPLETED: "default",
+            CUTTING_VERIFIED: "default",
             ASSIGNED_TO_SEWER: "outline",
-            SEWING_IN_PROGRESS: "default",
+            IN_SEWING: "default",
             SEWING_COMPLETED: "default",
-            ASSIGNED_TO_FINISHING: "outline",
-            FINISHING_IN_PROGRESS: "default",
+            SEWING_VERIFIED: "default",
+            IN_FINISHING: "default",
             FINISHING_COMPLETED: "default",
-            VERIFIED_READY: "default",
+            WAREHOUSE_VERIFIED: "default",
             COMPLETED: "default",
+            CANCELLED: "destructive",
         }
 
         const labels: Record<ProductionStatus, string> = {
             PENDING: "Pending",
-            MATERIAL_REQUESTED: "Material Requested",
-            MATERIAL_ALLOCATED: "Material Allocated",
-            ASSIGNED_TO_CUTTER: "Assigned to Cutter",
-            CUTTING_IN_PROGRESS: "Cutting",
-            CUTTING_COMPLETED: "Cutting Done",
-            ASSIGNED_TO_SEWER: "Assigned to Sewer",
-            SEWING_IN_PROGRESS: "Sewing",
-            SEWING_COMPLETED: "Sewing Done",
-            ASSIGNED_TO_FINISHING: "Assigned to Finishing",
-            FINISHING_IN_PROGRESS: "Finishing",
-            FINISHING_COMPLETED: "Finishing Done",
-            VERIFIED_READY: "Verified",
-            COMPLETED: "Completed",
+            MATERIAL_REQUESTED: "Material Diminta",
+            MATERIAL_ALLOCATED: "Material Dialokasi",
+            ASSIGNED_TO_CUTTER: "Di-assign ke Pemotong",
+            IN_CUTTING: "Proses Potong",
+            CUTTING_COMPLETED: "Potong Selesai",
+            CUTTING_VERIFIED: "Potong Terverifikasi",
+            ASSIGNED_TO_SEWER: "Di-assign ke Penjahit",
+            IN_SEWING: "Proses Jahit",
+            SEWING_COMPLETED: "Jahit Selesai",
+            SEWING_VERIFIED: "Jahit Terverifikasi",
+            IN_FINISHING: "Proses Finishing",
+            FINISHING_COMPLETED: "Finishing Selesai",
+            WAREHOUSE_VERIFIED: "Terverifikasi Gudang",
+            COMPLETED: "Selesai",
+            CANCELLED: "Dibatalkan",
         }
 
         return (
@@ -304,16 +343,53 @@ export default function OwnerBatchMonitoring() {
                 batch.product.name.toLowerCase().includes(search.toLowerCase()) ||
                 batch.product.sku.toLowerCase().includes(search.toLowerCase())
 
-            return matchesStatus && matchesSearch
+            // Month filter
+            let matchesMonth = true
+            if (selectedMonth !== null) {
+                const batchDate = new Date(batch.createdAt)
+                matchesMonth = batchDate.getMonth() === selectedMonth && batchDate.getFullYear() === currentYear
+            }
+
+            return matchesStatus && matchesSearch && matchesMonth
         })
     }
 
     const getGroupStats = (groupStatuses: ProductionStatus[]) => {
-        const groupBatches = batches.filter(b => groupStatuses.includes(b.status))
+        const groupBatches = batches.filter(b => {
+            const matchesStatus = groupStatuses.includes(b.status)
+            let matchesMonth = true
+            if (selectedMonth !== null) {
+                const batchDate = new Date(b.createdAt)
+                matchesMonth = batchDate.getMonth() === selectedMonth && batchDate.getFullYear() === currentYear
+            }
+            return matchesStatus && matchesMonth
+        })
         return {
             total: groupBatches.length,
             totalRolls: groupBatches.reduce((sum, b) => sum + b.totalRolls, 0),
             totalPieces: groupBatches.reduce((sum, b) => sum + (b.actualQuantity || 0), 0),
+            totalReject: groupBatches.reduce((sum, b) => sum + b.rejectQuantity, 0),
+        }
+    }
+
+    // Get overall stats for the selected month
+    const getOverallStats = () => {
+        const filteredBatches = batches.filter(b => {
+            if (selectedMonth === null) return true
+            const batchDate = new Date(b.createdAt)
+            return batchDate.getMonth() === selectedMonth && batchDate.getFullYear() === currentYear
+        })
+
+        return {
+            total: filteredBatches.length,
+            pending: filteredBatches.filter(b => STATUS_GROUPS.PENDING.statuses.includes(b.status)).length,
+            cutting: filteredBatches.filter(b => STATUS_GROUPS.CUTTING.statuses.includes(b.status)).length,
+            sewing: filteredBatches.filter(b => STATUS_GROUPS.SEWING.statuses.includes(b.status)).length,
+            finishing: filteredBatches.filter(b => STATUS_GROUPS.FINISHING.statuses.includes(b.status)).length,
+            completed: filteredBatches.filter(b => STATUS_GROUPS.COMPLETED.statuses.includes(b.status)).length,
+            totalRolls: filteredBatches.reduce((sum, b) => sum + b.totalRolls, 0),
+            totalPieces: filteredBatches.reduce((sum, b) => sum + (b.actualQuantity || 0), 0),
+            totalReject: filteredBatches.reduce((sum, b) => sum + b.rejectQuantity, 0),
         }
     }
 
@@ -335,15 +411,172 @@ export default function OwnerBatchMonitoring() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Production Monitoring</h2>
+                    <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Monitoring Batch Produksi</h2>
                     <p className="text-muted-foreground mt-1">
-                        Monitor semua batch produksi dan progress sub-batch secara real-time
+                        Monitor semua batch produksi dan progress secara real-time
                     </p>
                 </div>
-                <Button onClick={fetchBatches}>
+                <Button onClick={fetchBatches} variant="outline">
+                    <RefreshCw className="h-4 w-4 mr-2" />
                     Refresh
                 </Button>
             </div>
+
+            {/* Month Filter */}
+            <Card>
+                <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Calendar className="h-5 w-5 text-muted-foreground" />
+                            <CardTitle className="text-base">Filter Bulan - {currentYear}</CardTitle>
+                        </div>
+                        {selectedMonth !== null && (
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedMonth(null)}>
+                                Reset Filter
+                            </Button>
+                        )}
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            variant={selectedMonth === null ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSelectedMonth(null)}
+                        >
+                            Semua
+                        </Button>
+                        {MONTHS.map((month) => (
+                            <Button
+                                key={month.value}
+                                variant={selectedMonth === month.value ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setSelectedMonth(month.value)}
+                                className={month.value === currentMonth ? "ring-2 ring-primary ring-offset-2" : ""}
+                            >
+                                {month.label}
+                            </Button>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Overview Stats */}
+            {(() => {
+                const stats = getOverallStats()
+                const completionRate = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0
+
+                return (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Total Batch</CardTitle>
+                                <Package className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{stats.total}</div>
+                                <p className="text-xs text-muted-foreground">
+                                    {selectedMonth !== null ? MONTHS[selectedMonth].label : "Semua bulan"} {currentYear}
+                                </p>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Total Roll</CardTitle>
+                                <Package className="h-4 w-4 text-blue-600" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-blue-600">{stats.totalRolls}</div>
+                                <p className="text-xs text-muted-foreground">
+                                    Roll bahan digunakan
+                                </p>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Output Produksi</CardTitle>
+                                <TrendingUp className="h-4 w-4 text-green-600" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-green-600">{stats.totalPieces}</div>
+                                <p className="text-xs text-muted-foreground">
+                                    Pieces diproduksi
+                                </p>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Total Reject</CardTitle>
+                                <XCircle className="h-4 w-4 text-destructive" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-destructive">{stats.totalReject}</div>
+                                <p className="text-xs text-muted-foreground">
+                                    Pieces ditolak
+                                </p>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Tingkat Selesai</CardTitle>
+                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{completionRate.toFixed(1)}%</div>
+                                <Progress value={completionRate} className="h-2 mt-2" />
+                            </CardContent>
+                        </Card>
+                    </div>
+                )
+            })()}
+
+            {/* Progress Distribution */}
+            {(() => {
+                const stats = getOverallStats()
+                return (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">Distribusi Status Batch</CardTitle>
+                            <CardDescription>
+                                Pembagian batch berdasarkan fase produksi
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+                                    <Clock className="h-6 w-6 mx-auto text-yellow-600 mb-1" />
+                                    <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+                                    <p className="text-xs text-muted-foreground">Menunggu</p>
+                                </div>
+                                <div className="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                                    <Scissors className="h-6 w-6 mx-auto text-blue-600 mb-1" />
+                                    <div className="text-2xl font-bold text-blue-600">{stats.cutting}</div>
+                                    <p className="text-xs text-muted-foreground">Pemotongan</p>
+                                </div>
+                                <div className="text-center p-3 bg-purple-50 dark:bg-purple-950 rounded-lg">
+                                    <Users className="h-6 w-6 mx-auto text-purple-600 mb-1" />
+                                    <div className="text-2xl font-bold text-purple-600">{stats.sewing}</div>
+                                    <p className="text-xs text-muted-foreground">Penjahitan</p>
+                                </div>
+                                <div className="text-center p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
+                                    <Sparkles className="h-6 w-6 mx-auto text-orange-600 mb-1" />
+                                    <div className="text-2xl font-bold text-orange-600">{stats.finishing}</div>
+                                    <p className="text-xs text-muted-foreground">Finishing</p>
+                                </div>
+                                <div className="text-center p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                                    <CheckCircle2 className="h-6 w-6 mx-auto text-green-600 mb-1" />
+                                    <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
+                                    <p className="text-xs text-muted-foreground">Selesai</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )
+            })()}
 
             {/* Search */}
             <div className="relative max-w-md">
@@ -358,17 +591,17 @@ export default function OwnerBatchMonitoring() {
 
             {/* Tabs by Status Group */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-                <TabsList className="grid w-full grid-cols-5">
+                <TabsList className="grid w-full grid-cols-6">
                     {Object.entries(STATUS_GROUPS).map(([key, group]) => {
                         const stats = getGroupStats(group.statuses)
                         const Icon = group.icon
                         return (
-                            <TabsTrigger key={key} value={key} className="relative">
-                                <Icon className={`h-4 w-4 mr-2 ${group.color}`} />
+                            <TabsTrigger key={key} value={key} className="relative text-xs sm:text-sm">
+                                <Icon className={`h-4 w-4 mr-1 sm:mr-2 ${group.color}`} />
                                 <span className="hidden sm:inline">{group.label}</span>
-                                <span className="sm:hidden">{group.label.substring(0, 4)}</span>
+                                <span className="sm:hidden">{group.label.substring(0, 3)}</span>
                                 {stats.total > 0 && (
-                                    <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                                    <Badge variant="secondary" className="ml-1 sm:ml-2 h-5 min-w-5 p-0 px-1 flex items-center justify-center text-xs">
                                         {stats.total}
                                     </Badge>
                                 )}
@@ -384,16 +617,16 @@ export default function OwnerBatchMonitoring() {
                     return (
                         <TabsContent key={key} value={key} className="space-y-4">
                             {/* Stats Cards */}
-                            <div className="grid gap-4 md:grid-cols-3">
+                            <div className="grid gap-4 md:grid-cols-4">
                                 <Card>
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="text-sm font-medium">Total Batch</CardTitle>
+                                        <CardTitle className="text-sm font-medium">Batch</CardTitle>
                                         <Package className="h-4 w-4 text-muted-foreground" />
                                     </CardHeader>
                                     <CardContent>
                                         <div className="text-2xl font-bold">{stats.total}</div>
                                         <p className="text-xs text-muted-foreground">
-                                            {stats.total} batch aktif
+                                            batch dalam fase ini
                                         </p>
                                     </CardContent>
                                 </Card>
@@ -401,25 +634,38 @@ export default function OwnerBatchMonitoring() {
                                 <Card>
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                         <CardTitle className="text-sm font-medium">Total Roll</CardTitle>
-                                        <Package className="h-4 w-4 text-muted-foreground" />
+                                        <Package className="h-4 w-4 text-blue-600" />
                                     </CardHeader>
                                     <CardContent>
-                                        <div className="text-2xl font-bold">{stats.totalRolls}</div>
+                                        <div className="text-2xl font-bold text-blue-600">{stats.totalRolls}</div>
                                         <p className="text-xs text-muted-foreground">
-                                            Roll bahan yang digunakan
+                                            Roll bahan
                                         </p>
                                     </CardContent>
                                 </Card>
 
                                 <Card>
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="text-sm font-medium">Total Produksi</CardTitle>
+                                        <CardTitle className="text-sm font-medium">Output</CardTitle>
                                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                                     </CardHeader>
                                     <CardContent>
                                         <div className="text-2xl font-bold text-green-600">{stats.totalPieces}</div>
                                         <p className="text-xs text-muted-foreground">
                                             Pcs diproduksi
+                                        </p>
+                                    </CardContent>
+                                </Card>
+
+                                <Card>
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                        <CardTitle className="text-sm font-medium">Reject</CardTitle>
+                                        <XCircle className="h-4 w-4 text-destructive" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold text-destructive">{stats.totalReject}</div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Pcs ditolak
                                         </p>
                                     </CardContent>
                                 </Card>
@@ -467,7 +713,7 @@ export default function OwnerBatchMonitoring() {
                                                                     <div className="flex-1">
                                                                         <div className="flex items-center gap-2 flex-wrap">
                                                                             <Link
-                                                                                href={`/production/batch/${batch.id}`}
+                                                                                href={`/owner/production-batches/${batch.id}`}
                                                                                 className="font-mono font-semibold text-primary hover:underline"
                                                                             >
                                                                                 {batch.batchSku}

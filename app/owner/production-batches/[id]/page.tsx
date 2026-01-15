@@ -30,7 +30,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type ProductionStatus = "PENDING" | "MATERIAL_REQUESTED" | "MATERIAL_ALLOCATED" | "ASSIGNED_TO_CUTTER" | "CUTTING_IN_PROGRESS" | "CUTTING_COMPLETED" | "CUTTING_VERIFIED" | "ASSIGNED_TO_SEWER" | "SEWING_IN_PROGRESS" | "SEWING_COMPLETED" | "SEWING_VERIFIED" | "ASSIGNED_TO_FINISHING" | "FINISHING_IN_PROGRESS" | "FINISHING_COMPLETED" | "VERIFIED_READY" | "COMPLETED" | "CANCELLED";
+type ProductionStatus = "PENDING" | "MATERIAL_REQUESTED" | "MATERIAL_ALLOCATED" | "ASSIGNED_TO_CUTTER" | "IN_CUTTING" | "CUTTING_COMPLETED" | "CUTTING_VERIFIED" | "ASSIGNED_TO_SEWER" | "IN_SEWING" | "SEWING_COMPLETED" | "SEWING_VERIFIED" | "IN_FINISHING" | "FINISHING_COMPLETED" | "WAREHOUSE_VERIFIED" | "COMPLETED" | "CANCELLED";
 
 interface Material {
     id: string;
@@ -234,17 +234,16 @@ export default function ProductionBatchDetailPage() {
             MATERIAL_REQUESTED: { label: "Material Diminta", variant: "secondary" },
             MATERIAL_ALLOCATED: { label: "Material Dialokasi", variant: "default" },
             ASSIGNED_TO_CUTTER: { label: "Ditugaskan ke Pemotong", variant: "default" },
-            CUTTING_IN_PROGRESS: { label: "Proses Pemotongan", variant: "outline" },
+            IN_CUTTING: { label: "Proses Pemotongan", variant: "outline" },
             CUTTING_COMPLETED: { label: "Pemotongan Selesai", variant: "default" },
             CUTTING_VERIFIED: { label: "Pemotongan Terverifikasi", variant: "default" },
             ASSIGNED_TO_SEWER: { label: "Ditugaskan ke Penjahit", variant: "default" },
-            SEWING_IN_PROGRESS: { label: "Proses Penjahitan", variant: "outline" },
+            IN_SEWING: { label: "Proses Penjahitan", variant: "outline" },
             SEWING_COMPLETED: { label: "Penjahitan Selesai", variant: "default" },
             SEWING_VERIFIED: { label: "Penjahitan Terverifikasi", variant: "default" },
-            ASSIGNED_TO_FINISHING: { label: "Ditugaskan ke Finishing", variant: "default" },
-            FINISHING_IN_PROGRESS: { label: "Proses Finishing", variant: "outline" },
+            IN_FINISHING: { label: "Proses Finishing", variant: "outline" },
             FINISHING_COMPLETED: { label: "Finishing Selesai", variant: "default" },
-            VERIFIED_READY: { label: "Siap Gudang", variant: "default" },
+            WAREHOUSE_VERIFIED: { label: "Siap Gudang", variant: "default" },
             COMPLETED: { label: "Selesai", variant: "default" },
             CANCELLED: { label: "Dibatalkan", variant: "destructive" },
         };
@@ -278,10 +277,10 @@ export default function ProductionBatchDetailPage() {
     // Determine current phase based on status
     const getCurrentPhase = (status: ProductionStatus): string => {
         const pendingStatuses = ["PENDING", "MATERIAL_REQUESTED", "MATERIAL_ALLOCATED"];
-        const cuttingStatuses = ["ASSIGNED_TO_CUTTER", "CUTTING_IN_PROGRESS", "CUTTING_COMPLETED"];
-        const sewingStatuses = ["CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "SEWING_IN_PROGRESS", "SEWING_COMPLETED"];
-        const finishingStatuses = ["SEWING_VERIFIED", "ASSIGNED_TO_FINISHING", "FINISHING_IN_PROGRESS", "FINISHING_COMPLETED"];
-        const completedStatuses = ["VERIFIED_READY", "COMPLETED"];
+        const cuttingStatuses = ["ASSIGNED_TO_CUTTER", "IN_CUTTING", "CUTTING_COMPLETED"];
+        const sewingStatuses = ["CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED"];
+        const finishingStatuses = ["SEWING_VERIFIED", "IN_FINISHING", "FINISHING_COMPLETED"];
+        const completedStatuses = ["WAREHOUSE_VERIFIED", "COMPLETED"];
 
         if (pendingStatuses.includes(status)) return "material";
         if (cuttingStatuses.includes(status)) return "cutting";

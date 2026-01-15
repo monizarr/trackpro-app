@@ -330,11 +330,11 @@ export default function BatchManagementPage() {
     const getSubBatchStatusBadge = (status: string) => {
         const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
             ASSIGNED_TO_SEWER: { label: "Di-assign ke Penjahit", variant: "secondary" },
-            SEWING_IN_PROGRESS: { label: "Proses Jahit", variant: "outline" },
+            IN_SEWING: { label: "Proses Jahit", variant: "outline" },
             SEWING_COMPLETED: { label: "Jahitan Selesai", variant: "default" },
             SEWING_CONFIRMED: { label: "Jahitan Dikonfirmasi", variant: "default" },
-            ASSIGNED_TO_FINISHER: { label: "Di-assign ke Finisher", variant: "secondary" },
-            FINISHING_IN_PROGRESS: { label: "Proses Finishing", variant: "outline" },
+            ASSIGNED_TO_FINISHING: { label: "Di-assign ke Finisher", variant: "secondary" },
+            IN_FINISHING: { label: "Proses Finishing", variant: "outline" },
             FINISHING_COMPLETED: { label: "Finishing Selesai", variant: "default" },
             FINISHING_CONFIRMED: { label: "Finishing Dikonfirmasi", variant: "default" },
             SUBMITTED_TO_WAREHOUSE: { label: "Ke Gudang", variant: "default" },
@@ -873,25 +873,25 @@ export default function BatchManagementPage() {
         },
         CUTTING: {
             label: "Pemotongan",
-            statuses: ["ASSIGNED_TO_CUTTER", "CUTTING_IN_PROGRESS", "CUTTING_COMPLETED"],
+            statuses: ["ASSIGNED_TO_CUTTER", "IN_CUTTING", "CUTTING_COMPLETED", "CUTTING_VERIFIED"],
             icon: Scissors,
             color: "text-blue-600"
         },
         SEWING: {
             label: "Penjahitan",
-            statuses: ["ASSIGNED_TO_SEWER", "SEWING_IN_PROGRESS", "SEWING_COMPLETED", "CUTTING_VERIFIED"],
+            statuses: ["ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED", "SEWING_VERIFIED"],
             icon: Users,
             color: "text-purple-600"
         },
         FINISHING: {
             label: "Finishing",
-            statuses: ["ASSIGNED_TO_FINISHING", "FINISHING_IN_PROGRESS", "FINISHING_COMPLETED", "SEWING_VERIFIED"],
+            statuses: ["IN_FINISHING", "FINISHING_COMPLETED"],
             icon: CheckCircle,
             color: "text-green-600"
         },
         COMPLETED: {
             label: "Selesai",
-            statuses: ["VERIFIED_READY", "COMPLETED", "WAREHOUSE_VERIFIED"],
+            statuses: ["WAREHOUSE_VERIFIED", "COMPLETED"],
             icon: CheckCircle,
             color: "text-green-600"
         }
@@ -2154,7 +2154,7 @@ export default function BatchManagementPage() {
                                                                 <TableRow>
                                                                     <TableCell>
                                                                         <div className="flex items-center gap-2">
-                                                                            {["CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "SEWING_IN_PROGRESS", "SEWING_COMPLETED", "SEWING_VERIFIED", "ASSIGNED_TO_FINISHING", "FINISHING_IN_PROGRESS", "FINISHING_COMPLETED", "VERIFIED_READY", "COMPLETED"].includes(batch.status) && (
+                                                                            {["CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED", "SEWING_VERIFIED", "IN_FINISHING", "FINISHING_COMPLETED", "WAREHOUSE_VERIFIED", "COMPLETED"].includes(batch.status) && (
                                                                                 <Button
                                                                                     variant="ghost"
                                                                                     size="sm"
@@ -2390,7 +2390,7 @@ export default function BatchManagementPage() {
                                                         <CardHeader className="pb-3">
                                                             <div className="flex items-start justify-between">
                                                                 <div className="flex items-start gap-2 flex-1">
-                                                                    {["CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "SEWING_IN_PROGRESS", "SEWING_COMPLETED", "SEWING_VERIFIED", "ASSIGNED_TO_FINISHING", "FINISHING_IN_PROGRESS", "FINISHING_COMPLETED", "VERIFIED_READY", "COMPLETED"].includes(batch.status) && (
+                                                                    {["CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED", "SEWING_VERIFIED", "IN_FINISHING", "FINISHING_COMPLETED", "WAREHOUSE_VERIFIED", "COMPLETED"].includes(batch.status) && (
                                                                         <Button
                                                                             variant="ghost"
                                                                             size="sm"
