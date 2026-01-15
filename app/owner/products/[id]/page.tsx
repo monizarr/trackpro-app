@@ -663,7 +663,7 @@ export default function ProductDetailPage() {
                                             <TableRow key={batch.id}>
                                                 <TableCell className="font-medium">
                                                     <Link
-                                                        href={`/production/batch/${batch.id}`}
+                                                        href={`/owner/production-batches/${batch.id}`}
                                                         className="text-primary hover:underline flex items-center gap-1 font-mono"
                                                     >
                                                         {batch.batchSku}

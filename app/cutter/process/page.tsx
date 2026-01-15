@@ -41,6 +41,7 @@ interface CuttingTask {
             color: string
             actualPieces: number
         }>
+        totalRolls: number | null
     }
 }
 
@@ -70,9 +71,9 @@ export default function CuttingProcessPage() {
     const fetchTasks = async () => {
         try {
             const response = await fetch('/api/cutting-tasks/me')
-
             if (response.ok) {
                 const data = await response.json()
+                console.log("Fetching cutting tasks, response:", data)
                 setTasks(data)
 
                 // If we have a currently selected task, try to find it in the new data
@@ -322,6 +323,7 @@ export default function CuttingProcessPage() {
         target: selectedTask.batch.targetQuantity,
         completed: cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0),
         materialReceived: selectedTask.materialReceived,
+        totalRoll: selectedTask.batch.totalRolls,
         status: selectedTask.status
     } : null
 
@@ -476,23 +478,23 @@ export default function CuttingProcessPage() {
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div>
+                    {/* <div>
                         <div className="flex justify-between text-sm mb-2">
                             <span className="text-muted-foreground">Progress</span>
                             <span className="font-medium">{currentBatch.completed}/{currentBatch.target} pcs ({Math.round((currentBatch.completed / currentBatch.target) * 100)}%)</span>
                         </div>
                         <Progress value={(currentBatch.completed / currentBatch.target) * 100} />
-                    </div>
+                    </div> */}
 
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
                         <div className="space-y-1">
                             <p className="text-xs sm:text-sm text-muted-foreground">Material Diterima</p>
-                            <p className="text-xl sm:text-2xl font-bold">{currentBatch.materialReceived} ROLL</p>
+                            <p className="text-xl sm:text-2xl font-bold">{currentBatch.totalRoll || 0} ROLL</p>
                         </div>
-                        <div className="space-y-1">
+                        {/* <div className="space-y-1">
                             <p className="text-sm text-muted-foreground">Target</p>
                             <p className="text-2xl font-bold">{currentBatch.target} pcs</p>
-                        </div>
+                        </div> */}
                     </div>
                 </CardContent>
             </Card>
@@ -648,7 +650,7 @@ export default function CuttingProcessPage() {
             )}
 
             {/* All Tasks List */}
-            <Card>
+            {/* <Card>
                 <CardHeader>
                     <CardTitle>Semua Task</CardTitle>
                 </CardHeader>
@@ -668,7 +670,7 @@ export default function CuttingProcessPage() {
                         ))}
                     </div>
                 </CardContent>
-            </Card>
+            </Card> */}
 
             {/* Timeline History */}
             {selectedTask && (
