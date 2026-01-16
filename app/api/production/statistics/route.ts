@@ -228,26 +228,17 @@ export async function GET() {
           id: batch.id,
           code: batch.batchSku,
           product: batch.product.name,
-          targetQuantity: batch.targetQuantity,
+          // targetQuantity: batch.targetQuantity,
           status: batch.status,
           progress: {
             cutting: batch.cuttingTask
-              ? Math.round(
-                  (batch.cuttingTask.piecesCompleted / batch.targetQuantity) *
-                    100
-                )
+              ? Math.round(batch.cuttingTask.piecesCompleted)
               : 0,
             sewing: batch.sewingTask
-              ? Math.round(
-                  (batch.sewingTask.piecesCompleted / batch.targetQuantity) *
-                    100
-                )
+              ? Math.round(batch.sewingTask.piecesCompleted)
               : 0,
             finishing: batch.finishingTask
-              ? Math.round(
-                  (batch.finishingTask.piecesCompleted / batch.targetQuantity) *
-                    100
-                )
+              ? Math.round(batch.finishingTask.piecesCompleted)
               : 0,
           },
         })),
