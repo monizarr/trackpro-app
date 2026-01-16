@@ -84,13 +84,23 @@ export default function CuttingProcessPage() {
 
                         // Initialize cutting results from batch data
                         if (updatedSelectedTask.batch.cuttingResults && updatedSelectedTask.batch.cuttingResults.length > 0) {
-                            setCuttingResults(updatedSelectedTask.batch.cuttingResults.map(r => ({
+                            setCuttingResults(updatedSelectedTask.batch.cuttingResults.map((r: {
+                                id: string
+                                productSize: string
+                                color: string
+                                actualPieces: number
+                            }) => ({
                                 productSize: r.productSize,
                                 color: r.color,
                                 actualPieces: r.actualPieces
                             })))
                         } else if (updatedSelectedTask.batch.sizeColorRequests) {
-                            setCuttingResults(updatedSelectedTask.batch.sizeColorRequests.map(r => ({
+                            setCuttingResults(updatedSelectedTask.batch.sizeColorRequests.map((r: {
+                                id: string
+                                productSize: string
+                                color: string
+                                requestedPieces: number
+                            }) => ({
                                 productSize: r.productSize,
                                 color: r.color,
                                 actualPieces: r.requestedPieces
@@ -114,13 +124,23 @@ export default function CuttingProcessPage() {
 
                     // Initialize cutting results from batch data
                     if (activeTask.batch.cuttingResults && activeTask.batch.cuttingResults.length > 0) {
-                        setCuttingResults(activeTask.batch.cuttingResults.map(r => ({
+                        setCuttingResults(activeTask.batch.cuttingResults.map((r: {
+                            id: string
+                            productSize: string
+                            color: string
+                            actualPieces: number
+                        }) => ({
                             productSize: r.productSize,
                             color: r.color,
                             actualPieces: r.actualPieces
                         })))
                     } else if (activeTask.batch.sizeColorRequests) {
-                        setCuttingResults(activeTask.batch.sizeColorRequests.map(r => ({
+                        setCuttingResults(activeTask.batch.sizeColorRequests.map((r: {
+                            id: string
+                            productSize: string
+                            color: string
+                            requestedPieces: number
+                        }) => ({
                             productSize: r.productSize,
                             color: r.color,
                             actualPieces: r.requestedPieces
