@@ -42,7 +42,7 @@ export async function GET(request: Request) {
             ? error.message
             : "Failed to fetch material color variants",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -65,6 +65,7 @@ export async function POST(request: Request) {
       purchaseDate,
       purchaseNotes,
       supplier,
+      unit,
     } = body;
 
     if (!materialId || !colorName) {
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
           success: false,
           error: "Material ID and color name are required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
           success: false,
           error: "Color variant already exists for this material",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -111,6 +112,7 @@ export async function POST(request: Request) {
         purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
         purchaseNotes: purchaseNotes || null,
         supplier: supplier || null,
+        unit: unit || "YARD",
       },
       include: {
         material: true,
@@ -132,7 +134,7 @@ export async function POST(request: Request) {
             ? error.message
             : "Failed to create material color variant",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

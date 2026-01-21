@@ -160,19 +160,26 @@ model Material {
   @@map("materials")
 }
 
+// Variant Unit for MaterialColorVariant
+enum VariantUnit {
+  YARD
+  KILOGRAM
+}
+
 // Material Color Variants (Varian Warna Material)
 model MaterialColorVariant {
-  id           String  @id @default(cuid())
+  id           String      @id @default(cuid())
   materialId   String
   colorName    String // Nama warna (Putih, Hitam, Merah, dll)
-  colorCode    String? // Kode warna (hex color atau custom code)
-  stock        Decimal @db.Decimal(15, 3) // Stock untuk warna ini dalam METER
-  minimumStock Decimal @default(0) @db.Decimal(15, 3) // Minimum stock dalam METER
+  colorCode    String? // Kode bahan pabrik (factory material code)
+  stock        Decimal     @db.Decimal(15, 3) // Stock untuk warna ini
+  minimumStock Decimal     @default(0) @db.Decimal(15, 3) // Minimum stock
+  unit         VariantUnit @default(YARD) // Satuan: YARD atau KILOGRAM
 
   // Pricing & Purchase Info
-  price               Decimal   @default(0) @db.Decimal(15, 2) // Harga per meter
+  price               Decimal   @default(0) @db.Decimal(15, 2) // Harga per unit
   rollQuantity        Decimal?  @db.Decimal(15, 3) // Jumlah roll
-  meterPerRoll        Decimal?  @db.Decimal(15, 3) // Meter per roll
+  meterPerRoll        Decimal?  @db.Decimal(15, 3) // Unit per roll
   purchaseOrderNumber String? // Kode nota pemesanan
   purchaseDate        DateTime? // Tanggal pembelian
   purchaseNotes       String? // Catatan pembelian

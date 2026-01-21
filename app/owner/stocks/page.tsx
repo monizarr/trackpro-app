@@ -44,29 +44,49 @@ import {
     Trash2,
     PackagePlus,
     ArrowUpDown,
+    Layers,
+    Palette,
 } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/lib/toast"
 
 // Interfaces sesuai dengan struktur database
+interface MaterialColorVariantSimple {
+    id: string
+    colorName: string
+    colorCode: string | null
+    stock: number
+    minimumStock: number
+    unit: "YARD" | "KILOGRAM"
+    isActive: boolean
+}
+
 interface Material {
     id: string
     code: string
     name: string
     description: string | null
-    unit: string
-    supplier: string | null
+    rollQuantity: number | null
+    purchaseOrderNumber: string | null
+    purchaseDate: string | null
+    purchaseNotes: string | null
+    isActive: boolean
+    createdAt: string
+    updatedAt: string
+    colorVariants: MaterialColorVariantSimple[]
 }
 
 interface MaterialColorVariant {
     id: string
     materialId: string
     colorName: string
-    colorCode: string | null
+    colorCode: string | null // Kode bahan pabrik
     stock: number
     minimumStock: number
     price: number
+    unit: "YARD" | "KILOGRAM"
     rollQuantity: number | null
-    meterPerRoll: number | null
+    meterPerRoll: number | null // Bisa yard per roll atau kg per roll
     purchaseOrderNumber: string | null
     purchaseDate: string | null
     purchaseNotes: string | null
@@ -94,6 +114,10 @@ export default function StocksPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
 
+    // Tab state
+    const [activeTab, setActiveTab] = useState("variants")
+    const [materialSearchQuery, setMaterialSearchQuery] = useState("")
+
     // Dialog states
     const [isCreateMaterialOpen, setIsCreateMaterialOpen] = useState(false)
     const [isAddVariantOpen, setIsAddVariantOpen] = useState(false)
@@ -103,18 +127,30 @@ export default function StocksPage() {
     const [selectedVariant, setSelectedVariant] = useState<MaterialColorVariant | null>(null)
     const [isSaving, setIsSaving] = useState(false)
 
+    // Material dialog states
+    const [isEditMaterialOpen, setIsEditMaterialOpen] = useState(false)
+    const [isDeleteMaterialOpen, setIsDeleteMaterialOpen] = useState(false)
+    const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null)
+
+    // Edit material form
+    const [editMaterialForm, setEditMaterialForm] = useState({
+        code: "",
+        name: "",
+        description: "",
+    })
+
     // Forms
     const [createMaterialForm, setCreateMaterialForm] = useState({
         code: "",
         name: "",
         description: "",
-        supplier: "",
     })
 
     const [variantForm, setVariantForm] = useState({
         materialId: "",
         colorName: "",
-        colorCode: "",
+        colorCode: "", // Kode bahan pabrik
+        unit: "YARD" as "YARD" | "KILOGRAM",
         stock: "",
         minimumStock: "",
         price: "",
@@ -213,8 +249,6 @@ export default function StocksPage() {
                     code: createMaterialForm.code.trim(),
                     name: createMaterialForm.name.trim(),
                     description: createMaterialForm.description.trim() || null,
-                    unit: "METER",
-                    supplier: createMaterialForm.supplier.trim() || null,
                 }),
             })
 
@@ -227,7 +261,6 @@ export default function StocksPage() {
                     code: "",
                     name: "",
                     description: "",
-                    supplier: "",
                 })
                 toast.success("Berhasil", `Bahan baku ${createMaterialForm.name} berhasil ditambahkan`)
             } else {
@@ -253,6 +286,7 @@ export default function StocksPage() {
                     materialId: variantForm.materialId,
                     colorName: variantForm.colorName.trim(),
                     colorCode: variantForm.colorCode.trim() || null,
+                    unit: variantForm.unit,
                     stock: Number(variantForm.stock),
                     minimumStock: Number(variantForm.minimumStock),
                     price: Number(variantForm.price),
@@ -274,6 +308,7 @@ export default function StocksPage() {
                     materialId: "",
                     colorName: "",
                     colorCode: "",
+                    unit: "YARD",
                     stock: "",
                     minimumStock: "",
                     price: "",
@@ -308,6 +343,7 @@ export default function StocksPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     colorCode: variantForm.colorCode.trim() || null,
+                    unit: variantForm.unit,
                     minimumStock: Number(variantForm.minimumStock),
                     price: Number(variantForm.price),
                     rollQuantity: variantForm.rollQuantity ? Number(variantForm.rollQuantity) : null,
@@ -371,6 +407,7 @@ export default function StocksPage() {
             materialId: variant.materialId,
             colorName: variant.colorName,
             colorCode: variant.colorCode || "",
+            unit: variant.unit || "YARD",
             stock: variant.stock.toString(),
             minimumStock: variant.minimumStock.toString(),
             price: variant.price.toString(),
@@ -472,11 +509,125 @@ export default function StocksPage() {
         return { status: "good", label: "Aman", variant: "default" as const }
     }
 
+    // Material handlers
+    const openEditMaterialDialog = (material: Material) => {
+        setSelectedMaterial(material)
+        setEditMaterialForm({
+            code: material.code,
+            name: material.name,
+            description: material.description || "",
+        })
+        setIsEditMaterialOpen(true)
+    }
+
+    const openDeleteMaterialDialog = (material: Material) => {
+        setSelectedMaterial(material)
+        setIsDeleteMaterialOpen(true)
+    }
+
+    const handleEditMaterial = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!selectedMaterial) return
+
+        setIsSaving(true)
+
+        try {
+            const response = await fetch(`/api/materials/${selectedMaterial.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    code: editMaterialForm.code.trim(),
+                    name: editMaterialForm.name.trim(),
+                    description: editMaterialForm.description.trim() || null,
+                    minimumStock: 0,
+                    price: 0,
+                }),
+            })
+
+            const data = await response.json()
+
+            if (data.success) {
+                await fetchData()
+                setIsEditMaterialOpen(false)
+                setSelectedMaterial(null)
+                toast.success("Berhasil", "Bahan baku berhasil diperbarui")
+            } else {
+                toast.error("Gagal", data.error || "Tidak dapat memperbarui bahan baku")
+            }
+        } catch (error) {
+            console.error("Error updating material:", error)
+            toast.error("Error", "Gagal memperbarui bahan baku")
+        } finally {
+            setIsSaving(false)
+        }
+    }
+
+    const handleDeleteMaterial = async () => {
+        if (!selectedMaterial) return
+
+        setIsSaving(true)
+
+        try {
+            const response = await fetch(`/api/materials/${selectedMaterial.id}`, {
+                method: "DELETE",
+            })
+
+            const data = await response.json()
+
+            if (data.success) {
+                await fetchData()
+                setIsDeleteMaterialOpen(false)
+                setSelectedMaterial(null)
+                toast.success("Berhasil", "Bahan baku berhasil dihapus")
+            } else {
+                toast.error("Gagal", data.error || "Tidak dapat menghapus bahan baku")
+            }
+        } catch (error) {
+            console.error("Error deleting material:", error)
+            toast.error("Error", "Gagal menghapus bahan baku")
+        } finally {
+            setIsSaving(false)
+        }
+    }
+
     const filteredVariants = variants.filter((variant) =>
         variant.material.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         variant.material.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
         variant.colorName.toLowerCase().includes(searchQuery.toLowerCase())
     )
+
+    const filteredMaterials = materials.filter((material) =>
+        material.name.toLowerCase().includes(materialSearchQuery.toLowerCase()) ||
+        material.code.toLowerCase().includes(materialSearchQuery.toLowerCase())
+    )
+
+    const getMaterialStats = (material: Material) => {
+        const variantCount = material.colorVariants?.length || 0
+        const totalStock = material.colorVariants?.reduce((sum, v) => sum + v.stock, 0) || 0
+        const lowStockCount = material.colorVariants?.filter(v => v.stock > 0 && v.stock <= v.minimumStock).length || 0
+        const outOfStockCount = material.colorVariants?.filter(v => v.stock === 0).length || 0
+        return { variantCount, totalStock, lowStockCount, outOfStockCount }
+    }
+
+    // Helper untuk label satuan dinamis
+    const getUnitLabels = (unit: "YARD" | "KILOGRAM") => {
+        if (unit === "KILOGRAM") {
+            return {
+                stock: "Stok Awal (Kg)",
+                minStock: "Min. Stok (Kg)",
+                price: "Harga/Kg",
+                perRoll: "Kg/Roll",
+                unitShort: "Kg",
+            }
+        }
+        return {
+            stock: "Stok Awal (Yard)",
+            minStock: "Min. Stok (Yard)",
+            price: "Harga/Yard",
+            perRoll: "Yard/Roll",
+            unitShort: "Yard",
+        }
+    }
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat("id-ID", {
@@ -549,20 +700,9 @@ export default function StocksPage() {
                                         rows={3}
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="supplier">Supplier</Label>
-                                    <Input
-                                        id="supplier"
-                                        value={createMaterialForm.supplier}
-                                        onChange={(e) =>
-                                            setCreateMaterialForm({ ...createMaterialForm, supplier: e.target.value })
-                                        }
-                                        placeholder="Supplier"
-                                    />
-                                </div>
                                 <div className="bg-muted/50 p-3 rounded-md">
                                     <p className="text-sm text-muted-foreground">
-                                        <strong>Catatan:</strong> Semua bahan baku menggunakan satuan METER.
+                                        <strong>Catatan:</strong> Supplier dikelola per varian bahan baku.
                                     </p>
                                 </div>
                                 <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
@@ -630,18 +770,33 @@ export default function StocksPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="colorCode">Kode</Label>
+                                        <Label htmlFor="colorCode">Kode Bahan Pabrik</Label>
                                         <Input
                                             id="colorCode"
                                             value={variantForm.colorCode}
                                             onChange={(e) =>
                                                 setVariantForm({ ...variantForm, colorCode: e.target.value })
                                             }
-                                            placeholder="#FFFFFF"
+                                            placeholder="Contoh: KTN-001-WHT"
                                         />
                                     </div>
+                                    <div className="space-y-2 sm:col-span-2">
+                                        <Label htmlFor="unit">Satuan *</Label>
+                                        <select
+                                            id="unit"
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                            value={variantForm.unit}
+                                            onChange={(e) =>
+                                                setVariantForm({ ...variantForm, unit: e.target.value as "YARD" | "KILOGRAM" })
+                                            }
+                                            required
+                                        >
+                                            <option value="YARD">Yard</option>
+                                            <option value="KILOGRAM">Kilogram</option>
+                                        </select>
+                                    </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="stock">Stok Awal (M) *</Label>
+                                        <Label htmlFor="stock">{getUnitLabels(variantForm.unit).stock} *</Label>
                                         <Input
                                             id="stock"
                                             type="number"
@@ -655,7 +810,7 @@ export default function StocksPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="minimumStock">Min. Stok (M) *</Label>
+                                        <Label htmlFor="minimumStock">{getUnitLabels(variantForm.unit).minStock} *</Label>
                                         <Input
                                             id="minimumStock"
                                             type="number"
@@ -669,7 +824,7 @@ export default function StocksPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="price">Harga/M *</Label>
+                                        <Label htmlFor="price">{getUnitLabels(variantForm.unit).price} *</Label>
                                         <Input
                                             id="price"
                                             type="number"
@@ -695,7 +850,7 @@ export default function StocksPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="meterPerRoll">M/Roll</Label>
+                                        <Label htmlFor="meterPerRoll">{getUnitLabels(variantForm.unit).perRoll}</Label>
                                         <Input
                                             id="meterPerRoll"
                                             type="number"
@@ -704,7 +859,7 @@ export default function StocksPage() {
                                             onChange={(e) =>
                                                 setVariantForm({ ...variantForm, meterPerRoll: e.target.value })
                                             }
-                                            placeholder="M/roll"
+                                            placeholder={getUnitLabels(variantForm.unit).perRoll}
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -816,233 +971,460 @@ export default function StocksPage() {
                 </Card>
             </div>
 
-            {/* Search */}
-            <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Cari bahan baku atau warna..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-8"
-                    />
-                </div>
-            </div>
+            {/* Tabs for Variants and Materials */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                <TabsList className="grid w-full grid-cols-2 sm:w-auto sm:inline-grid">
+                    <TabsTrigger value="variants" className="gap-2">
+                        <Palette className="h-4 w-4" />
+                        <span className="hidden sm:inline">Varian Warna</span>
+                        <span className="sm:hidden">Varian</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="materials" className="gap-2">
+                        <Layers className="h-4 w-4" />
+                        <span className="hidden sm:inline">Bahan Baku</span>
+                        <span className="sm:hidden">Bahan</span>
+                    </TabsTrigger>
+                </TabsList>
 
-            {/* Table - Desktop */}
-            <Card className="hidden md:block">
-                <CardHeader>
-                    <CardTitle>Daftar Varian</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Kode</TableHead>
-                                    <TableHead>Bahan</TableHead>
-                                    <TableHead>Warna</TableHead>
-                                    <TableHead className="text-right">Stok</TableHead>
-                                    <TableHead className="text-right">Min</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Harga</TableHead>
-                                    <TableHead className="text-right">Nilai</TableHead>
-                                    <TableHead className="text-center">Aksi</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {isLoading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={9} className="text-center py-8">
-                                            Memuat...
-                                        </TableCell>
-                                    </TableRow>
-                                ) : filteredVariants.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={9} className="text-center py-8">
-                                            {searchQuery ? "Tidak ada data yang cocok" : "Belum ada varian warna"}
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    filteredVariants.map((variant) => {
-                                        const stockStatus = getStockStatus(variant.stock, variant.minimumStock)
-                                        return (
-                                            <TableRow key={variant.id}>
-                                                <TableCell className="font-medium">{variant.material.code}</TableCell>
-                                                <TableCell>{variant.material.name}</TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        {variant.colorCode && (
-                                                            <div
-                                                                className="w-4 h-4 rounded border"
-                                                                style={{ backgroundColor: variant.colorCode }}
-                                                            />
-                                                        )}
-                                                        {variant.colorName}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono">
-                                                    {variant.stock.toLocaleString("id-ID")}
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono">
-                                                    {variant.minimumStock.toLocaleString("id-ID")}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant={stockStatus.variant}>
-                                                        {stockStatus.label}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {formatCurrency(variant.price)}
-                                                </TableCell>
-                                                <TableCell className="text-right font-medium">
-                                                    {formatCurrency(variant.stock * variant.price)}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => openTransactionDialog(variant)}
-                                                            title="Transaksi Stok"
-                                                        >
-                                                            <ArrowUpDown className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => openEditDialog(variant)}
-                                                        >
-                                                            <Edit className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => openDeleteDialog(variant)}
-                                                        >
-                                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                                        </Button>
-                                                    </div>
+                {/* Variants Tab */}
+                <TabsContent value="variants" className="space-y-4">
+                    {/* Search */}
+                    <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Cari bahan baku atau warna..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-8"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Table - Desktop */}
+                    <Card className="hidden md:block">
+                        <CardHeader>
+                            <CardTitle>Daftar Varian</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="rounded-md border overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Kode Pabrik</TableHead>
+                                            <TableHead>Bahan</TableHead>
+                                            <TableHead>Warna</TableHead>
+                                            <TableHead>Satuan</TableHead>
+                                            <TableHead className="text-right">Stok</TableHead>
+                                            <TableHead className="text-right">Min</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead className="text-right">Harga</TableHead>
+                                            <TableHead className="text-right">Nilai</TableHead>
+                                            <TableHead className="text-center">Aksi</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {isLoading ? (
+                                            <TableRow>
+                                                <TableCell colSpan={10} className="text-center py-8">
+                                                    Memuat...
                                                 </TableCell>
                                             </TableRow>
-                                        )
-                                    })
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Cards - Mobile */}
-            <div className="md:hidden space-y-3">
-                <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-lg">Daftar Varian</h3>
-                    <span className="text-sm text-muted-foreground">{filteredVariants.length} varian</span>
-                </div>
-
-                {isLoading ? (
-                    <Card>
-                        <CardContent className="py-8 text-center text-muted-foreground">
-                            Memuat...
+                                        ) : filteredVariants.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={10} className="text-center py-8">
+                                                    {searchQuery ? "Tidak ada data yang cocok" : "Belum ada varian warna"}
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            filteredVariants.map((variant) => {
+                                                const stockStatus = getStockStatus(Number(variant.stock), Number(variant.minimumStock))
+                                                const unitLabels = getUnitLabels(variant.unit || "YARD")
+                                                return (
+                                                    <TableRow key={variant.id}>
+                                                        <TableCell className="font-medium">{variant.colorCode || "-"}</TableCell>
+                                                        <TableCell>{variant.material.name}</TableCell>
+                                                        <TableCell>{variant.colorName}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">{unitLabels.unitShort}</Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono">
+                                                            {variant.stock.toLocaleString("id-ID")} {unitLabels.unitShort}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono">
+                                                            {variant.minimumStock.toLocaleString("id-ID")} {unitLabels.unitShort}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant={stockStatus.variant}>
+                                                                {stockStatus.label}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            {formatCurrency(variant.price)}/{unitLabels.unitShort}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-medium">
+                                                            {formatCurrency(variant.stock * variant.price)}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center justify-center gap-1">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openTransactionDialog(variant)}
+                                                                    title="Transaksi Stok"
+                                                                >
+                                                                    <ArrowUpDown className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openEditDialog(variant)}
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openDeleteDialog(variant)}
+                                                                >
+                                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )
+                                            })
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         </CardContent>
                     </Card>
-                ) : filteredVariants.length === 0 ? (
-                    <Card>
-                        <CardContent className="py-8 text-center text-muted-foreground">
-                            {searchQuery ? "Tidak ada data yang cocok" : "Belum ada varian warna"}
-                        </CardContent>
-                    </Card>
-                ) : (
-                    filteredVariants.map((variant) => {
-                        const stockStatus = getStockStatus(variant.stock, variant.minimumStock)
-                        return (
-                            <Card key={variant.id} className="overflow-hidden">
-                                <CardContent className="p-0">
-                                    {/* Header with color indicator */}
-                                    <div className="flex items-center justify-between p-3 bg-muted/30 border-b">
-                                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                                            {variant.colorCode && (
-                                                <div
-                                                    className="w-5 h-5 rounded-full border-2 border-white shadow-sm shrink-0"
-                                                    style={{ backgroundColor: variant.colorCode }}
-                                                />
-                                            )}
-                                            <div className="min-w-0">
-                                                <p className="font-semibold truncate">{variant.material.name}</p>
-                                                <p className="text-xs text-muted-foreground">{variant.material.code} • {variant.colorName}</p>
-                                            </div>
-                                        </div>
-                                        <Badge variant={stockStatus.variant} className="shrink-0">
-                                            {stockStatus.label}
-                                        </Badge>
-                                    </div>
 
-                                    {/* Stock & Price Info */}
-                                    <div className="p-3 space-y-2">
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="bg-muted/50 rounded-lg p-2">
-                                                <p className="text-xs text-muted-foreground">Stok</p>
-                                                <p className="font-mono font-semibold text-lg">
-                                                    {variant.stock.toLocaleString("id-ID")} <span className="text-xs font-normal text-muted-foreground">M</span>
-                                                </p>
-                                            </div>
-                                            <div className="bg-muted/50 rounded-lg p-2">
-                                                <p className="text-xs text-muted-foreground">Min. Stok</p>
-                                                <p className="font-mono font-medium">
-                                                    {variant.minimumStock.toLocaleString("id-ID")} <span className="text-xs font-normal text-muted-foreground">M</span>
-                                                </p>
-                                            </div>
-                                        </div>
+                    {/* Cards - Mobile */}
+                    <div className="md:hidden space-y-3">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-lg">Daftar Varian</h3>
+                            <span className="text-sm text-muted-foreground">{filteredVariants.length} varian</span>
+                        </div>
 
-                                        <div className="flex items-center justify-between text-sm pt-1">
-                                            <span className="text-muted-foreground">Harga/M</span>
-                                            <span className="font-medium">{formatCurrency(variant.price)}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="text-muted-foreground">Total Nilai</span>
-                                            <span className="font-semibold text-primary">{formatCurrency(variant.stock * variant.price)}</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Actions */}
-                                    <div className="flex border-t">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="flex-1 rounded-none h-11 gap-2"
-                                            onClick={() => openTransactionDialog(variant)}
-                                        >
-                                            <ArrowUpDown className="h-4 w-4" />
-                                            <span>Transaksi</span>
-                                        </Button>
-                                        <div className="w-px bg-border" />
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="flex-1 rounded-none h-11 gap-2"
-                                            onClick={() => openEditDialog(variant)}
-                                        >
-                                            <Edit className="h-4 w-4" />
-                                            <span>Edit</span>
-                                        </Button>
-                                        <div className="w-px bg-border" />
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="flex-1 rounded-none h-11 gap-2 text-destructive hover:text-destructive"
-                                            onClick={() => openDeleteDialog(variant)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                            <span>Hapus</span>
-                                        </Button>
-                                    </div>
+                        {isLoading ? (
+                            <Card>
+                                <CardContent className="py-8 text-center text-muted-foreground">
+                                    Memuat...
                                 </CardContent>
                             </Card>
-                        )
-                    })
-                )}
-            </div>
+                        ) : filteredVariants.length === 0 ? (
+                            <Card>
+                                <CardContent className="py-8 text-center text-muted-foreground">
+                                    {searchQuery ? "Tidak ada data yang cocok" : "Belum ada varian warna"}
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            filteredVariants.map((variant) => {
+                                const stockStatus = getStockStatus(Number(variant.stock), Number(variant.minimumStock))
+                                const cardUnitLabels = getUnitLabels(variant.unit || "YARD")
+                                return (
+                                    <Card key={variant.id} className="overflow-hidden">
+                                        <CardContent className="p-0">
+                                            {/* Header with color indicator */}
+                                            <div className="flex items-center justify-between p-3 bg-muted/30 border-b">
+                                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                    <div className="min-w-0">
+                                                        <p className="font-semibold truncate">{variant.material.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{variant.material.code} • {variant.colorName}</p>
+                                                        {variant.colorCode && (
+                                                            <p className="text-xs text-muted-foreground">Kode: {variant.colorCode}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <Badge variant={stockStatus.variant} className="shrink-0">
+                                                        {stockStatus.label}
+                                                    </Badge>
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {variant.unit === "KILOGRAM" ? "Kg" : "Yard"}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+
+                                            {/* Stock & Price Info */}
+                                            <div className="p-3 space-y-2">
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="bg-muted/50 rounded-lg p-2">
+                                                        <p className="text-xs text-muted-foreground">Stok</p>
+                                                        <p className="font-mono font-semibold text-lg">
+                                                            {variant.stock.toLocaleString("id-ID")} <span className="text-xs font-normal text-muted-foreground">{cardUnitLabels.unitShort}</span>
+                                                        </p>
+                                                    </div>
+                                                    <div className="bg-muted/50 rounded-lg p-2">
+                                                        <p className="text-xs text-muted-foreground">Min. Stok</p>
+                                                        <p className="font-mono font-medium">
+                                                            {variant.minimumStock.toLocaleString("id-ID")} <span className="text-xs font-normal text-muted-foreground">{cardUnitLabels.unitShort}</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-between text-sm pt-1">
+                                                    <span className="text-muted-foreground">Harga/{cardUnitLabels.unitShort}</span>
+                                                    <span className="font-medium">{formatCurrency(variant.price)}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between text-sm">
+                                                    <span className="text-muted-foreground">Total Nilai</span>
+                                                    <span className="font-semibold text-primary">{formatCurrency(variant.stock * variant.price)}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div className="flex border-t">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="flex-1 rounded-none h-11 gap-2"
+                                                    onClick={() => openTransactionDialog(variant)}
+                                                >
+                                                    <ArrowUpDown className="h-4 w-4" />
+                                                    <span>Transaksi</span>
+                                                </Button>
+                                                <div className="w-px bg-border" />
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="flex-1 rounded-none h-11 gap-2"
+                                                    onClick={() => openEditDialog(variant)}
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                    <span>Edit</span>
+                                                </Button>
+                                                <div className="w-px bg-border" />
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="flex-1 rounded-none h-11 gap-2 text-destructive hover:text-destructive"
+                                                    onClick={() => openDeleteDialog(variant)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                    <span>Hapus</span>
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )
+                            })
+                        )}
+                    </div>
+                </TabsContent>
+
+                {/* Materials Tab */}
+                <TabsContent value="materials" className="space-y-4">
+                    {/* Search */}
+                    <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Cari bahan baku..."
+                                value={materialSearchQuery}
+                                onChange={(e) => setMaterialSearchQuery(e.target.value)}
+                                className="pl-8"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Table - Desktop */}
+                    <Card className="hidden md:block">
+                        <CardHeader>
+                            <CardTitle>Daftar Bahan Baku</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="rounded-md border overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Kode</TableHead>
+                                            <TableHead>Nama</TableHead>
+                                            <TableHead>Deskripsi</TableHead>
+                                            <TableHead className="text-center">Varian</TableHead>
+                                            <TableHead className="text-right">Total Stok</TableHead>
+                                            <TableHead className="text-center">Status</TableHead>
+                                            <TableHead className="text-center">Aksi</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {isLoading ? (
+                                            <TableRow>
+                                                <TableCell colSpan={7} className="text-center py-8">
+                                                    Memuat...
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : filteredMaterials.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={7} className="text-center py-8">
+                                                    {materialSearchQuery ? "Tidak ada data yang cocok" : "Belum ada bahan baku"}
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            filteredMaterials.map((material) => {
+                                                const stats = getMaterialStats(material)
+                                                return (
+                                                    <TableRow key={material.id}>
+                                                        <TableCell className="font-medium">{material.code}</TableCell>
+                                                        <TableCell>{material.name}</TableCell>
+                                                        <TableCell className="max-w-[200px] truncate">
+                                                            {material.description || "-"}
+                                                        </TableCell>
+                                                        <TableCell className="text-center">
+                                                            <Badge variant="secondary">
+                                                                {stats.variantCount} warna
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono">
+                                                            {stats.totalStock.toLocaleString("id-ID")}
+                                                        </TableCell>
+                                                        <TableCell className="text-center">
+                                                            <div className="flex items-center justify-center gap-1">
+                                                                {stats.outOfStockCount > 0 && (
+                                                                    <Badge variant="destructive" className="text-xs">
+                                                                        {stats.outOfStockCount} habis
+                                                                    </Badge>
+                                                                )}
+                                                                {stats.lowStockCount > 0 && (
+                                                                    <Badge variant="warning" className="text-xs">
+                                                                        {stats.lowStockCount} menipis
+                                                                    </Badge>
+                                                                )}
+                                                                {stats.outOfStockCount === 0 && stats.lowStockCount === 0 && (
+                                                                    <Badge variant="default" className="text-xs">
+                                                                        Aman
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center justify-center gap-1">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openEditMaterialDialog(material)}
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openDeleteMaterialDialog(material)}
+                                                                >
+                                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )
+                                            })
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Cards - Mobile */}
+                    <div className="md:hidden space-y-3">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-lg">Daftar Bahan Baku</h3>
+                            <span className="text-sm text-muted-foreground">{filteredMaterials.length} bahan</span>
+                        </div>
+
+                        {isLoading ? (
+                            <Card>
+                                <CardContent className="py-8 text-center text-muted-foreground">
+                                    Memuat...
+                                </CardContent>
+                            </Card>
+                        ) : filteredMaterials.length === 0 ? (
+                            <Card>
+                                <CardContent className="py-8 text-center text-muted-foreground">
+                                    {materialSearchQuery ? "Tidak ada data yang cocok" : "Belum ada bahan baku"}
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            filteredMaterials.map((material) => {
+                                const stats = getMaterialStats(material)
+                                return (
+                                    <Card key={material.id} className="overflow-hidden">
+                                        <CardContent className="p-0">
+                                            {/* Header */}
+                                            <div className="flex items-center justify-between p-3 bg-muted/30 border-b">
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-semibold truncate">{material.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{material.code}</p>
+                                                </div>
+                                                <Badge variant="secondary" className="shrink-0">
+                                                    {stats.variantCount} warna
+                                                </Badge>
+                                            </div>
+
+                                            {/* Info */}
+                                            <div className="p-3 space-y-2">
+                                                {material.description && (
+                                                    <p className="text-sm text-muted-foreground line-clamp-2">
+                                                        {material.description}
+                                                    </p>
+                                                )}
+
+                                                <div className="bg-muted/50 rounded-lg p-2">
+                                                    <p className="text-xs text-muted-foreground">Total Stok</p>
+                                                    <p className="font-mono font-semibold text-lg">
+                                                        {stats.totalStock.toLocaleString("id-ID")}
+                                                    </p>
+                                                </div>
+
+                                                {/* Status badges */}
+                                                {(stats.outOfStockCount > 0 || stats.lowStockCount > 0) && (
+                                                    <div className="flex gap-2 pt-1">
+                                                        {stats.outOfStockCount > 0 && (
+                                                            <Badge variant="destructive" className="text-xs">
+                                                                {stats.outOfStockCount} habis
+                                                            </Badge>
+                                                        )}
+                                                        {stats.lowStockCount > 0 && (
+                                                            <Badge variant="warning" className="text-xs">
+                                                                {stats.lowStockCount} menipis
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div className="flex border-t">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="flex-1 rounded-none h-11 gap-2"
+                                                    onClick={() => openEditMaterialDialog(material)}
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                    <span>Edit</span>
+                                                </Button>
+                                                <div className="w-px bg-border" />
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="flex-1 rounded-none h-11 gap-2 text-destructive hover:text-destructive"
+                                                    onClick={() => openDeleteMaterialDialog(material)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                    <span>Hapus</span>
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )
+                            })
+                        )}
+                    </div>
+                </TabsContent>
+            </Tabs>
 
             {/* Edit Dialog */}
             <Dialog open={isEditVariantOpen} onOpenChange={setIsEditVariantOpen}>
@@ -1053,167 +1435,190 @@ export default function StocksPage() {
                             Edit informasi varian (stok tidak dapat diubah di sini)
                         </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleEditVariant} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Bahan</Label>
-                            <Input
-                                value={selectedVariant?.material.name || ""}
-                                disabled
-                                className="bg-muted"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Warna</Label>
-                            <Input
-                                value={variantForm.colorName}
-                                disabled
-                                className="bg-muted"
-                            />
-                        </div>
+                    {(() => {
+                        const editUnitLabels = getUnitLabels(variantForm.unit)
+                        return (
+                            <form onSubmit={handleEditVariant} className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label>Bahan</Label>
+                                    <Input
+                                        value={selectedVariant?.material.name || ""}
+                                        disabled
+                                        className="bg-muted"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Warna</Label>
+                                    <Input
+                                        value={variantForm.colorName}
+                                        disabled
+                                        className="bg-muted"
+                                    />
+                                </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-colorCode">Kode</Label>
-                                <Input
-                                    id="edit-colorCode"
-                                    value={variantForm.colorCode}
-                                    onChange={(e) =>
-                                        setVariantForm({ ...variantForm, colorCode: e.target.value })
-                                    }
-                                    placeholder="#FFFFFF"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-price">Harga/M *</Label>
-                                <Input
-                                    id="edit-price"
-                                    type="number"
-                                    step="0.01"
-                                    value={variantForm.price}
-                                    onChange={(e) =>
-                                        setVariantForm({ ...variantForm, price: e.target.value })
-                                    }
-                                    required
-                                />
-                            </div>
-                        </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-colorCode">Kode Bahan Pabrik</Label>
+                                        <Input
+                                            id="edit-colorCode"
+                                            value={variantForm.colorCode}
+                                            onChange={(e) =>
+                                                setVariantForm({ ...variantForm, colorCode: e.target.value })
+                                            }
+                                            placeholder="Contoh: FAB-001"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-unit">Satuan *</Label>
+                                        <select
+                                            id="edit-unit"
+                                            value={variantForm.unit}
+                                            onChange={(e) =>
+                                                setVariantForm({ ...variantForm, unit: e.target.value as "YARD" | "KILOGRAM" })
+                                            }
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                            required
+                                        >
+                                            <option value="YARD">Yard</option>
+                                            <option value="KILOGRAM">Kilogram (Kg)</option>
+                                        </select>
+                                    </div>
+                                </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-minimumStock">Min. Stok *</Label>
-                                <Input
-                                    id="edit-minimumStock"
-                                    type="number"
-                                    step="0.01"
-                                    value={variantForm.minimumStock}
-                                    onChange={(e) =>
-                                        setVariantForm({ ...variantForm, minimumStock: e.target.value })
-                                    }
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-supplier">Supplier</Label>
-                                <Input
-                                    id="edit-supplier"
-                                    value={variantForm.supplier}
-                                    onChange={(e) =>
-                                        setVariantForm({ ...variantForm, supplier: e.target.value })
-                                    }
-                                    placeholder="Supplier"
-                                />
-                            </div>
-                        </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-price">{editUnitLabels.price} *</Label>
+                                        <Input
+                                            id="edit-price"
+                                            type="number"
+                                            step="0.01"
+                                            value={variantForm.price}
+                                            onChange={(e) =>
+                                                setVariantForm({ ...variantForm, price: e.target.value })
+                                            }
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-minimumStock">{editUnitLabels.minStock} *</Label>
+                                        <Input
+                                            id="edit-minimumStock"
+                                            type="number"
+                                            step="0.01"
+                                            value={variantForm.minimumStock}
+                                            onChange={(e) =>
+                                                setVariantForm({ ...variantForm, minimumStock: e.target.value })
+                                            }
+                                            required
+                                        />
+                                    </div>
+                                </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-rollQuantity">Jml Roll</Label>
-                                <Input
-                                    id="edit-rollQuantity"
-                                    type="number"
-                                    step="0.01"
-                                    value={variantForm.rollQuantity}
-                                    onChange={(e) =>
-                                        setVariantForm({ ...variantForm, rollQuantity: e.target.value })
-                                    }
-                                    placeholder="Jml roll"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-meterPerRoll">M/Roll</Label>
-                                <Input
-                                    id="edit-meterPerRoll"
-                                    type="number"
-                                    step="0.01"
-                                    value={variantForm.meterPerRoll}
-                                    onChange={(e) =>
-                                        setVariantForm({ ...variantForm, meterPerRoll: e.target.value })
-                                    }
-                                    placeholder="M/roll"
-                                />
-                            </div>
-                        </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-supplier">Supplier</Label>
+                                        <Input
+                                            id="edit-supplier"
+                                            value={variantForm.supplier}
+                                            onChange={(e) =>
+                                                setVariantForm({ ...variantForm, supplier: e.target.value })
+                                            }
+                                            placeholder="Supplier"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-rollQuantity">Jml Roll</Label>
+                                        <Input
+                                            id="edit-rollQuantity"
+                                            type="number"
+                                            step="0.01"
+                                            value={variantForm.rollQuantity}
+                                            onChange={(e) =>
+                                                setVariantForm({ ...variantForm, rollQuantity: e.target.value })
+                                            }
+                                            placeholder="Jml roll"
+                                        />
+                                    </div>
+                                </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-purchaseOrderNumber">No. PO</Label>
-                                <Input
-                                    id="edit-purchaseOrderNumber"
-                                    value={variantForm.purchaseOrderNumber}
-                                    onChange={(e) =>
-                                        setVariantForm({ ...variantForm, purchaseOrderNumber: e.target.value })
-                                    }
-                                    placeholder="Contoh: PO-2026-001"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-purchaseDate">Tgl Beli</Label>
-                                <Input
-                                    id="edit-purchaseDate"
-                                    type="date"
-                                    value={variantForm.purchaseDate}
-                                    onChange={(e) =>
-                                        setVariantForm({ ...variantForm, purchaseDate: e.target.value })
-                                    }
-                                />
-                            </div>
-                        </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-meterPerRoll">{editUnitLabels.perRoll}</Label>
+                                        <Input
+                                            id="edit-meterPerRoll"
+                                            type="number"
+                                            step="0.01"
+                                            value={variantForm.meterPerRoll}
+                                            onChange={(e) =>
+                                                setVariantForm({ ...variantForm, meterPerRoll: e.target.value })
+                                            }
+                                            placeholder={editUnitLabels.perRoll}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-purchaseOrderNumber">No. PO</Label>
+                                        <Input
+                                            id="edit-purchaseOrderNumber"
+                                            value={variantForm.purchaseOrderNumber}
+                                            onChange={(e) =>
+                                                setVariantForm({ ...variantForm, purchaseOrderNumber: e.target.value })
+                                            }
+                                            placeholder="Contoh: PO-2026-001"
+                                        />
+                                    </div>
+                                </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-purchaseNotes">Catatan Pembelian</Label>
-                            <Textarea
-                                id="edit-purchaseNotes"
-                                value={variantForm.purchaseNotes}
-                                onChange={(e) =>
-                                    setVariantForm({ ...variantForm, purchaseNotes: e.target.value })
-                                }
-                                placeholder="Catatan..."
-                                rows={2}
-                            />
-                        </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-purchaseDate">Tgl Beli</Label>
+                                        <Input
+                                            id="edit-purchaseDate"
+                                            type="date"
+                                            value={variantForm.purchaseDate}
+                                            onChange={(e) =>
+                                                setVariantForm({ ...variantForm, purchaseDate: e.target.value })
+                                            }
+                                        />
+                                    </div>
+                                </div>
 
-                        <div className="bg-muted/50 p-3 rounded-md">
-                            <p className="text-sm text-muted-foreground">
-                                <strong>Stok saat ini:</strong> {selectedVariant?.stock.toLocaleString("id-ID")} M
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                                Untuk mengubah stok, gunakan menu Transaksi
-                            </p>
-                        </div>
-                        <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setIsEditVariantOpen(false)}
-                                disabled={isSaving}
-                            >
-                                Batal
-                            </Button>
-                            <Button type="submit" disabled={isSaving}>
-                                {isSaving ? "Menyimpan..." : "Simpan"}
-                            </Button>
-                        </DialogFooter>
-                    </form>
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit-purchaseNotes">Catatan Pembelian</Label>
+                                    <Textarea
+                                        id="edit-purchaseNotes"
+                                        value={variantForm.purchaseNotes}
+                                        onChange={(e) =>
+                                            setVariantForm({ ...variantForm, purchaseNotes: e.target.value })
+                                        }
+                                        placeholder="Catatan..."
+                                        rows={2}
+                                    />
+                                </div>
+
+                                <div className="bg-muted/50 p-3 rounded-md">
+                                    <p className="text-sm text-muted-foreground">
+                                        <strong>Stok saat ini:</strong> {selectedVariant?.stock.toLocaleString("id-ID")} {editUnitLabels.unitShort}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Untuk mengubah stok, gunakan menu Transaksi
+                                    </p>
+                                </div>
+                                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setIsEditVariantOpen(false)}
+                                        disabled={isSaving}
+                                    >
+                                        Batal
+                                    </Button>
+                                    <Button type="submit" disabled={isSaving}>
+                                        {isSaving ? "Menyimpan..." : "Simpan"}
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        )
+                    })()}
                 </DialogContent>
             </Dialog>
 
@@ -1225,154 +1630,159 @@ export default function StocksPage() {
                         <DialogDescription>
                             {selectedVariant && (
                                 <span>
-                                    {selectedVariant.material.name} - {selectedVariant.colorName} (Stok saat ini: {selectedVariant.stock} {selectedVariant.material.unit})
+                                    {selectedVariant.material.name} - {selectedVariant.colorName} (Stok saat ini: {selectedVariant.stock} {selectedVariant.unit === "KILOGRAM" ? "Kg" : "Yard"})
                                 </span>
                             )}
                         </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleTransaction} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="transaction-type">Jenis</Label>
-                            <select
-                                id="transaction-type"
-                                value={transactionForm.type}
-                                onChange={(e) =>
-                                    setTransactionForm({ ...transactionForm, type: e.target.value as any })
-                                }
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            >
-                                <option value="IN">Masuk</option>
-                                <option value="OUT">Keluar</option>
-                                <option value="ADJUSTMENT">Sesuaikan</option>
-                                <option value="RETURN">Retur</option>
-                            </select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="transaction-quantity">Jumlah</Label>
-                            <Input
-                                id="transaction-quantity"
-                                type="number"
-                                step="0.01"
-                                value={transactionForm.quantity}
-                                onChange={(e) =>
-                                    setTransactionForm({ ...transactionForm, quantity: e.target.value })
-                                }
-                                required
-                                placeholder="Jumlah"
-                            />
-                        </div>
-
-                        {transactionForm.type === "IN" && (
-                            <>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="transaction-rollQuantity">Jml Roll</Label>
-                                        <Input
-                                            id="transaction-rollQuantity"
-                                            type="number"
-                                            step="0.01"
-                                            value={transactionForm.rollQuantity}
-                                            onChange={(e) =>
-                                                setTransactionForm({ ...transactionForm, rollQuantity: e.target.value })
-                                            }
-                                            placeholder="Jml roll"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="transaction-meterPerRoll">M/Roll</Label>
-                                        <Input
-                                            id="transaction-meterPerRoll"
-                                            type="number"
-                                            step="0.01"
-                                            value={transactionForm.meterPerRoll}
-                                            onChange={(e) =>
-                                                setTransactionForm({ ...transactionForm, meterPerRoll: e.target.value })
-                                            }
-                                            placeholder="M/roll"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="transaction-purchaseOrderNumber">No. PO</Label>
-                                        <Input
-                                            id="transaction-purchaseOrderNumber"
-                                            value={transactionForm.purchaseOrderNumber}
-                                            onChange={(e) =>
-                                                setTransactionForm({ ...transactionForm, purchaseOrderNumber: e.target.value })
-                                            }
-                                            placeholder="No. PO"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="transaction-supplier">Supplier</Label>
-                                        <Input
-                                            id="transaction-supplier"
-                                            value={transactionForm.supplier}
-                                            onChange={(e) =>
-                                                setTransactionForm({ ...transactionForm, supplier: e.target.value })
-                                            }
-                                            placeholder="Supplier"
-                                        />
-                                    </div>
+                    {(() => {
+                        const txnUnitLabels = getUnitLabels(selectedVariant?.unit || "YARD")
+                        return (
+                            <form onSubmit={handleTransaction} className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="transaction-type">Jenis</Label>
+                                    <select
+                                        id="transaction-type"
+                                        value={transactionForm.type}
+                                        onChange={(e) =>
+                                            setTransactionForm({ ...transactionForm, type: e.target.value as "IN" | "OUT" | "ADJUSTMENT" | "RETURN" })
+                                        }
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <option value="IN">Masuk</option>
+                                        <option value="OUT">Keluar</option>
+                                        <option value="ADJUSTMENT">Sesuaikan</option>
+                                        <option value="RETURN">Retur</option>
+                                    </select>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="transaction-purchaseDate">Tgl Beli</Label>
+                                    <Label htmlFor="transaction-quantity">Jumlah</Label>
                                     <Input
-                                        id="transaction-purchaseDate"
-                                        type="date"
-                                        value={transactionForm.purchaseDate}
+                                        id="transaction-quantity"
+                                        type="number"
+                                        step="0.01"
+                                        value={transactionForm.quantity}
                                         onChange={(e) =>
-                                            setTransactionForm({ ...transactionForm, purchaseDate: e.target.value })
+                                            setTransactionForm({ ...transactionForm, quantity: e.target.value })
                                         }
+                                        required
+                                        placeholder="Jumlah"
                                     />
                                 </div>
 
+                                {transactionForm.type === "IN" && (
+                                    <>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="transaction-rollQuantity">Jml Roll</Label>
+                                                <Input
+                                                    id="transaction-rollQuantity"
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={transactionForm.rollQuantity}
+                                                    onChange={(e) =>
+                                                        setTransactionForm({ ...transactionForm, rollQuantity: e.target.value })
+                                                    }
+                                                    placeholder="Jml roll"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="transaction-meterPerRoll">{txnUnitLabels.perRoll}</Label>
+                                                <Input
+                                                    id="transaction-meterPerRoll"
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={transactionForm.meterPerRoll}
+                                                    onChange={(e) =>
+                                                        setTransactionForm({ ...transactionForm, meterPerRoll: e.target.value })
+                                                    }
+                                                    placeholder={txnUnitLabels.perRoll}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="transaction-purchaseOrderNumber">No. PO</Label>
+                                                <Input
+                                                    id="transaction-purchaseOrderNumber"
+                                                    value={transactionForm.purchaseOrderNumber}
+                                                    onChange={(e) =>
+                                                        setTransactionForm({ ...transactionForm, purchaseOrderNumber: e.target.value })
+                                                    }
+                                                    placeholder="No. PO"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="transaction-supplier">Supplier</Label>
+                                                <Input
+                                                    id="transaction-supplier"
+                                                    value={transactionForm.supplier}
+                                                    onChange={(e) =>
+                                                        setTransactionForm({ ...transactionForm, supplier: e.target.value })
+                                                    }
+                                                    placeholder="Supplier"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="transaction-purchaseDate">Tgl Beli</Label>
+                                            <Input
+                                                id="transaction-purchaseDate"
+                                                type="date"
+                                                value={transactionForm.purchaseDate}
+                                                onChange={(e) =>
+                                                    setTransactionForm({ ...transactionForm, purchaseDate: e.target.value })
+                                                }
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="transaction-purchaseNotes">Catatan Pembelian</Label>
+                                            <Textarea
+                                                id="transaction-purchaseNotes"
+                                                value={transactionForm.purchaseNotes}
+                                                onChange={(e) =>
+                                                    setTransactionForm({ ...transactionForm, purchaseNotes: e.target.value })
+                                                }
+                                                placeholder="Catatan..."
+                                                rows={2}
+                                            />
+                                        </div>
+                                    </>
+                                )}
+
                                 <div className="space-y-2">
-                                    <Label htmlFor="transaction-purchaseNotes">Catatan Pembelian</Label>
+                                    <Label htmlFor="transaction-notes">Catatan</Label>
                                     <Textarea
-                                        id="transaction-purchaseNotes"
-                                        value={transactionForm.purchaseNotes}
+                                        id="transaction-notes"
+                                        value={transactionForm.notes}
                                         onChange={(e) =>
-                                            setTransactionForm({ ...transactionForm, purchaseNotes: e.target.value })
+                                            setTransactionForm({ ...transactionForm, notes: e.target.value })
                                         }
                                         placeholder="Catatan..."
                                         rows={2}
                                     />
                                 </div>
-                            </>
-                        )}
 
-                        <div className="space-y-2">
-                            <Label htmlFor="transaction-notes">Catatan</Label>
-                            <Textarea
-                                id="transaction-notes"
-                                value={transactionForm.notes}
-                                onChange={(e) =>
-                                    setTransactionForm({ ...transactionForm, notes: e.target.value })
-                                }
-                                placeholder="Catatan..."
-                                rows={2}
-                            />
-                        </div>
-
-                        <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setIsTransactionOpen(false)}
-                                disabled={isSaving}
-                            >
-                                Batal
-                            </Button>
-                            <Button type="submit" disabled={isSaving}>
-                                {isSaving ? "Menyimpan..." : "Simpan"}
-                            </Button>
-                        </DialogFooter>
-                    </form>
+                                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setIsTransactionOpen(false)}
+                                        disabled={isSaving}
+                                    >
+                                        Batal
+                                    </Button>
+                                    <Button type="submit" disabled={isSaving}>
+                                        {isSaving ? "Menyimpan..." : "Simpan"}
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        )
+                    })()}
                 </DialogContent>
             </Dialog>
 
@@ -1393,6 +1803,107 @@ export default function StocksPage() {
                         <AlertDialogCancel disabled={isSaving}>Batal</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleDeleteVariant}
+                            disabled={isSaving}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            {isSaving ? "Menghapus..." : "Hapus"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Edit Material Dialog */}
+            <Dialog open={isEditMaterialOpen} onOpenChange={setIsEditMaterialOpen}>
+                <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Edit Bahan Baku</DialogTitle>
+                        <DialogDescription>
+                            Perbarui informasi bahan baku
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleEditMaterial} className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-material-code">Kode *</Label>
+                                <Input
+                                    id="edit-material-code"
+                                    value={editMaterialForm.code}
+                                    onChange={(e) =>
+                                        setEditMaterialForm({ ...editMaterialForm, code: e.target.value })
+                                    }
+                                    placeholder="Contoh: MAT-KAIN-001"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-material-name">Nama *</Label>
+                                <Input
+                                    id="edit-material-name"
+                                    value={editMaterialForm.name}
+                                    onChange={(e) =>
+                                        setEditMaterialForm({ ...editMaterialForm, name: e.target.value })
+                                    }
+                                    placeholder="Contoh: Kain Katun Premium"
+                                    required
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-material-description">Deskripsi</Label>
+                            <Textarea
+                                id="edit-material-description"
+                                value={editMaterialForm.description}
+                                onChange={(e) =>
+                                    setEditMaterialForm({ ...editMaterialForm, description: e.target.value })
+                                }
+                                placeholder="Deskripsi..."
+                                rows={3}
+                            />
+                        </div>
+                        {selectedMaterial && (
+                            <div className="bg-muted/50 p-3 rounded-md space-y-1">
+                                <p className="text-sm font-medium">Informasi Varian</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {selectedMaterial.colorVariants?.length || 0} varian warna terdaftar
+                                </p>
+                            </div>
+                        )}
+                        <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsEditMaterialOpen(false)}
+                                disabled={isSaving}
+                            >
+                                Batal
+                            </Button>
+                            <Button type="submit" disabled={isSaving}>
+                                {isSaving ? "Menyimpan..." : "Simpan"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Material Confirmation Dialog */}
+            <AlertDialog open={isDeleteMaterialOpen} onOpenChange={setIsDeleteMaterialOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus Bahan Baku?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Yakin ingin menghapus bahan baku{" "}
+                            <strong>{selectedMaterial?.name}</strong> ({selectedMaterial?.code})?
+                            {selectedMaterial && selectedMaterial.colorVariants && selectedMaterial.colorVariants.length > 0 && (
+                                <span className="block mt-2 text-yellow-600 dark:text-yellow-500">
+                                    ⚠️ Bahan baku ini memiliki {selectedMaterial.colorVariants.length} varian warna yang akan ikut terhapus.
+                                </span>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isSaving}>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteMaterial}
                             disabled={isSaving}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >

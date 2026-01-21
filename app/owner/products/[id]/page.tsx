@@ -589,7 +589,7 @@ export default function ProductDetailPage() {
                 </Card>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-7">
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-7">
                 {/* Production Section */}
                 <Card className="lg:col-span-4">
                     <CardHeader>

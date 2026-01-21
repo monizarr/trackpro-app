@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 // GET - Get single material color variant
 export async function GET(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireRole(["OWNER", "KEPALA_GUDANG", "KEPALA_PRODUKSI"]);
@@ -32,7 +32,7 @@ export async function GET(
           success: false,
           error: "Material color variant not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -50,7 +50,7 @@ export async function GET(
             ? error.message
             : "Failed to fetch material color variant",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -58,7 +58,7 @@ export async function GET(
 // PATCH - Update material color variant
 export async function PATCH(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireRole(["OWNER", "KEPALA_GUDANG"]);
@@ -77,7 +77,7 @@ export async function PATCH(
           success: false,
           error: "Material color variant not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -103,6 +103,7 @@ export async function PATCH(
       updateData.purchaseNotes = body.purchaseNotes || null;
     if (body.supplier !== undefined)
       updateData.supplier = body.supplier || null;
+    if (body.unit !== undefined) updateData.unit = body.unit;
 
     const variant = await prisma.materialColorVariant.update({
       where: { id },
@@ -134,7 +135,7 @@ export async function PATCH(
             ? error.message
             : "Failed to update material color variant",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -142,7 +143,7 @@ export async function PATCH(
 // DELETE - Soft delete material color variant
 export async function DELETE(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireRole(["OWNER", "KEPALA_GUDANG"]);
@@ -163,7 +164,7 @@ export async function DELETE(
           success: false,
           error: "Material color variant not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -175,7 +176,7 @@ export async function DELETE(
           error:
             "Cannot delete variant that is used in production batches. Deactivate instead.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -199,7 +200,7 @@ export async function DELETE(
             ? error.message
             : "Failed to delete material color variant",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
