@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Package, User, AlertCircle, CheckCircle2, Loader2, FileText, Trash2, QrCode, CheckCircle, UserPlus, Scissors } from "lucide-react";
+import { ArrowLeft, Calendar, Package, User, AlertCircle, CheckCircle2, Loader2, FileText, Trash2, QrCode, CheckCircle, UserPlus, Scissors, Users, Sparkles, Clock } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,8 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 
 interface Material {
     id: string;
@@ -196,11 +198,29 @@ interface TimelineEvent {
     createdAt: string;
 }
 
+interface SubBatchSummary {
+    id: string;
+    subBatchSku: string;
+    status: string;
+    piecesAssigned: number;
+    sewingOutput: number;
+    sewingReject: number;
+    finishingOutput: number;
+    finishingReject: number;
+    assignedSewer?: { id: string; name: string } | null;
+    assignedFinisher?: { id: string; name: string } | null;
+    sewingStartedAt?: string | null;
+    sewingCompletedAt?: string | null;
+    finishingStartedAt?: string | null;
+    finishingCompletedAt?: string | null;
+}
+
 export default function BatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = use(params);
     const router = useRouter();
     const [batch, setBatch] = useState<ProductionBatch | null>(null);
     const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
+    const [subBatches, setSubBatches] = useState<SubBatchSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadingTimeline, setLoadingTimeline] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -256,6 +276,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
         fetchBatchDetail();
         fetchTimeline();
         fetchWorkers();
+        fetchSubBatches();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resolvedParams.id]);
 
@@ -315,6 +336,19 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             console.error("Error fetching timeline:", error);
         } finally {
             setLoadingTimeline(false);
+        }
+    };
+
+    const fetchSubBatches = async () => {
+        try {
+            const response = await fetch(`/api/production-batches/${resolvedParams.id}/sub-batches`);
+            const result = await response.json();
+
+            if (result.success) {
+                setSubBatches(result.data || []);
+            }
+        } catch (error) {
+            console.error("Error fetching sub-batches:", error);
         }
     };
 
@@ -738,6 +772,22 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
         });
     };
 
+    // Determine current phase based on status
+    const getCurrentPhase = (status: string): string => {
+        const pendingStatuses = ["PENDING", "MATERIAL_REQUESTED", "MATERIAL_ALLOCATED"];
+        const cuttingStatuses = ["ASSIGNED_TO_CUTTER", "IN_CUTTING", "CUTTING_COMPLETED"];
+        const sewingStatuses = ["CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED"];
+        const finishingStatuses = ["SEWING_VERIFIED", "IN_FINISHING", "FINISHING_COMPLETED"];
+        const completedStatuses = ["WAREHOUSE_VERIFIED", "COMPLETED"];
+
+        if (pendingStatuses.includes(status)) return "material";
+        if (cuttingStatuses.includes(status)) return "cutting";
+        if (sewingStatuses.includes(status)) return "sewing";
+        if (finishingStatuses.includes(status)) return "finishing";
+        if (completedStatuses.includes(status)) return "completed";
+        return "material";
+    };
+
     if (loading) {
         return (
             <div className="flex-1 flex items-center justify-center min-h-screen">
@@ -763,6 +813,23 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             </div>
         );
     }
+
+    const currentPhase = getCurrentPhase(batch.status);
+
+    // Calculate progress
+    const totalTarget = batch.targetQuantity;
+    const cuttingOutput = batch.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0) || 0;
+
+    // Calculate sewing/finishing output from sub-batches (preferred) or batch tasks (fallback)
+    const sewingOutput = subBatches.length > 0
+        ? subBatches.reduce((sum, sb) => sum + (sb.sewingOutput || 0), 0)
+        : (batch.sewingTask?.piecesCompleted || 0);
+    const sewingReject = subBatches.reduce((sum, sb) => sum + (sb.sewingReject || 0), 0);
+
+    const finishingOutput = subBatches.length > 0
+        ? subBatches.reduce((sum, sb) => sum + (sb.finishingOutput || 0), 0)
+        : (batch.finishingTask?.piecesCompleted || 0);
+    const finishingReject = subBatches.reduce((sum, sb) => sum + (sb.finishingReject || 0), 0);
 
     return (
         <div className="flex-1 space-y-6 p-8 pt-6">
@@ -968,18 +1035,18 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             </div>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Start Date</p>
+                            <p className="text-sm text-muted-foreground">Tanggal Mulai</p>
                             <div className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                                <p>{formatDateOnly(batch.startDate)}</p>
+                                <span className="text-sm">{formatDate(batch.startDate)}</span>
                             </div>
                         </div>
                         {batch.completedDate && (
                             <div>
-                                <p className="text-sm text-muted-foreground">Completed Date</p>
+                                <p className="text-sm text-muted-foreground">Tanggal Selesai</p>
                                 <div className="flex items-center gap-2">
                                     <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                    <p>{formatDateOnly(batch.completedDate)}</p>
+                                    <span className="text-sm">{formatDate(batch.completedDate)}</span>
                                 </div>
                             </div>
                         )}
@@ -1000,237 +1067,710 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 </CardContent>
             </Card>
 
-            {/* Material Allocations */}
-            {batch.materialAllocations && batch.materialAllocations.length > 0 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Alokasi Material</CardTitle>
-                        <CardDescription>Material yang dialokasikan untuk batch ini</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {batch.materialAllocations.map((allocation) => (
-                                <div
-                                    key={`${allocation.materialId}-${allocation.color}`}
-                                    className="flex items-center justify-between p-3 border rounded-lg"
-                                >
-                                    <div className="flex-1">
-                                        <p className="font-medium">{allocation.material.name}</p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Kode: {allocation.material.code}
-                                        </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="font-bold">
-                                            {allocation.requestedQty} {allocation.material.unit}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            Stock: {allocation.material.currentStock}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
+            {/* Tabs by Phase */}
+            <Tabs defaultValue={currentPhase} className="space-y-4">
+                <TabsList className="grid w-full grid-cols-5">
+                    <TabsTrigger value="material" className="text-xs sm:text-sm">
+                        <Package className="h-4 w-4 mr-1 sm:mr-2 text-yellow-600" />
+                        <span className="hidden sm:inline">Material</span>
+                        <span className="sm:hidden">Mat</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="cutting" className="text-xs sm:text-sm">
+                        <Scissors className="h-4 w-4 mr-1 sm:mr-2 text-blue-600" />
+                        <span className="hidden sm:inline">Potong</span>
+                        <span className="sm:hidden">Pot</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="sewing" className="text-xs sm:text-sm">
+                        <Users className="h-4 w-4 mr-1 sm:mr-2 text-purple-600" />
+                        <span className="hidden sm:inline">Jahit</span>
+                        <span className="sm:hidden">Jht</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="finishing" className="text-xs sm:text-sm">
+                        <Sparkles className="h-4 w-4 mr-1 sm:mr-2 text-orange-600" />
+                        <span className="hidden sm:inline">Finishing</span>
+                        <span className="sm:hidden">Fin</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="completed" className="text-xs sm:text-sm">
+                        <CheckCircle className="h-4 w-4 mr-1 sm:mr-2 text-green-600" />
+                        <span className="hidden sm:inline">Selesai</span>
+                        <span className="sm:hidden">Done</span>
+                    </TabsTrigger>
+                </TabsList>
 
-            {/* Production Progress */}
-            <div className="grid gap-4 ">
-                {/* Cutting Task */}
-                {batch.cuttingTask && (
+                {/* Material Tab */}
+                <TabsContent value="material" className="space-y-4">
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        {/* Batch Info */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Informasi Batch</CardTitle>
+                                <CardDescription>Detail batch produksi</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-muted-foreground">Produk</span>
+                                    <span className="text-sm font-medium text-primary">
+                                        {batch.product.name}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-muted-foreground">SKU Produk</span>
+                                    <span className="text-sm font-mono">{batch.product.sku}</span>
+                                </div>
+                                <Separator />
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-muted-foreground">Tanggal Mulai</span>
+                                    <span className="text-sm">{formatDate(batch.startDate)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-muted-foreground">Dibuat Oleh</span>
+                                    <span className="text-sm">{batch.createdBy.name}</span>
+                                </div>
+                                {batch.notes && (
+                                    <>
+                                        <Separator />
+                                        <div className="space-y-1">
+                                            <span className="text-sm text-muted-foreground">Catatan</span>
+                                            <p className="text-sm p-2 bg-muted rounded">{batch.notes}</p>
+                                        </div>
+                                    </>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Size Color Requests */}
+                        {batch.sizeColorRequests && batch.sizeColorRequests.length > 0 && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Permintaan Ukuran & Warna</CardTitle>
+                                    <CardDescription>Target produksi per ukuran dan warna</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="rounded-md border">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Ukuran</TableHead>
+                                                    <TableHead>Warna</TableHead>
+                                                    <TableHead className="text-right">Target</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {batch.sizeColorRequests.map((request) => (
+                                                    <TableRow key={request.id}>
+                                                        <TableCell className="font-medium">{request.productSize}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">{request.color}</Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">{request.requestedPieces} pcs</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                                <TableRow className="font-bold bg-muted/50">
+                                                    <TableCell colSpan={2}>Total</TableCell>
+                                                    <TableCell className="text-right">
+                                                        {batch.sizeColorRequests.reduce((sum, r) => sum + r.requestedPieces, 0)} pcs
+                                                    </TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
+
+                    {/* Material Allocations */}
                     <Card>
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <span className="text-xl">✂️</span>
-                                Pemotongan
-                            </CardTitle>
+                            <CardTitle>Alokasi Material</CardTitle>
+                            <CardDescription>Material yang dibutuhkan dan dialokasikan untuk batch ini</CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div>
-                                <p className="text-sm text-muted-foreground">Pemotong</p>
-                                <p className="font-medium">{batch.cuttingTask.assignedTo?.name || "-"}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Status</p>
-                                {getStatusBadge(batch.cuttingTask.status)}
-                            </div>
-                            <Separator />
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div>
-                                    <p className="text-muted-foreground">Material</p>
-                                    <p className="font-medium">{batch.cuttingTask.materialReceived}</p>
+                        <CardContent>
+                            {batch.materialColorAllocations && batch.materialColorAllocations.length > 0 ? (
+                                <div className="rounded-md border">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Material</TableHead>
+                                                <TableHead>Warna</TableHead>
+                                                <TableHead className="text-right">Dialokasi</TableHead>
+                                                <TableHead className="text-right">Stok Saat Alokasi</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {batch.materialColorAllocations.map((allocation) => {
+                                                const variant = allocation.materialColorVariant;
+                                                const unit = variant.unit || variant.material.unit;
+                                                return (
+                                                    <TableRow key={allocation.id}>
+                                                        <TableCell className="font-medium">
+                                                            {variant.material.name}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">{variant.colorName}</Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="space-y-1">
+                                                                <div>{Number(allocation.allocatedQty)} {unit}</div>
+                                                                <div className="text-xs text-muted-foreground">{allocation.rollQuantity} roll</div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            {allocation.stockAtAllocation !== null ? (
+                                                                <div className="space-y-1">
+                                                                    <div>{Number(allocation.stockAtAllocation)} {unit}</div>
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        {allocation.rollQuantityAtAllocation !== null
+                                                                            ? `${Number(allocation.rollQuantityAtAllocation)} roll`
+                                                                            : '-'}
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-muted-foreground text-xs">Belum dikonfirmasi</span>
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
                                 </div>
-                                <div>
-                                    <p className="text-muted-foreground">Completed</p>
-                                    <p className="font-medium text-green-600">
-                                        {batch.cuttingTask.piecesCompleted}
-                                    </p>
+                            ) : batch.materialAllocations && batch.materialAllocations.length > 0 ? (
+                                <div className="rounded-md border">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Material</TableHead>
+                                                <TableHead>Warna</TableHead>
+                                                <TableHead className="text-right">Roll</TableHead>
+                                                <TableHead className="text-right">Kebutuhan</TableHead>
+                                                <TableHead className="text-right">Stok</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {batch.materialAllocations.map((allocation, idx) => (
+                                                <TableRow key={idx}>
+                                                    <TableCell className="font-medium">{allocation.material.name}</TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="outline">{allocation.color}</Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">{allocation.rollQuantity}</TableCell>
+                                                    <TableCell className="text-right">{allocation.requestedQty} {allocation.unit}</TableCell>
+                                                    <TableCell className="text-right">{allocation.availableStock} {allocation.unit}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
                                 </div>
-                                <div>
-                                    <p className="text-muted-foreground">Reject</p>
-                                    <p className="font-medium text-red-600">
-                                        {batch.cuttingTask.rejectPieces}
-                                    </p>
+                            ) : (
+                                <div className="text-center py-8 text-muted-foreground">
+                                    <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                    <p>Belum ada alokasi material</p>
                                 </div>
-                                <div>
-                                    <p className="text-muted-foreground">Waste</p>
-                                    <p className="font-medium">{batch.cuttingTask.wasteQty || 0}</p>
-                                </div>
-                            </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
-                            {/* Cutting Results Detail */}
-                            {batch.cuttingResults && batch.cuttingResults.length > 0 && (
-                                <>
-                                    <Separator />
-                                    <div>
-                                        <p className="text-sm font-medium mb-2">Hasil Potongan per Varian</p>
-                                        <div className="space-y-2">
-                                            {batch.cuttingResults.map((result) => (
-                                                <div
-                                                    key={result.id}
-                                                    className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm"
-                                                >
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge variant="outline" className="font-mono">
-                                                            {result.productSize}
-                                                        </Badge>
-                                                        <span className="text-muted-foreground">•</span>
-                                                        <span className="font-medium">{result.color}</span>
+                {/* Cutting Tab */}
+                <TabsContent value="cutting" className="space-y-4">
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        {/* Cutting Task Info */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Task Pemotongan</CardTitle>
+                                <CardDescription>Informasi tugas pemotongan</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {batch.cuttingTask ? (
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Pemotong</span>
+                                            <span className="text-sm font-medium">{batch.cuttingTask.assignedTo?.name || "-"}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Status</span>
+                                            {getStatusBadge(batch.cuttingTask.status)}
+                                        </div>
+                                        <Separator />
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Material Diterima</span>
+                                            <span className="text-sm font-medium">{batch.cuttingTask.materialReceived} m</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Selesai</span>
+                                            <span className="text-sm font-medium text-green-600">{batch.cuttingTask.piecesCompleted} pcs</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Reject</span>
+                                            <span className="text-sm font-medium text-destructive">{batch.cuttingTask.rejectPieces} pcs</span>
+                                        </div>
+                                        {batch.cuttingTask.wasteQty && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-muted-foreground">Waste</span>
+                                                <span className="text-sm">{batch.cuttingTask.wasteQty} m</span>
+                                            </div>
+                                        )}
+                                        <Separator />
+                                        {batch.cuttingTask.startedAt && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-muted-foreground">Mulai</span>
+                                                <span className="text-xs">{formatDate(batch.cuttingTask.startedAt)}</span>
+                                            </div>
+                                        )}
+                                        {batch.cuttingTask.completedAt && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-muted-foreground">Selesai</span>
+                                                <span className="text-xs">{formatDate(batch.cuttingTask.completedAt)}</span>
+                                            </div>
+                                        )}
+                                        {batch.cuttingTask.notes && (
+                                            <div className="space-y-1 pt-2">
+                                                <span className="text-sm text-muted-foreground">Catatan</span>
+                                                <p className="text-sm p-2 bg-muted rounded">{batch.cuttingTask.notes}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                        <Scissors className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                        <p>Belum ada task pemotongan</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Cutting Progress */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Progress Pemotongan</CardTitle>
+                                <CardDescription>Kemajuan proses pemotongan</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Selesai</span>
+                                        <span className="font-medium">{cuttingOutput} / {totalTarget} pcs</span>
+                                    </div>
+                                    <Progress value={totalTarget > 0 ? (cuttingOutput / totalTarget) * 100 : 0} className="h-2" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Cutting Results */}
+                    {batch.cuttingResults && batch.cuttingResults.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Hasil Pemotongan</CardTitle>
+                                <CardDescription>Detail hasil pemotongan per ukuran dan warna</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="rounded-md border">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Ukuran</TableHead>
+                                                <TableHead>Warna</TableHead>
+                                                <TableHead className="text-right">Target</TableHead>
+                                                <TableHead className="text-right">Actual</TableHead>
+                                                <TableHead>Status</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {batch.cuttingResults.map((result) => {
+                                                const request = batch.sizeColorRequests?.find(
+                                                    r => r.productSize === result.productSize && r.color === result.color
+                                                );
+                                                return (
+                                                    <TableRow key={result.id}>
+                                                        <TableCell className="font-medium">{result.productSize}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">{result.color}</Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">{request?.requestedPieces || 0} pcs</TableCell>
+                                                        <TableCell className="text-right font-medium">{result.actualPieces} pcs</TableCell>
+                                                        <TableCell>
+                                                            {result.isConfirmed ? (
+                                                                <Badge className="bg-green-500">
+                                                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                                                    Dikonfirmasi
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge variant="secondary">Pending</Badge>
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                            <TableRow className="font-bold bg-muted/50">
+                                                <TableCell colSpan={2}>Total</TableCell>
+                                                <TableCell className="text-right">
+                                                    {batch.sizeColorRequests?.reduce((sum, r) => sum + r.requestedPieces, 0) || 0} pcs
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {cuttingOutput} pcs
+                                                </TableCell>
+                                                <TableCell></TableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </TabsContent>
+
+                {/* Sewing Tab */}
+                <TabsContent value="sewing" className="space-y-4">
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        {/* Sewing Task Info or Sub-Batches */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Task Penjahitan</CardTitle>
+                                <CardDescription>
+                                    {subBatches.length > 0
+                                        ? `${subBatches.length} sub-batch dengan total ${subBatches.reduce((sum, sb) => sum + sb.piecesAssigned, 0)} pcs`
+                                        : "Informasi tugas penjahitan"
+                                    }
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {subBatches.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {subBatches.map((sb) => (
+                                            <div key={sb.id} className="border rounded-lg p-3 space-y-2">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="font-mono text-sm font-medium">{sb.subBatchSku}</span>
+                                                    {getStatusBadge(sb.status)}
+                                                </div>
+                                                <Separator />
+                                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Penjahit</span>
+                                                        <span className="font-medium">{sb.assignedSewer?.name || "-"}</span>
                                                     </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="font-semibold text-green-600">
-                                                            {result.actualPieces}
-                                                        </span>
-                                                        <span className="text-muted-foreground text-xs">pcs</span>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Diterima</span>
+                                                        <span className="font-medium">{sb.piecesAssigned} pcs</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Selesai</span>
+                                                        <span className="font-medium text-green-600">{sb.sewingOutput} pcs</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Reject</span>
+                                                        <span className="font-medium text-destructive">{sb.sewingReject} pcs</span>
                                                     </div>
                                                 </div>
-                                            ))}
+                                                {sb.sewingStartedAt && (
+                                                    <div className="flex justify-between text-xs text-muted-foreground pt-1">
+                                                        <span>Mulai: {formatDate(sb.sewingStartedAt)}</span>
+                                                        {sb.sewingCompletedAt && <span>Selesai: {formatDate(sb.sewingCompletedAt)}</span>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : batch.sewingTask ? (
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Penjahit</span>
+                                            <span className="text-sm font-medium">{batch.sewingTask.assignedTo?.name || "-"}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Status</span>
+                                            {getStatusBadge(batch.sewingTask.status)}
+                                        </div>
+                                        <Separator />
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Diterima</span>
+                                            <span className="text-sm font-medium">{batch.sewingTask.piecesReceived} pcs</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Selesai</span>
+                                            <span className="text-sm font-medium text-green-600">{batch.sewingTask.piecesCompleted} pcs</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Reject</span>
+                                            <span className="text-sm font-medium text-destructive">{batch.sewingTask.rejectPieces} pcs</span>
+                                        </div>
+                                        <Separator />
+                                        {batch.sewingTask.startedAt && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-muted-foreground">Mulai</span>
+                                                <span className="text-xs">{formatDate(batch.sewingTask.startedAt)}</span>
+                                            </div>
+                                        )}
+                                        {batch.sewingTask.completedAt && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-muted-foreground">Selesai</span>
+                                                <span className="text-xs">{formatDate(batch.sewingTask.completedAt)}</span>
+                                            </div>
+                                        )}
+                                        {batch.sewingTask.notes && (
+                                            <div className="space-y-1 pt-2">
+                                                <span className="text-sm text-muted-foreground">Catatan</span>
+                                                <p className="text-sm p-2 bg-muted rounded">{batch.sewingTask.notes}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                        <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                        <p>Belum ada task penjahitan</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Sewing Progress */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Progress Penjahitan</CardTitle>
+                                <CardDescription>Kemajuan proses penjahitan</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Input dari Potong</span>
+                                        <span className="font-medium">{cuttingOutput} pcs</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Output Jahit</span>
+                                        <span className="font-medium text-green-600">{sewingOutput} pcs</span>
+                                    </div>
+                                    {sewingReject > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Reject</span>
+                                            <span className="font-medium text-destructive">{sewingReject} pcs</span>
+                                        </div>
+                                    )}
+                                    <Progress value={cuttingOutput > 0 ? (sewingOutput / cuttingOutput) * 100 : 0} className="h-2" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </TabsContent>
+
+                {/* Finishing Tab */}
+                <TabsContent value="finishing" className="space-y-4">
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        {/* Finishing Task Info or Sub-Batches */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Task Finishing</CardTitle>
+                                <CardDescription>
+                                    {subBatches.length > 0
+                                        ? `${subBatches.length} sub-batch dengan total ${sewingOutput} pcs dari jahit`
+                                        : "Informasi tugas finishing"
+                                    }
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {subBatches.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {subBatches.map((sb) => (
+                                            <div key={sb.id} className="border rounded-lg p-3 space-y-2">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="font-mono text-sm font-medium">{sb.subBatchSku}</span>
+                                                    {getStatusBadge(sb.status)}
+                                                </div>
+                                                <Separator />
+                                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Finisher</span>
+                                                        <span className="font-medium">{sb.assignedFinisher?.name || "-"}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Input</span>
+                                                        <span className="font-medium">{sb.sewingOutput} pcs</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Selesai</span>
+                                                        <span className="font-medium text-green-600">{sb.finishingOutput} pcs</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Reject</span>
+                                                        <span className="font-medium text-destructive">{sb.finishingReject} pcs</span>
+                                                    </div>
+                                                </div>
+                                                {sb.finishingStartedAt && (
+                                                    <div className="flex justify-between text-xs text-muted-foreground pt-1">
+                                                        <span>Mulai: {formatDate(sb.finishingStartedAt)}</span>
+                                                        {sb.finishingCompletedAt && <span>Selesai: {formatDate(sb.finishingCompletedAt)}</span>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : batch.finishingTask ? (
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Pekerja</span>
+                                            <span className="text-sm font-medium">{batch.finishingTask.assignedTo?.name || "-"}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Status</span>
+                                            {getStatusBadge(batch.finishingTask.status)}
+                                        </div>
+                                        <Separator />
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Diterima</span>
+                                            <span className="text-sm font-medium">{batch.finishingTask.piecesReceived} pcs</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Selesai</span>
+                                            <span className="text-sm font-medium text-green-600">{batch.finishingTask.piecesCompleted} pcs</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Reject</span>
+                                            <span className="text-sm font-medium text-destructive">{batch.finishingTask.rejectPieces} pcs</span>
+                                        </div>
+                                        <Separator />
+                                        {batch.finishingTask.startedAt && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-muted-foreground">Mulai</span>
+                                                <span className="text-xs">{formatDate(batch.finishingTask.startedAt)}</span>
+                                            </div>
+                                        )}
+                                        {batch.finishingTask.completedAt && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-muted-foreground">Selesai</span>
+                                                <span className="text-xs">{formatDate(batch.finishingTask.completedAt)}</span>
+                                            </div>
+                                        )}
+                                        {batch.finishingTask.notes && (
+                                            <div className="space-y-1 pt-2">
+                                                <span className="text-sm text-muted-foreground">Catatan</span>
+                                                <p className="text-sm p-2 bg-muted rounded">{batch.finishingTask.notes}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                        <Sparkles className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                        <p>Belum ada task finishing</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Finishing Progress */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Progress Finishing</CardTitle>
+                                <CardDescription>Kemajuan proses finishing</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Input dari Jahit</span>
+                                        <span className="font-medium">{sewingOutput} pcs</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Output Finishing</span>
+                                        <span className="font-medium text-green-600">{finishingOutput} pcs</span>
+                                    </div>
+                                    {finishingReject > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Reject</span>
+                                            <span className="font-medium text-destructive">{finishingReject} pcs</span>
+                                        </div>
+                                    )}
+                                    <Progress value={sewingOutput > 0 ? (finishingOutput / sewingOutput) * 100 : 0} className="h-2" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </TabsContent>
+
+                {/* Completed Tab */}
+                <TabsContent value="completed" className="space-y-4">
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        {/* Summary Card */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Ringkasan Produksi</CardTitle>
+                                <CardDescription>Hasil akhir produksi batch ini</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-muted-foreground">Target</span>
+                                        <span className="text-lg font-bold">{totalTarget} pcs</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-muted-foreground">Output Akhir</span>
+                                        <span className="text-lg font-bold text-green-600">{batch.actualQuantity} pcs</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-muted-foreground">Total Reject</span>
+                                        <span className="text-lg font-bold text-destructive">{batch.rejectQuantity} pcs</span>
+                                    </div>
+                                    <Separator />
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-muted-foreground">Efisiensi</span>
+                                        <span className="text-lg font-bold">
+                                            {totalTarget > 0 ? ((batch.actualQuantity / totalTarget) * 100).toFixed(1) : 0}%
+                                        </span>
+                                    </div>
+                                </div>
+                                {batch.completedDate && (
+                                    <div className="pt-2 border-t">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Tanggal Selesai</span>
+                                            <span className="text-sm">{formatDate(batch.completedDate)}</span>
                                         </div>
                                     </div>
-                                </>
-                            )}
+                                )}
+                            </CardContent>
+                        </Card>
 
-                            {batch.cuttingTask.notes && (
-                                <>
-                                    <Separator />
-                                    <div>
-                                        <p className="text-sm text-muted-foreground mb-1">Catatan</p>
-                                        <p className="text-sm bg-muted p-2 rounded">
-                                            {batch.cuttingTask.notes}
-                                        </p>
+                        {/* Timeline */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Timeline</CardTitle>
+                                <CardDescription>Riwayat aktivitas batch</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {loadingTimeline ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="h-6 w-6 animate-spin" />
                                     </div>
-                                </>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Sewing Task */}
-                {batch.sewingTask && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <span className="text-xl">🧵</span>
-                                Penjahitan
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div>
-                                <p className="text-sm text-muted-foreground">Penjahit</p>
-                                <p className="font-medium">{batch.sewingTask.assignedTo?.name || "-"}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Status</p>
-                                {getStatusBadge(batch.sewingTask.status)}
-                            </div>
-                            <Separator />
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div>
-                                    <p className="text-muted-foreground">Received</p>
-                                    <p className="font-medium">{batch.sewingTask.piecesReceived}</p>
-                                </div>
-                                <div>
-                                    <p className="text-muted-foreground">Completed</p>
-                                    <p className="font-medium text-green-600">
-                                        {batch.sewingTask.piecesCompleted}
-                                    </p>
-                                </div>
-                                <div>
-                                    <p className="text-muted-foreground">Reject</p>
-                                    <p className="font-medium text-red-600">
-                                        {batch.sewingTask.rejectPieces}
-                                    </p>
-                                </div>
-                            </div>
-                            {batch.sewingTask.notes && (
-                                <>
-                                    <Separator />
-                                    <div>
-                                        <p className="text-sm text-muted-foreground mb-1">Catatan</p>
-                                        <p className="text-sm bg-muted p-2 rounded">
-                                            {batch.sewingTask.notes}
-                                        </p>
+                                ) : timeline.length > 0 ? (
+                                    <div className="space-y-4 max-h-80 overflow-y-auto">
+                                        {timeline.map((event, index) => (
+                                            <div key={event.id} className="flex gap-3">
+                                                <div className="flex flex-col items-center">
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm">
+                                                        {getEventIcon(event.event)}
+                                                    </div>
+                                                    {index < timeline.length - 1 && (
+                                                        <div className="w-px h-full bg-border mt-1" />
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 pb-4">
+                                                    <p className="text-sm font-medium">{getEventLabel(event.event)}</p>
+                                                    {event.details && (
+                                                        <p className="text-xs text-muted-foreground mt-0.5">{event.details}</p>
+                                                    )}
+                                                    <p className="text-xs text-muted-foreground mt-1">{formatDate(event.createdAt)}</p>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                </>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Finishing Task */}
-                {batch.finishingTask && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <span className="text-xl">✨</span>
-                                Finishing
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div>
-                                <p className="text-sm text-muted-foreground">Finisher</p>
-                                <p className="font-medium">{batch.finishingTask.assignedTo?.name || "-"}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Status</p>
-                                {getStatusBadge(batch.finishingTask.status)}
-                            </div>
-                            <Separator />
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div>
-                                    <p className="text-muted-foreground">Received</p>
-                                    <p className="font-medium">{batch.finishingTask.piecesReceived}</p>
-                                </div>
-                                <div>
-                                    <p className="text-muted-foreground">Completed</p>
-                                    <p className="font-medium text-green-600">
-                                        {batch.finishingTask.piecesCompleted}
-                                    </p>
-                                </div>
-                                <div>
-                                    <p className="text-muted-foreground">Reject</p>
-                                    <p className="font-medium text-red-600">
-                                        {batch.finishingTask.rejectPieces}
-                                    </p>
-                                </div>
-                            </div>
-                            {batch.finishingTask.notes && (
-                                <>
-                                    <Separator />
-                                    <div>
-                                        <p className="text-sm text-muted-foreground mb-1">Catatan</p>
-                                        <p className="text-sm bg-muted p-2 rounded">
-                                            {batch.finishingTask.notes}
-                                        </p>
+                                ) : (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                        <Clock className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                        <p>Belum ada riwayat</p>
                                     </div>
-                                </>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
-
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                </TabsContent>
+            </Tabs>
 
             {/* Sub-Batches (shown when status is after CUTTING_VERIFIED) */}
             {["CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED", "SEWING_VERIFIED", "IN_FINISHING", "FINISHING_COMPLETED", "WAREHOUSE_VERIFIED", "COMPLETED"].includes(batch.status) && (
@@ -1239,56 +1779,6 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                     onRefresh={fetchBatchDetail}
                 />
             )}
-
-            {/* Timeline History */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Riwayat Kegiatan Produksi</CardTitle>
-                    <CardDescription>Timeline aktivitas batch dari awal hingga selesai</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {loadingTimeline ? (
-                        <div className="flex items-center justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin" />
-                        </div>
-                    ) : timeline.length > 0 ? (
-                        <div className="space-y-4">
-                            {timeline.map((event, index) => (
-                                <div key={event.id} className="flex gap-4">
-                                    <div className="flex flex-col items-center">
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-lg">
-                                            {getEventIcon(event.event)}
-                                        </div>
-                                        {index < timeline.length - 1 && (
-                                            <div className="w-px h-full bg-border mt-2" />
-                                        )}
-                                    </div>
-                                    <div className="flex-1 pb-6">
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                                <p className="font-medium">{getEventLabel(event.event)}</p>
-                                                {event.details && (
-                                                    <p className="text-sm text-muted-foreground mt-1">
-                                                        {event.details}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground mt-2">
-                                            {formatDate(event.createdAt)}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                            <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                            <p className="text-sm">Belum ada riwayat untuk batch ini</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
 
             <Button
                 variant="destructive"

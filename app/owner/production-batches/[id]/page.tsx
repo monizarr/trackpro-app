@@ -154,6 +154,23 @@ interface TimelineEvent {
     createdAt: string;
 }
 
+interface SubBatchSummary {
+    id: string;
+    subBatchSku: string;
+    status: string;
+    piecesAssigned: number;
+    sewingOutput: number;
+    sewingReject: number;
+    finishingOutput: number;
+    finishingReject: number;
+    assignedSewer?: { id: string; name: string } | null;
+    assignedFinisher?: { id: string; name: string } | null;
+    sewingStartedAt?: string | null;
+    sewingCompletedAt?: string | null;
+    finishingStartedAt?: string | null;
+    finishingCompletedAt?: string | null;
+}
+
 interface ProductionBatch {
     id: string;
     batchSku: string;
@@ -219,6 +236,7 @@ export default function ProductionBatchDetailPage() {
     const batchId = params.id as string;
 
     const [batch, setBatch] = useState<ProductionBatch | null>(null);
+    const [subBatches, setSubBatches] = useState<SubBatchSummary[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -269,6 +287,7 @@ export default function ProductionBatchDetailPage() {
     useEffect(() => {
         fetchBatch();
         fetchWorkers();
+        fetchSubBatches();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [batchId]);
 
@@ -308,6 +327,19 @@ export default function ProductionBatchDetailPage() {
             if (finishersData.success) setFinishers(finishersData.data);
         } catch (error) {
             console.error("Error fetching workers:", error);
+        }
+    };
+
+    const fetchSubBatches = async () => {
+        try {
+            const response = await fetch(`/api/production-batches/${batchId}/sub-batches`);
+            const result = await response.json();
+
+            if (result.success) {
+                setSubBatches(result.data || []);
+            }
+        } catch (error) {
+            console.error("Error fetching sub-batches:", error);
         }
     };
 
@@ -727,8 +759,17 @@ export default function ProductionBatchDetailPage() {
     // Calculate progress
     const totalTarget = batch.targetQuantity;
     const cuttingOutput = batch.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0) || 0;
-    const sewingOutput = batch.sewingTask?.piecesCompleted || 0;
-    const finishingOutput = batch.finishingTask?.piecesCompleted || 0;
+    
+    // Calculate sewing/finishing output from sub-batches (preferred) or batch tasks (fallback)
+    const sewingOutput = subBatches.length > 0 
+        ? subBatches.reduce((sum, sb) => sum + (sb.sewingOutput || 0), 0)
+        : (batch.sewingTask?.piecesCompleted || 0);
+    const sewingReject = subBatches.reduce((sum, sb) => sum + (sb.sewingReject || 0), 0);
+    
+    const finishingOutput = subBatches.length > 0
+        ? subBatches.reduce((sum, sb) => sum + (sb.finishingOutput || 0), 0)
+        : (batch.finishingTask?.piecesCompleted || 0);
+    const finishingReject = subBatches.reduce((sum, sb) => sum + (sb.finishingReject || 0), 0);
 
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -919,7 +960,7 @@ export default function ProductionBatchDetailPage() {
                                 <Separator />
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm text-muted-foreground">Tanggal Mulai</span>
-                                    <span className="text-sm">{formatDate(batch.startDate)}</span>
+                                    <span className="text-sm">{formatDateTime(batch.startDate)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm text-muted-foreground">Dibuat Oleh</span>
@@ -1228,14 +1269,55 @@ export default function ProductionBatchDetailPage() {
                 {/* Sewing Tab */}
                 <TabsContent value="sewing" className="space-y-4">
                     <div className="grid gap-4 lg:grid-cols-2">
-                        {/* Sewing Task Info */}
+                        {/* Sewing Task Info or Sub-Batches */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>Task Penjahitan</CardTitle>
-                                <CardDescription>Informasi tugas penjahitan</CardDescription>
+                                <CardDescription>
+                                    {subBatches.length > 0 
+                                        ? `${subBatches.length} sub-batch dengan total ${subBatches.reduce((sum, sb) => sum + sb.piecesAssigned, 0)} pcs`
+                                        : "Informasi tugas penjahitan"
+                                    }
+                                </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                {batch.sewingTask ? (
+                                {subBatches.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {subBatches.map((sb) => (
+                                            <div key={sb.id} className="border rounded-lg p-3 space-y-2">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="font-mono text-sm font-medium">{sb.subBatchSku}</span>
+                                                    {getStatusBadge(sb.status)}
+                                                </div>
+                                                <Separator />
+                                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Penjahit</span>
+                                                        <span className="font-medium">{sb.assignedSewer?.name || "-"}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Diterima</span>
+                                                        <span className="font-medium">{sb.piecesAssigned} pcs</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Selesai</span>
+                                                        <span className="font-medium text-green-600">{sb.sewingOutput} pcs</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Reject</span>
+                                                        <span className="font-medium text-destructive">{sb.sewingReject} pcs</span>
+                                                    </div>
+                                                </div>
+                                                {sb.sewingStartedAt && (
+                                                    <div className="flex justify-between text-xs text-muted-foreground pt-1">
+                                                        <span>Mulai: {formatDateTime(sb.sewingStartedAt)}</span>
+                                                        {sb.sewingCompletedAt && <span>Selesai: {formatDateTime(sb.sewingCompletedAt)}</span>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : batch.sewingTask ? (
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-muted-foreground">Penjahit</span>
@@ -1303,6 +1385,12 @@ export default function ProductionBatchDetailPage() {
                                         <span className="text-muted-foreground">Output Jahit</span>
                                         <span className="font-medium text-green-600">{sewingOutput} pcs</span>
                                     </div>
+                                    {sewingReject > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Reject</span>
+                                            <span className="font-medium text-destructive">{sewingReject} pcs</span>
+                                        </div>
+                                    )}
                                     <Progress value={cuttingOutput > 0 ? (sewingOutput / cuttingOutput) * 100 : 0} className="h-2" />
                                 </div>
                             </CardContent>
@@ -1313,14 +1401,55 @@ export default function ProductionBatchDetailPage() {
                 {/* Finishing Tab */}
                 <TabsContent value="finishing" className="space-y-4">
                     <div className="grid gap-4 lg:grid-cols-2">
-                        {/* Finishing Task Info */}
+                        {/* Finishing Task Info or Sub-Batches */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>Task Finishing</CardTitle>
-                                <CardDescription>Informasi tugas finishing</CardDescription>
+                                <CardDescription>
+                                    {subBatches.length > 0 
+                                        ? `${subBatches.length} sub-batch dengan total ${sewingOutput} pcs dari jahit`
+                                        : "Informasi tugas finishing"
+                                    }
+                                </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                {batch.finishingTask ? (
+                                {subBatches.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {subBatches.map((sb) => (
+                                            <div key={sb.id} className="border rounded-lg p-3 space-y-2">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="font-mono text-sm font-medium">{sb.subBatchSku}</span>
+                                                    {getStatusBadge(sb.status)}
+                                                </div>
+                                                <Separator />
+                                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Finisher</span>
+                                                        <span className="font-medium">{sb.assignedFinisher?.name || "-"}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Input</span>
+                                                        <span className="font-medium">{sb.sewingOutput} pcs</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Selesai</span>
+                                                        <span className="font-medium text-green-600">{sb.finishingOutput} pcs</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Reject</span>
+                                                        <span className="font-medium text-destructive">{sb.finishingReject} pcs</span>
+                                                    </div>
+                                                </div>
+                                                {sb.finishingStartedAt && (
+                                                    <div className="flex justify-between text-xs text-muted-foreground pt-1">
+                                                        <span>Mulai: {formatDateTime(sb.finishingStartedAt)}</span>
+                                                        {sb.finishingCompletedAt && <span>Selesai: {formatDateTime(sb.finishingCompletedAt)}</span>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : batch.finishingTask ? (
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-muted-foreground">Pekerja</span>
@@ -1388,6 +1517,12 @@ export default function ProductionBatchDetailPage() {
                                         <span className="text-muted-foreground">Output Finishing</span>
                                         <span className="font-medium text-green-600">{finishingOutput} pcs</span>
                                     </div>
+                                    {finishingReject > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Reject</span>
+                                            <span className="font-medium text-destructive">{finishingReject} pcs</span>
+                                        </div>
+                                    )}
                                     <Progress value={sewingOutput > 0 ? (finishingOutput / sewingOutput) * 100 : 0} className="h-2" />
                                 </div>
                             </CardContent>
@@ -1430,7 +1565,7 @@ export default function ProductionBatchDetailPage() {
                                     <div className="pt-2 border-t">
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-muted-foreground">Tanggal Selesai</span>
-                                            <span className="text-sm">{formatDate(batch.completedDate)}</span>
+                                            <span className="text-sm">{formatDateTime(batch.completedDate)}</span>
                                         </div>
                                     </div>
                                 )}
