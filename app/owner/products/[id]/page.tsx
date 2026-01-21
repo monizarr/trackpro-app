@@ -17,6 +17,7 @@ import {
     Target,
     TrendingUp,
     ExternalLink,
+    Boxes,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { CreateBatchDialog } from "@/components/create-batch-dialog";
@@ -138,6 +139,27 @@ interface Product {
     productionBatches: ProductionBatch[];
 }
 
+// Stock variant interface
+interface StockVariant {
+    color: string;
+    size: string;
+    quantity: number;
+    batches: string[];
+}
+
+interface StockSummary {
+    totalStock: number;
+    colorCount: number;
+    sizeCount: number;
+    colors: string[];
+    sizes: string[];
+}
+
+interface StockVariantsData {
+    stockVariants: StockVariant[];
+    summary: StockSummary;
+}
+
 export default function ProductDetailPage() {
     const params = useParams();
     const productId = params.id as string;
@@ -148,6 +170,10 @@ export default function ProductDetailPage() {
     const [sortField, setSortField] = useState<keyof ProductionBatch | null>(null);
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+    // Stock variants state
+    const [stockVariantsData, setStockVariantsData] = useState<StockVariantsData | null>(null);
+    const [isLoadingStock, setIsLoadingStock] = useState(false);
 
     // Delete batch states
     const [isDeleteBatchDialogOpen, setIsDeleteBatchDialogOpen] = useState(false);
@@ -171,6 +197,7 @@ export default function ProductDetailPage() {
 
     useEffect(() => {
         fetchProduct();
+        fetchStockVariants();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [productId]);
 
@@ -180,6 +207,22 @@ export default function ProductDetailPage() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isEditDialogOpen]);
+
+    const fetchStockVariants = async () => {
+        try {
+            setIsLoadingStock(true);
+            const response = await fetch(`/api/products/${productId}/stock-variants`);
+            const data = await response.json();
+
+            if (data.success) {
+                setStockVariantsData(data.data);
+            }
+        } catch (error) {
+            console.error("Error fetching stock variants:", error);
+        } finally {
+            setIsLoadingStock(false);
+        }
+    };
 
     const fetchProduct = async () => {
         try {
@@ -537,7 +580,22 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Overview Stats */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Stok Tersedia</CardTitle>
+                        <Boxes className="h-4 w-4 text-blue-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-blue-600">
+                            {isLoadingStock ? "..." : (stockVariantsData?.summary.totalStock || 0).toLocaleString("id-ID")}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            {stockVariantsData ? `${stockVariantsData.summary.colorCount} warna, ${stockVariantsData.summary.sizeCount} ukuran` : "pcs siap jual"}
+                        </p>
+                    </CardContent>
+                </Card>
+
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Batches</CardTitle>
@@ -588,6 +646,132 @@ export default function ProductDetailPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Stock Variants Section */}
+            <Card>
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle>Stok Produk per Varian</CardTitle>
+                            <CardDescription>
+                                Stok tersedia berdasarkan warna dan ukuran
+                            </CardDescription>
+                        </div>
+                        {stockVariantsData && (
+                            <div className="flex gap-2">
+                                <Badge variant="outline" className="text-sm">
+                                    {stockVariantsData.summary.colorCount} Warna
+                                </Badge>
+                                <Badge variant="outline" className="text-sm">
+                                    {stockVariantsData.summary.sizeCount} Ukuran
+                                </Badge>
+                                <Badge variant="default" className="text-sm">
+                                    Total: {stockVariantsData.summary.totalStock} pcs
+                                </Badge>
+                            </div>
+                        )}
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    {isLoadingStock ? (
+                        <div className="text-center py-8">
+                            <SpinnerCustom />
+                            <p className="mt-2 text-sm text-muted-foreground">Memuat stok varian...</p>
+                        </div>
+                    ) : !stockVariantsData || stockVariantsData.stockVariants.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                            <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                            <p>Belum ada stok tersedia</p>
+                            <p className="text-sm">Stok akan muncul setelah produksi selesai dan diverifikasi gudang</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Desktop Table */}
+                            <div className="hidden md:block rounded-md border overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Warna</TableHead>
+                                            <TableHead>Ukuran</TableHead>
+                                            <TableHead className="text-right">Stok (pcs)</TableHead>
+                                            <TableHead>Dari Batch</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {stockVariantsData.stockVariants.map((variant, index) => (
+                                            <TableRow key={`${variant.color}-${variant.size}-${index}`}>
+                                                <TableCell>
+                                                    <Badge variant="secondary">{variant.color}</Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline">{variant.size}</Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono font-semibold">
+                                                    {variant.quantity.toLocaleString("id-ID")}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {variant.batches.slice(0, 3).map((batch) => (
+                                                            <Badge key={batch} variant="outline" className="text-xs">
+                                                                {batch}
+                                                            </Badge>
+                                                        ))}
+                                                        {variant.batches.length > 3 && (
+                                                            <Badge variant="outline" className="text-xs">
+                                                                +{variant.batches.length - 3} lainnya
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            {/* Mobile Cards */}
+                            <div className="md:hidden space-y-3">
+                                {stockVariantsData.stockVariants.map((variant, index) => (
+                                    <div
+                                        key={`mobile-${variant.color}-${variant.size}-${index}`}
+                                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="secondary">{variant.color}</Badge>
+                                            <Badge variant="outline">{variant.size}</Badge>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-mono font-semibold text-lg">
+                                                {variant.quantity.toLocaleString("id-ID")}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">pcs</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Summary by Color */}
+                            {stockVariantsData.summary.colors.length > 1 && (
+                                <div className="mt-4 pt-4 border-t">
+                                    <p className="text-sm font-medium mb-2">Ringkasan per Warna:</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {stockVariantsData.summary.colors.map((color) => {
+                                            const colorTotal = stockVariantsData.stockVariants
+                                                .filter((v) => v.color === color)
+                                                .reduce((sum, v) => sum + v.quantity, 0);
+                                            return (
+                                                <Badge key={color} variant="secondary" className="px-3 py-1">
+                                                    {color}: {colorTotal.toLocaleString("id-ID")} pcs
+                                                </Badge>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </CardContent>
+            </Card>
 
             <div className="grid gap-4 grid-cols-1 lg:grid-cols-7">
                 {/* Production Section */}

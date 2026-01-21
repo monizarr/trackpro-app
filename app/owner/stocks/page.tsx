@@ -204,10 +204,10 @@ export default function StocksPage() {
                     0
                 )
                 const lowStock = data.data.filter(
-                    (v: MaterialColorVariant) => v.stock > 0 && v.stock <= v.minimumStock
+                    (v: MaterialColorVariant) => Number(v.stock) > 0 && Number(v.stock) <= Number(v.minimumStock)
                 ).length
                 const outOfStock = data.data.filter(
-                    (v: MaterialColorVariant) => v.stock === 0
+                    (v: MaterialColorVariant) => Number(v.stock) === 0
                 ).length
 
                 setStatistics({
@@ -603,9 +603,9 @@ export default function StocksPage() {
 
     const getMaterialStats = (material: Material) => {
         const variantCount = material.colorVariants?.length || 0
-        const totalStock = material.colorVariants?.reduce((sum, v) => sum + v.stock, 0) || 0
-        const lowStockCount = material.colorVariants?.filter(v => v.stock > 0 && v.stock <= v.minimumStock).length || 0
-        const outOfStockCount = material.colorVariants?.filter(v => v.stock === 0).length || 0
+        const totalStock = material.colorVariants?.reduce((sum, v) => sum + Number(v.stock), 0) || 0
+        const lowStockCount = material.colorVariants?.filter(v => Number(v.stock) > 0 && Number(v.stock) <= Number(v.minimumStock)).length || 0
+        const outOfStockCount = material.colorVariants?.filter(v => Number(v.stock) === 0).length || 0
         return { variantCount, totalStock, lowStockCount, outOfStockCount }
     }
 
@@ -1282,17 +1282,17 @@ export default function StocksPage() {
                                                         </TableCell>
                                                         <TableCell className="text-center">
                                                             <div className="flex items-center justify-center gap-1">
-                                                                {stats.outOfStockCount > 0 && (
+                                                                {Number(stats.outOfStockCount) > 0 && (
                                                                     <Badge variant="destructive" className="text-xs">
                                                                         {stats.outOfStockCount} habis
                                                                     </Badge>
                                                                 )}
-                                                                {stats.lowStockCount > 0 && (
+                                                                {Number(stats.lowStockCount) > 0 && (
                                                                     <Badge variant="warning" className="text-xs">
                                                                         {stats.lowStockCount} menipis
                                                                     </Badge>
                                                                 )}
-                                                                {stats.outOfStockCount === 0 && stats.lowStockCount === 0 && (
+                                                                {Number(stats.outOfStockCount) === 0 && Number(stats.lowStockCount) === 0 && (
                                                                     <Badge variant="default" className="text-xs">
                                                                         Aman
                                                                     </Badge>
@@ -1379,14 +1379,14 @@ export default function StocksPage() {
                                                 </div>
 
                                                 {/* Status badges */}
-                                                {(stats.outOfStockCount > 0 || stats.lowStockCount > 0) && (
+                                                {(Number(stats.outOfStockCount) > 0 || Number(stats.lowStockCount) > 0) && (
                                                     <div className="flex gap-2 pt-1">
-                                                        {stats.outOfStockCount > 0 && (
+                                                        {Number(stats.outOfStockCount) > 0 && (
                                                             <Badge variant="destructive" className="text-xs">
                                                                 {stats.outOfStockCount} habis
                                                             </Badge>
                                                         )}
-                                                        {stats.lowStockCount > 0 && (
+                                                        {Number(stats.lowStockCount) > 0 && (
                                                             <Badge variant="warning" className="text-xs">
                                                                 {stats.lowStockCount} menipis
                                                             </Badge>

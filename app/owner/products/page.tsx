@@ -318,7 +318,7 @@ export default function ProductsPage() {
                             Tambah Produk
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-full sm:max-w-2xl mx-4 max-h-[90vh] overflow-y-auto  p-4 sm:p-6 rounded-lg shadow-lg">
+                    <DialogContent className="max-w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-lg shadow-lg">
                         <DialogHeader>
                             <DialogTitle>{editingProduct ? 'Edit Produk' : 'Buat Produk Baru'}</DialogTitle>
                             <DialogDescription>
@@ -354,11 +354,11 @@ export default function ProductsPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="price">Harga</Label>
+                                    <Label htmlFor="price">Harga Produksi</Label>
                                     <Input
                                         id="price"
                                         type="number"
-                                        placeholder="Harga Produk"
+                                        placeholder="Harga Produksi"
                                         value={formData.price}
                                         onChange={(e) =>
                                             setFormData({
@@ -443,23 +443,6 @@ export default function ProductsPage() {
                                                             {material.code}
                                                         </p>
                                                     </div>
-                                                    <Input
-                                                        type="number"
-                                                        min="0.01"
-                                                        step="0.01"
-                                                        value={item.quantity}
-                                                        onChange={(e) =>
-                                                            updateMaterialQuantity(
-                                                                item.materialId,
-                                                                parseFloat(e.target.value) || 0
-                                                            )
-                                                        }
-                                                        className="w-24"
-                                                        placeholder="Qty"
-                                                    />
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {material.unit}
-                                                    </span>
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
