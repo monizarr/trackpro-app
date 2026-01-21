@@ -352,15 +352,17 @@ model BatchMaterialAllocation {
 
 // Allocation per Material Color Variant (Tracking varian warna untuk setiap batch)
 model BatchMaterialColorAllocation {
-  id                     String   @id @default(cuid())
-  batchId                String
-  materialColorVariantId String
-  rollQuantity           Int // Jumlah roll untuk warna ini
-  allocatedQty           Decimal  @db.Decimal(15, 3) // Total meter yang dialokasikan
-  meterPerRoll           Decimal  @default(95) @db.Decimal(15, 3) // Panjang per roll (default 95m)
-  notes                  String?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id                       String   @id @default(cuid())
+  batchId                  String
+  materialColorVariantId   String
+  rollQuantity             Int // Jumlah roll untuk warna ini
+  allocatedQty             Decimal  @db.Decimal(15, 3) // Total meter yang dialokasikan
+  meterPerRoll             Decimal  @default(95) @db.Decimal(15, 3) // Panjang per roll (default 95m)
+  stockAtAllocation        Decimal? @db.Decimal(15, 3) // Stok varian saat alokasi (untuk tracking penggunaan)
+  rollQuantityAtAllocation Decimal? @db.Decimal(15, 3) // Jumlah roll varian saat alokasi
+  notes                    String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
   batch                ProductionBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
   materialColorVariant MaterialColorVariant @relation(fields: [materialColorVariantId], references: [id])

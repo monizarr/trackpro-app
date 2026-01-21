@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -25,10 +25,10 @@ export async function POST(
       where: { email: session.user.email },
     });
 
-    if (!user || user.role !== "KEPALA_PRODUKSI") {
+    if (!user || !["OWNER", "KEPALA_PRODUKSI"].includes(user.role)) {
       return NextResponse.json(
-        { error: "Only KEPALA_PRODUKSI can assign to tailor" },
-        { status: 403 }
+        { error: "Only OWNER or KEPALA_PRODUKSI can assign to tailor" },
+        { status: 403 },
       );
     }
 
@@ -51,7 +51,7 @@ export async function POST(
     if (batch.status !== "CUTTING_VERIFIED") {
       return NextResponse.json(
         { error: `Batch must be CUTTING_VERIFIED (current: ${batch.status})` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -63,7 +63,7 @@ export async function POST(
     if (!tailor || tailor.role !== "PENJAHIT") {
       return NextResponse.json(
         { error: "Invalid tailor user" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -102,7 +102,7 @@ export async function POST(
     console.error("Error assigning to tailor:", error);
     return NextResponse.json(
       { error: "Failed to assign to tailor" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

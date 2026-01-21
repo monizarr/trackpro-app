@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
+import { VariantUnit } from "@prisma/client";
 
 // GET - Get single material color variant
 export async function GET(
@@ -21,6 +22,7 @@ export async function GET(
             name: true,
             code: true,
             unit: true,
+            rollQuantity: true,
           },
         },
       },
@@ -82,7 +84,18 @@ export async function PATCH(
     }
 
     // Fields yang bisa diupdate (tidak termasuk stock, materialId, colorName)
-    const updateData: any = {};
+    const updateData: Partial<{
+      colorCode: string | null;
+      minimumStock: number;
+      price: number;
+      rollQuantity: number | null;
+      meterPerRoll: number | null;
+      purchaseOrderNumber: string | null;
+      purchaseDate: Date | null;
+      purchaseNotes: string | null;
+      supplier: string | null;
+      unit: VariantUnit;
+    }> = {};
 
     if (body.colorCode !== undefined)
       updateData.colorCode = body.colorCode || null;

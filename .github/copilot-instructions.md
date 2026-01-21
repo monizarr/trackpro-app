@@ -35,13 +35,34 @@ export async function POST(request: Request) {
 Status progression is **strictly sequential** (enforced in `app/api/production-batches/[id]/route.ts`):
 
 ```
-PENDING → MATERIAL_REQUESTED → MATERIAL_ALLOCATED → ASSIGNED_TO_CUTTER →
-CUTTING_IN_PROGRESS → CUTTING_COMPLETED → ASSIGNED_TO_SEWER →
-SEWING_IN_PROGRESS → SEWING_COMPLETED → ASSIGNED_TO_FINISHING →
-FINISHING_IN_PROGRESS → FINISHING_COMPLETED → VERIFIED_READY → COMPLETED
+PENDING → MATERIAL_REQUESTED (optional) → MATERIAL_ALLOCATED → ASSIGNED_TO_CUTTER →
+CUTTING_COMPLETED → CUTTING_VERIFIED → [Sub-Batch Creation] →
+ASSIGNED_TO_SEWER → IN_SEWING → SEWING_COMPLETED → SEWING_VERIFIED →
+ASSIGNED_TO_FINISHING → IN_FINISHING → FINISHING_COMPLETED →
+WAREHOUSE_VERIFIED → COMPLETED
 ```
 
-**Never skip states**. Each transition updates `ProductionBatch.status` and creates audit logs.
+**Key State Transitions:**
+
+1. **PENDING/MATERIAL_REQUESTED** → **MATERIAL_ALLOCATED**: Confirm batch to allocate materials
+2. **MATERIAL_ALLOCATED** → **ASSIGNED_TO_CUTTER**: Assign to cutter (creates CuttingTask)
+3. **ASSIGNED_TO_CUTTER** → **CUTTING_COMPLETED**: Input cutting results (can be done by Kepala Produksi/Owner or Cutter)
+4. **CUTTING_COMPLETED** → **CUTTING_VERIFIED**: Verify cutting quality
+5. **CUTTING_VERIFIED** → **Sub-Batches**: Create sub-batches for parallel sewing (managed via SubBatch system)
+6. **Sub-Batch** → **ASSIGNED_TO_SEWER**: Each sub-batch assigned to different sewers
+7. **IN_SEWING** → **SEWING_COMPLETED**: Sewer completes work
+8. **SEWING_COMPLETED** → **SEWING_VERIFIED**: Verify sewing quality
+9. **SEWING_VERIFIED** → **ASSIGNED_TO_FINISHING**: Assign to finisher
+10. **IN_FINISHING** → **FINISHING_COMPLETED**: Finisher completes work
+11. **FINISHING_COMPLETED** → **WAREHOUSE_VERIFIED**: Warehouse verifies quantity/quality
+12. **WAREHOUSE_VERIFIED** → **COMPLETED**: Batch completed
+
+**Important Notes:**
+
+- **Never skip states**. Each transition updates `ProductionBatch.status` and creates audit logs.
+- After **CUTTING_VERIFIED**, the workflow uses **Sub-Batches** for parallel sewing by multiple sewers
+- Owner and Kepala Produksi can perform all production actions (assign, verify, input results)
+- Workers (Pemotong, Penjahit, Finishing) can only update their own task status
 
 ## Development Workflows
 
@@ -100,7 +121,7 @@ return NextResponse.json(
     success: false,
     error: "Error message",
   },
-  { status: 400 }
+  { status: 400 },
 );
 ```
 

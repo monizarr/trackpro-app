@@ -34,7 +34,9 @@ interface MaterialColorVariant {
     colorName: string
     colorCode?: string
     stock: number
+    rollQuantity?: number
     minimumStock: number
+    unit: string
     material: Material
 }
 
@@ -44,6 +46,8 @@ interface MaterialColorAllocation {
     rollQuantity: number
     allocatedQty: number
     meterPerRoll: number
+    stockAtAllocation: number | null
+    rollQuantityAtAllocation: number | null
     materialColorVariant: MaterialColorVariant
 }
 
@@ -1007,17 +1011,27 @@ export default function BatchManagementPage() {
                                                 <TableRow>
                                                     <TableHead>Material</TableHead>
                                                     <TableHead>Warna</TableHead>
-                                                    <TableHead className="text-right">Roll</TableHead>
-                                                    <TableHead className="text-right">Kebutuhan</TableHead>
-                                                    <TableHead className="text-right">Stok</TableHead>
+                                                    <TableHead className="text-right">Dialokasi</TableHead>
+                                                    <TableHead className="text-right">
+                                                        {selectedBatch.status === "PENDING" || selectedBatch.status === "MATERIAL_REQUESTED"
+                                                            ? "Stok"
+                                                            : "Stok Saat Alokasi"}
+                                                    </TableHead>
                                                     <TableHead className="text-center">Status</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {selectedBatch.materialColorAllocations.map((allocation, idx) => {
-                                                    const available = Number(allocation.materialColorVariant.stock)
+                                                    // Gunakan stockAtAllocation jika sudah dikonfirmasi, else gunakan stok saat ini
+                                                    const availableStock = allocation.stockAtAllocation !== null
+                                                        ? Number(allocation.stockAtAllocation)
+                                                        : Number(allocation.materialColorVariant.stock)
+                                                    const variantRoll = allocation.materialColorVariant.rollQuantity
+                                                    const availableRoll = allocation.rollQuantityAtAllocation !== null
+                                                        ? Number(allocation.rollQuantityAtAllocation)
+                                                        : (variantRoll !== undefined && variantRoll !== null ? Number(variantRoll) : null)
                                                     const needed = Number(allocation.allocatedQty)
-                                                    const sufficient = available >= needed
+                                                    const sufficient = availableStock >= needed
 
                                                     return (
                                                         <TableRow key={idx}>
@@ -1033,13 +1047,18 @@ export default function BatchManagementPage() {
                                                                 <Badge variant="outline">{allocation.materialColorVariant.colorName}</Badge>
                                                             </TableCell>
                                                             <TableCell className="text-right">
-                                                                {allocation.rollQuantity}
+                                                                <div className="space-y-1">
+                                                                    <div>{needed} {allocation.materialColorVariant.unit || allocation.materialColorVariant.material.unit}</div>
+                                                                    <div className="text-xs text-muted-foreground">{allocation.rollQuantity} roll</div>
+                                                                </div>
                                                             </TableCell>
                                                             <TableCell className="text-right">
-                                                                ~ {needed} m
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                {available} {allocation.materialColorVariant.material.unit}
+                                                                <div className="space-y-1">
+                                                                    <div>{availableStock} {allocation.materialColorVariant.unit || allocation.materialColorVariant.material.unit}</div>
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        {availableRoll !== null ? `${availableRoll} roll` : '-'}
+                                                                    </div>
+                                                                </div>
                                                             </TableCell>
                                                             <TableCell className="text-center">
                                                                 {sufficient ? (
@@ -1226,8 +1245,7 @@ export default function BatchManagementPage() {
                                                     <TableRow>
                                                         <TableHead>Material</TableHead>
                                                         <TableHead>Warna</TableHead>
-                                                        <TableHead className="text-right">Roll</TableHead>
-                                                        <TableHead className="text-right">Total</TableHead>
+                                                        <TableHead className="text-right">Total Dialokasi</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -1241,10 +1259,10 @@ export default function BatchManagementPage() {
                                                                     <Badge variant="outline">{allocation.materialColorVariant.colorName}</Badge>
                                                                 </TableCell>
                                                                 <TableCell className="text-right">
-                                                                    {allocation.rollQuantity}
-                                                                </TableCell>
-                                                                <TableCell className="text-right">
-                                                                    {Number(allocation.allocatedQty).toFixed(2)} m
+                                                                    <div className="space-y-1">
+                                                                        <div>{Number(allocation.allocatedQty).toFixed(2)} {allocation.materialColorVariant.unit || allocation.materialColorVariant.material.unit}</div>
+                                                                        <div className="text-xs text-muted-foreground">{allocation.rollQuantity} roll</div>
+                                                                    </div>
                                                                 </TableCell>
                                                             </TableRow>
                                                         ))
@@ -1258,10 +1276,10 @@ export default function BatchManagementPage() {
                                                                     <Badge variant="outline">{allocation.color}</Badge>
                                                                 </TableCell>
                                                                 <TableCell className="text-right">
-                                                                    {allocation.rollQuantity}
-                                                                </TableCell>
-                                                                <TableCell className="text-right">
-                                                                    {Number(allocation.requestedQty).toFixed(2)} {allocation.unit}
+                                                                    <div className="space-y-1">
+                                                                        <div>{Number(allocation.requestedQty).toFixed(2)} {allocation.unit}</div>
+                                                                        <div className="text-xs text-muted-foreground">{allocation.rollQuantity} roll</div>
+                                                                    </div>
                                                                 </TableCell>
                                                             </TableRow>
                                                         ))

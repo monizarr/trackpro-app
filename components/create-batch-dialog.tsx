@@ -24,6 +24,8 @@ interface MaterialColorVariant {
     colorName: string
     colorCode?: string
     stock: number
+    unit: string
+    rollQuantity?: number
 }
 
 interface Product {
@@ -48,7 +50,7 @@ interface MaterialAllocation {
     materialName: string
     color: string
     rollQuantity: number
-    requestedQty: number
+    allocatedQty: number // Jumlah dalam kg/yard sesuai unit varian
     unit: string
     availableStock: number
 }
@@ -98,7 +100,7 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [materialAllocations.map(a => a.materialId).join(',')])
-
+    console.log("materialColorVariants", materialColorVariants)
     // Sync size requests with material allocations colors
     useEffect(() => {
         const selectedColors = materialAllocations
@@ -137,8 +139,8 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
                 materialName: "",
                 color: "",
                 rollQuantity: 0,
-                requestedQty: 0,
-                unit: "METER",
+                allocatedQty: 0,
+                unit: "",
                 availableStock: 0,
             }
         ])
@@ -181,6 +183,7 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
                                 color: value as string,
                                 materialColorVariantId: variant.id,
                                 availableStock: Number(variant.stock),
+                                unit: variant.unit || alloc.unit, // Use variant unit if available
                             }
                         }
                     }
@@ -215,21 +218,19 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
         }
 
         const invalidMaterial = materialAllocations.find(
-            m => !m.materialId || !m.color || !m.materialColorVariantId || m.rollQuantity <= 0
+            m => !m.materialId || !m.color || !m.materialColorVariantId || m.rollQuantity <= 0 || m.allocatedQty <= 0
         )
         if (invalidMaterial) {
-            toast.error("Error", "Semua field bahan baku harus diisi dengan benar")
+            toast.error("Error", "Semua field bahan baku harus diisi dengan benar (termasuk jumlah roll dan kuantitas)")
             return
         }
 
-        // Validate stock availability (1 roll = 95 meters)
-        const METER_PER_ROLL = 95
+        // Validate stock availability based on allocatedQty
         for (const alloc of materialAllocations) {
-            const requiredMeters = alloc.rollQuantity * METER_PER_ROLL
-            if (requiredMeters > alloc.availableStock) {
+            if (alloc.allocatedQty > alloc.availableStock) {
                 toast.error(
                     "Stok Tidak Cukup",
-                    `${alloc.materialName} - ${alloc.color}: Butuh ${requiredMeters}m (${alloc.rollQuantity} roll), tersedia ${alloc.availableStock}m`
+                    `${alloc.materialName} - ${alloc.color}: Butuh ${alloc.allocatedQty} ${alloc.unit}, tersedia ${alloc.availableStock} ${alloc.unit}`
                 )
                 return
             }
@@ -248,14 +249,13 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
 
         setCreating(true)
         try {
-            const METER_PER_ROLL = 95
             const formattedMaterialAllocations = materialAllocations.map(alloc => ({
                 materialId: alloc.materialId,
                 materialColorVariantId: alloc.materialColorVariantId,
                 color: alloc.color,
                 rollQuantity: alloc.rollQuantity,
-                requestedQty: alloc.rollQuantity * METER_PER_ROLL,
-                meterPerRoll: METER_PER_ROLL,
+                allocatedQty: alloc.allocatedQty, // Jumlah aktual dalam kg/yard
+                meterPerRoll: alloc.rollQuantity > 0 ? alloc.allocatedQty / alloc.rollQuantity : 0, // Hitung rata-rata per roll
             }))
 
             const response = await fetch("/api/production-batches", {
@@ -396,7 +396,7 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
                                                 .filter(v => v.materialId === alloc.materialId)
                                                 .map((variant) => (
                                                     <option key={variant.id} value={variant.colorName}>
-                                                        {variant.colorName} (Stok: {variant.stock} {alloc.unit})
+                                                        {variant.colorName} (Stok: {variant.stock} {variant.unit || alloc.unit})
                                                     </option>
                                                 ))}
                                         </Select>
@@ -414,9 +414,42 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
                                     </div>
                                 </div>
 
-                                {alloc.materialId && (
-                                    <div className="text-sm text-muted-foreground">
-                                        Stok tersedia: {alloc.availableStock} {alloc.unit}
+                                {/* Input untuk kuantitas aktual (kg/yard) */}
+                                {alloc.materialId && alloc.color && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="space-y-2">
+                                            <Label>Jumlah Alokasi ({alloc.unit})</Label>
+                                            <Input
+                                                type="number"
+                                                min="0.01"
+                                                step="0.01"
+                                                placeholder={`Masukkan jumlah dalam ${alloc.unit}`}
+                                                value={alloc.allocatedQty || ""}
+                                                onChange={(e) => updateMaterialAllocation(index, "allocatedQty", parseFloat(e.target.value) || 0)}
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Jumlah bahan baku yang akan dialokasikan untuk batch ini
+                                            </p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Stok Tersedia</Label>
+                                            <div className="h-10 px-3 py-2 rounded-md border bg-muted/50 flex items-center">
+                                                {(() => {
+                                                    const variant = materialColorVariants.find(
+                                                        v => v.materialId === alloc.materialId && v.colorName === alloc.color
+                                                    )
+                                                    if (variant?.rollQuantity) {
+                                                        return `${variant.rollQuantity} roll (${alloc.availableStock} ${alloc.unit})`
+                                                    }
+                                                    return `${alloc.availableStock} ${alloc.unit}`
+                                                })()}
+                                            </div>
+                                            {alloc.allocatedQty > alloc.availableStock && (
+                                                <p className="text-xs text-destructive font-medium">
+                                                    ⚠️ Melebihi stok tersedia!
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </div>

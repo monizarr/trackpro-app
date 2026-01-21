@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -25,10 +25,10 @@ export async function POST(
       where: { email: session.user.email },
     });
 
-    if (!user || user.role !== "KEPALA_PRODUKSI") {
+    if (!user || !["OWNER", "KEPALA_PRODUKSI"].includes(user.role)) {
       return NextResponse.json(
-        { error: "Only KEPALA_PRODUKSI can assign to finishing" },
-        { status: 403 }
+        { error: "Only OWNER or KEPALA_PRODUKSI can assign to finishing" },
+        { status: 403 },
       );
     }
 
@@ -53,7 +53,7 @@ export async function POST(
         {
           error: `Batch status must be SEWING_VERIFIED, currently ${batch.status}`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -65,14 +65,14 @@ export async function POST(
     if (!finishingUser) {
       return NextResponse.json(
         { error: "Assigned user not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     if (finishingUser.role !== "FINISHING") {
       return NextResponse.json(
         { error: "Assigned user must have FINISHING role" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -113,7 +113,7 @@ export async function POST(
     console.error("Error assigning to finishing:", error);
     return NextResponse.json(
       { error: "Failed to assign to finishing" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

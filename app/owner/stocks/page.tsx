@@ -849,7 +849,7 @@ export default function StocksPage() {
                                             placeholder="Jml roll"
                                         />
                                     </div>
-                                    <div className="space-y-2">
+                                    {/* <div className="space-y-2">
                                         <Label htmlFor="meterPerRoll">{getUnitLabels(variantForm.unit).perRoll}</Label>
                                         <Input
                                             id="meterPerRoll"
@@ -861,7 +861,7 @@ export default function StocksPage() {
                                             }
                                             placeholder={getUnitLabels(variantForm.unit).perRoll}
                                         />
-                                    </div>
+                                    </div> */}
                                     <div className="space-y-2">
                                         <Label htmlFor="supplier">Supplier</Label>
                                         <Input
@@ -873,7 +873,7 @@ export default function StocksPage() {
                                             placeholder="Supplier"
                                         />
                                     </div>
-                                    <div className="space-y-2">
+                                    {/* <div className="space-y-2">
                                         <Label htmlFor="purchaseOrderNumber">No. PO</Label>
                                         <Input
                                             id="purchaseOrderNumber"
@@ -906,7 +906,7 @@ export default function StocksPage() {
                                             placeholder="Catatan..."
                                             rows={2}
                                         />
-                                    </div>
+                                    </div> */}
                                 </div>
                                 <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
                                     <Button
@@ -1542,7 +1542,7 @@ export default function StocksPage() {
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
+                                    {/* <div className="space-y-2">
                                         <Label htmlFor="edit-meterPerRoll">{editUnitLabels.perRoll}</Label>
                                         <Input
                                             id="edit-meterPerRoll"
@@ -1554,7 +1554,7 @@ export default function StocksPage() {
                                             }
                                             placeholder={editUnitLabels.perRoll}
                                         />
-                                    </div>
+                                    </div> */}
                                     <div className="space-y-2">
                                         <Label htmlFor="edit-purchaseOrderNumber">No. PO</Label>
                                         <Input
@@ -1687,7 +1687,7 @@ export default function StocksPage() {
                                                     placeholder="Jml roll"
                                                 />
                                             </div>
-                                            <div className="space-y-2">
+                                            {/* <div className="space-y-2">
                                                 <Label htmlFor="transaction-meterPerRoll">{txnUnitLabels.perRoll}</Label>
                                                 <Input
                                                     id="transaction-meterPerRoll"
@@ -1699,7 +1699,7 @@ export default function StocksPage() {
                                                     }
                                                     placeholder={txnUnitLabels.perRoll}
                                                 />
-                                            </div>
+                                            </div> */}
                                         </div>
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

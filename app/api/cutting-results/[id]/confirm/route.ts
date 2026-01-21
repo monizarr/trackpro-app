@@ -4,10 +4,10 @@ import { requireRole } from "@/lib/auth-helpers";
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await requireRole(["KEPALA_PRODUKSI"]);
+    const session = await requireRole(["OWNER", "KEPALA_PRODUKSI"]);
     const { id } = await params;
 
     // Get cutting result
@@ -21,7 +21,7 @@ export async function POST(
           success: false,
           error: "Cutting result not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -31,7 +31,7 @@ export async function POST(
           success: false,
           error: "Cutting result already confirmed",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -65,7 +65,7 @@ export async function POST(
         success: false,
         error: "Failed to confirm cutting result",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

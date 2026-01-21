@@ -110,7 +110,7 @@ export async function GET(request: Request) {
             stock: Number(allocation.materialColorVariant.stock),
             minimumStock: Number(allocation.materialColorVariant.minimumStock),
           },
-        })
+        }),
       ),
     }));
 
@@ -125,7 +125,7 @@ export async function GET(request: Request) {
         success: false,
         error: "Failed to fetch production batches",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -143,7 +143,7 @@ export async function POST(request: Request) {
           success: false,
           error: "Invalid session - user ID not found",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -156,7 +156,7 @@ export async function POST(request: Request) {
       console.error("User not found in database:", session.user.id);
       return NextResponse.json(
         { success: false, error: "User not found - please login again" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -171,7 +171,7 @@ export async function POST(request: Request) {
           success: false,
           error: "Product ID is required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -182,11 +182,11 @@ export async function POST(request: Request) {
           success: false,
           error: "Material color allocations are required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Validate stock availability (1 roll = 95 meters by default)
+    // Validate stock availability based on allocatedQty from frontend
     for (const alloc of materialColorAllocations) {
       const variant = await prisma.materialColorVariant.findUnique({
         where: { id: alloc.materialColorVariantId },
@@ -198,18 +198,18 @@ export async function POST(request: Request) {
             success: false,
             error: `Material color variant not found for allocation`,
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
-      const requiredQty = alloc.requestedQty;
+      const requiredQty = alloc.allocatedQty || alloc.requestedQty;
       if (Number(variant.stock) < requiredQty) {
         return NextResponse.json(
           {
             success: false,
-            error: `Insufficient stock for ${alloc.color}. Required: ${requiredQty}m, Available: ${variant.stock}m`,
+            error: `Insufficient stock for ${alloc.color}. Required: ${requiredQty} ${variant.unit}, Available: ${variant.stock} ${variant.unit}`,
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -218,9 +218,9 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: `Allocation will cause ${alloc.color} to fall below minimum stock (${variant.minimumStock}m)`,
+            error: `Allocation will cause ${alloc.color} to fall below minimum stock (${variant.minimumStock} ${variant.unit})`,
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -240,7 +240,7 @@ export async function POST(request: Request) {
     // Hitung total rolls dari material allocations
     const totalRolls = materialColorAllocations.reduce(
       (sum: number, allocation: any) => sum + (allocation.rollQuantity || 0),
-      0
+      0,
     );
 
     console.log("Creating batch with createdById:", session.user.id);
@@ -261,7 +261,9 @@ export async function POST(request: Request) {
             materialId: allocation.materialId,
             color: allocation.color,
             rollQuantity: parseInt(allocation.rollQuantity),
-            requestedQty: parseFloat(allocation.requestedQty),
+            requestedQty: parseFloat(
+              allocation.allocatedQty || allocation.requestedQty,
+            ),
             status: "REQUESTED",
           })),
         },
@@ -270,9 +272,11 @@ export async function POST(request: Request) {
           create: materialColorAllocations.map((allocation: any) => ({
             materialColorVariantId: allocation.materialColorVariantId,
             rollQuantity: parseInt(allocation.rollQuantity),
-            allocatedQty: parseFloat(allocation.requestedQty),
-            meterPerRoll: parseFloat(allocation.meterPerRoll || 95),
-            notes: `Allocated ${allocation.rollQuantity} rolls of ${allocation.color}`,
+            allocatedQty: parseFloat(
+              allocation.allocatedQty || allocation.requestedQty,
+            ),
+            meterPerRoll: parseFloat(allocation.meterPerRoll || 0),
+            notes: `Allocated ${allocation.rollQuantity} rolls (${allocation.allocatedQty || allocation.requestedQty} unit) of ${allocation.color}`,
           })),
         },
         sizeColorRequests: {
@@ -320,7 +324,7 @@ export async function POST(request: Request) {
         success: false,
         error: "Failed to create production batch",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

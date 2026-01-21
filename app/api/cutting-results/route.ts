@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth-helpers";
 // POST create or update cutting results
 export async function POST(request: Request) {
   try {
-    const session = await requireRole(["KEPALA_PRODUKSI", "PEMOTONG"]);
+    const session = await requireRole(["OWNER", "KEPALA_PRODUKSI", "PEMOTONG"]);
     const body = await request.json();
     const { batchId, results } = body;
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
           success: false,
           error: "Batch ID and results are required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
           success: false,
           error: "Batch not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -59,13 +59,13 @@ export async function POST(request: Request) {
             },
           },
         });
-      })
+      }),
     );
 
     // Calculate total actual pieces
     const totalActualPieces = results.reduce(
       (sum: number, r: any) => sum + parseInt(r.actualPieces),
-      0
+      0,
     );
 
     // Update batch actualQuantity
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
         success: false,
         error: "Failed to create cutting results",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -108,7 +108,7 @@ export async function GET(request: Request) {
           success: false,
           error: "Batch ID is required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -138,7 +138,7 @@ export async function GET(request: Request) {
         success: false,
         error: "Failed to fetch cutting results",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

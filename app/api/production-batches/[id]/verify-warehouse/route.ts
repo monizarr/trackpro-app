@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -25,10 +25,10 @@ export async function POST(
       where: { email: session.user.email },
     });
 
-    if (!user || user.role !== "KEPALA_GUDANG") {
+    if (!user || !["OWNER", "KEPALA_GUDANG"].includes(user.role)) {
       return NextResponse.json(
-        { error: "Only KEPALA_GUDANG can verify warehouse" },
-        { status: 403 }
+        { error: "Only OWNER or KEPALA_GUDANG can verify warehouse" },
+        { status: 403 },
       );
     }
 
@@ -52,14 +52,14 @@ export async function POST(
     if (batch.status !== "FINISHING_COMPLETED") {
       return NextResponse.json(
         { error: "Batch must be FINISHING_COMPLETED to verify warehouse" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!batch.finishingTask) {
       return NextResponse.json(
         { error: "Finishing task not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -152,7 +152,7 @@ export async function POST(
     console.error("Error verifying warehouse:", error);
     return NextResponse.json(
       { error: "Failed to verify warehouse" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

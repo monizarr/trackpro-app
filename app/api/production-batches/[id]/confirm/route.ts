@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth-helpers";
 // POST confirm production batch
 export async function POST(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await requireRole(["OWNER", "KEPALA_PRODUKSI"]);
@@ -52,7 +52,7 @@ export async function POST(
           success: false,
           error: "Production batch not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -63,7 +63,7 @@ export async function POST(
           success: false,
           error: "Batch cannot be confirmed in current status",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -75,7 +75,7 @@ export async function POST(
       const insufficientColorVariants = batch.materialColorAllocations.filter(
         (allocation) =>
           Number(allocation.materialColorVariant.stock) <
-          Number(allocation.allocatedQty)
+          Number(allocation.allocatedQty),
       );
 
       if (insufficientColorVariants.length > 0) {
@@ -89,7 +89,7 @@ export async function POST(
               available: Number(m.materialColorVariant.stock),
             })),
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -145,18 +145,36 @@ export async function POST(
               status: "ALLOCATED",
               allocatedQty: allocation.requestedQty,
             },
-          })
-        )
+          }),
+        ),
       );
 
       // Deduct stock for material color allocations
       for (const allocation of batch.materialColorAllocations) {
-        // Deduct stock from material color variant
+        // Store current stock and roll quantity before deduction for tracking
+        const currentStock = Number(allocation.materialColorVariant.stock);
+        const currentRollQuantity = Number(
+          allocation.materialColorVariant.rollQuantity || 0,
+        );
+
+        // Update allocation with stockAtAllocation and rollQuantityAtAllocation
+        await tx.batchMaterialColorAllocation.update({
+          where: { id: allocation.id },
+          data: {
+            stockAtAllocation: currentStock,
+            rollQuantityAtAllocation: currentRollQuantity,
+          },
+        });
+
+        // Deduct stock AND rollQuantity from material color variant
         await tx.materialColorVariant.update({
           where: { id: allocation.materialColorVariantId },
           data: {
             stock: {
               decrement: Number(allocation.allocatedQty),
+            },
+            rollQuantity: {
+              decrement: allocation.rollQuantity,
             },
           },
         });
@@ -199,7 +217,7 @@ export async function POST(
         success: false,
         error: "Failed to confirm production batch",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
