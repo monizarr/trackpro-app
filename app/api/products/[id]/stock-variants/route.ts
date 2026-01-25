@@ -33,9 +33,7 @@ export async function GET(
     // Include subBatch with items for color and size information
     const finishedGoods = await prisma.finishedGood.findMany({
       where: {
-        batch: {
-          productId: productId,
-        },
+        productId: productId,
         type: GoodType.FINISHED,
       },
       include: {
@@ -45,6 +43,7 @@ export async function GET(
               select: {
                 productSize: true,
                 color: true,
+                piecesAssigned: true,
                 finishingOutput: true,
               },
             },
@@ -54,6 +53,13 @@ export async function GET(
           select: {
             id: true,
             batchSku: true,
+            sizeColorRequests: {
+              select: {
+                productSize: true,
+                color: true,
+                requestedPieces: true,
+              },
+            },
           },
         },
       },
@@ -71,9 +77,29 @@ export async function GET(
     > = {};
 
     for (const fg of finishedGoods) {
-      if (fg.subBatch && fg.subBatch.items) {
-        // For sub-batch based finished goods, use items detail
-        for (const item of fg.subBatch.items) {
+      // Get effective quantity
+      const fgQuantity = fg.quantity ?? 0;
+      if (fgQuantity <= 0) continue;
+
+      let processed = false;
+
+      // Priority 1: Use subBatch items if available
+      if (fg.subBatch && fg.subBatch.items && fg.subBatch.items.length > 0) {
+        const items = fg.subBatch.items;
+
+        // Calculate totals for distribution
+        const totalItemsOutput = items.reduce(
+          (sum, i) => sum + (i.finishingOutput ?? 0),
+          0,
+        );
+        const totalAssigned = items.reduce(
+          (sum, i) => sum + (i.piecesAssigned ?? 0),
+          0,
+        );
+
+        const useItemsOutput = totalItemsOutput > 0;
+
+        for (const item of items) {
           const key = `${item.color}-${item.productSize}`;
           if (!stockMap[key]) {
             stockMap[key] = {
@@ -83,14 +109,93 @@ export async function GET(
               batches: [],
             };
           }
-          stockMap[key].quantity += item.finishingOutput;
+
+          let itemQuantity = 0;
+          if (useItemsOutput) {
+            itemQuantity = item.finishingOutput ?? 0;
+          } else if (totalAssigned > 0) {
+            const proportion = (item.piecesAssigned ?? 0) / totalAssigned;
+            itemQuantity = Math.round(fgQuantity * proportion);
+          } else if (items.length === 1) {
+            itemQuantity = fgQuantity;
+          }
+
+          stockMap[key].quantity += itemQuantity;
           if (!stockMap[key].batches.includes(fg.batch.batchSku)) {
             stockMap[key].batches.push(fg.batch.batchSku);
           }
         }
-      } else {
-        // For direct batch finished goods without sub-batch, use quantity directly
-        // These don't have color/size info, so we mark as "Default"
+        processed = true;
+      }
+
+      // Priority 2: Parse color and size from notes field
+      // Format: "Sub-batch PROD-XXXXXXXX-XXX-SUB-XXX - {SIZE} {COLOR}"
+      if (!processed && fg.notes) {
+        const notesMatch = fg.notes.match(/- ([A-Z]+) (.+)$/i);
+        if (notesMatch) {
+          const size = notesMatch[1]; // e.g., "M", "S", "L"
+          const color = notesMatch[2]; // e.g., "Putih", "Hitam"
+
+          const key = `${color}-${size}`;
+          if (!stockMap[key]) {
+            stockMap[key] = {
+              color: color,
+              size: size,
+              quantity: 0,
+              batches: [],
+            };
+          }
+          stockMap[key].quantity += fgQuantity;
+          if (!stockMap[key].batches.includes(fg.batch.batchSku)) {
+            stockMap[key].batches.push(fg.batch.batchSku);
+          }
+          processed = true;
+        }
+      }
+
+      // Priority 3: Use sizeColorRequests from batch
+      if (
+        !processed &&
+        fg.batch.sizeColorRequests &&
+        fg.batch.sizeColorRequests.length > 0
+      ) {
+        const totalRequested = fg.batch.sizeColorRequests.reduce(
+          (sum, r) => sum + (r.requestedPieces ?? 0),
+          0,
+        );
+
+        const requestCount = fg.batch.sizeColorRequests.length;
+
+        for (const request of fg.batch.sizeColorRequests) {
+          const key = `${request.color}-${request.productSize}`;
+          if (!stockMap[key]) {
+            stockMap[key] = {
+              color: request.color,
+              size: request.productSize,
+              quantity: 0,
+              batches: [],
+            };
+          }
+
+          let quantityToAdd = 0;
+          if (totalRequested > 0) {
+            const proportion = (request.requestedPieces ?? 0) / totalRequested;
+            quantityToAdd = Math.round(fgQuantity * proportion);
+          } else {
+            // If no requestedPieces defined, distribute evenly
+            quantityToAdd = Math.round(fgQuantity / requestCount);
+          }
+
+          stockMap[key].quantity += quantityToAdd;
+          if (!stockMap[key].batches.includes(fg.batch.batchSku)) {
+            stockMap[key].batches.push(fg.batch.batchSku);
+          }
+        }
+        processed = true;
+      }
+
+      // Priority 4: Fallback to Default
+      if (!processed) {
         const key = "Default-Default";
         if (!stockMap[key]) {
           stockMap[key] = {
@@ -100,7 +205,7 @@ export async function GET(
             batches: [],
           };
         }
-        stockMap[key].quantity += fg.quantity;
+        stockMap[key].quantity += fgQuantity;
         if (!stockMap[key].batches.includes(fg.batch.batchSku)) {
           stockMap[key].batches.push(fg.batch.batchSku);
         }
@@ -123,8 +228,11 @@ export async function GET(
       return a.size.localeCompare(b.size);
     });
 
-    // Calculate totals
-    const totalStock = stockVariants.reduce((sum, v) => sum + v.quantity, 0);
+    // Calculate totals - ensure no null/NaN values
+    const totalStock = stockVariants.reduce(
+      (sum, v) => sum + (v.quantity ?? 0),
+      0,
+    );
     const uniqueColors = [...new Set(stockVariants.map((v) => v.color))];
     const uniqueSizes = [...new Set(stockVariants.map((v) => v.size))];
 

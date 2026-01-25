@@ -62,6 +62,16 @@ interface Product {
     sku: string
     name: string
     materials: ProductMaterial[]
+    colorVariants?: Array<{
+        id: string
+        colorName: string
+        colorCode?: string
+    }>
+    sizeVariants?: Array<{
+        id: string
+        sizeName: string
+        sizeOrder: number
+    }>
 }
 
 interface Batch {
@@ -157,14 +167,7 @@ interface SewingTask {
     }
 }
 
-interface Finisher {
-    id: string
-    name: string
-    email: string
-    _count: {
-        finishingTasks: number
-    }
-}
+// Note: Finisher interface removed - assign finisher via sub-batch now
 
 interface SubBatchItem {
     id: string
@@ -233,15 +236,9 @@ export default function BatchManagementPage() {
     const [verifySewingAction, setVerifySewingAction] = useState<"approve" | "reject">("approve")
     const [verifySewingNotes, setVerifySewingNotes] = useState("")
     const [verifyingSewing, setVerifyingSewing] = useState(false)
-    const [showAssignFinisherDialog, setShowAssignFinisherDialog] = useState(false)
-    const [assignFinisherBatch, setAssignFinisherBatch] = useState<Batch | null>(null)
-    const [finishers, setFinishers] = useState<Finisher[]>([])
-    const [selectedFinisherId, setSelectedFinisherId] = useState("")
     // Sub-batch state
     const [showSubBatchDialog, setShowSubBatchDialog] = useState(false)
     const [subBatchBatch, setSubBatchBatch] = useState<Batch | null>(null)
-    const [assignFinisherNotes, setAssignFinisherNotes] = useState("")
-    const [assigningFinisher, setAssigningFinisher] = useState(false)
     const [showInputCuttingDialog, setShowInputCuttingDialog] = useState(false)
     const [inputCuttingBatch, setInputCuttingBatch] = useState<Batch | null>(null)
     const [cuttingResults, setCuttingResults] = useState<Array<{
@@ -711,25 +708,8 @@ export default function BatchManagementPage() {
         }
     }
 
-    const openAssignFinisherDialog = async (batch: Batch) => {
-        setAssignFinisherBatch(batch)
-        setSelectedFinisherId("")
-        setAssignFinisherNotes("")
-
-        // Fetch finishers
-        try {
-            const response = await fetch("/api/users/finishers")
-            const result = await response.json()
-
-            if (result.success) {
-                setFinishers(result.data)
-                setShowAssignFinisherDialog(true)
-            }
-        } catch (error) {
-            console.error("Error fetching finishers:", error)
-            toast.error("Error", "Gagal memuat daftar finisher")
-        }
-    }
+    // Note: Direct assign finisher is deprecated - use sub-batch flow instead
+    // Finishers are now assigned per sub-batch, not per batch
 
     const openInputCuttingDialog = async (batch: Batch) => {
         // Fetch full batch details
@@ -801,44 +781,7 @@ export default function BatchManagementPage() {
         }
     }
 
-    const handleAssignToFinisher = async () => {
-        if (!assignFinisherBatch || !selectedFinisherId) {
-            toast.error("Error", "Pilih finisher terlebih dahulu")
-            return
-        }
-
-        setAssigningFinisher(true)
-        try {
-            const response = await fetch(`/api/production-batches/${assignFinisherBatch.id}/assign-finisher`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    assignedToId: selectedFinisherId,
-                    notes: assignFinisherNotes,
-                }),
-            })
-
-            const result = await response.json()
-
-            if (result.success) {
-                toast.success("Berhasil", result.message || "Batch berhasil di-assign ke finisher")
-                setShowAssignFinisherDialog(false)
-                setAssignFinisherBatch(null)
-                setSelectedFinisherId("")
-                setAssignFinisherNotes("")
-                fetchBatches()
-            } else {
-                toast.error("Error", result.error || "Gagal assign batch")
-            }
-        } catch (error) {
-            console.error("Error assigning batch to finisher:", error)
-            toast.error("Error", "Terjadi kesalahan saat assign batch")
-        } finally {
-            setAssigningFinisher(false)
-        }
-    }
+    // Note: handleAssignToFinisher removed - use sub-batch flow instead
 
     const getStatusLabel = (status: string) => {
         const statusMap: Record<string, string> = {
@@ -1964,98 +1907,8 @@ export default function BatchManagementPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Assign to Finisher Dialog */}
-            <Dialog open={showAssignFinisherDialog} onOpenChange={setShowAssignFinisherDialog}>
-                <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>Assign ke Finisher</DialogTitle>
-                        <DialogDescription>
-                            Pilih finisher untuk mengerjakan batch ini
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    {assignFinisherBatch && (
-                        <div className="space-y-4 py-4">
-                            {/* Batch Info */}
-                            <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/50">
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Batch SKU</p>
-                                    <p className="font-medium font-mono">{assignFinisherBatch.batchSku}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Produk</p>
-                                    <p className="font-medium">{assignFinisherBatch.product.name}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Total Roll Bahan</p>
-                                    <p className="font-medium">{assignFinisherBatch.totalRolls} roll</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Status</p>
-                                    <p className="font-medium">{getStatusLabel(assignFinisherBatch.status)}</p>
-                                </div>
-                            </div>
-
-                            {/* Finisher Selection */}
-                            <div className="space-y-2">
-                                <Label htmlFor="finisher">Pilih Finisher *</Label>
-                                <Select
-                                    id="finisher"
-                                    value={selectedFinisherId}
-                                    onChange={(e) => setSelectedFinisherId(e.target.value)}
-                                >
-                                    <option value="">Pilih finisher</option>
-                                    {finishers.map((finisher) => (
-                                        <option key={finisher.id} value={finisher.id}>
-                                            {finisher.name} ({finisher._count.finishingTasks} active tasks)
-                                        </option>
-                                    ))}
-                                </Select>
-                            </div>
-
-                            {/* Notes */}
-                            <div className="space-y-2">
-                                <Label htmlFor="assignFinisherNotes">Catatan (Opsional)</Label>
-                                <Textarea
-                                    id="assignFinisherNotes"
-                                    placeholder="Tambahkan catatan untuk finisher..."
-                                    value={assignFinisherNotes}
-                                    onChange={(e) => setAssignFinisherNotes(e.target.value)}
-                                    rows={3}
-                                />
-                            </div>
-
-                            <Alert>
-                                <UserPlus className="h-4 w-4" />
-                                <AlertDescription>
-                                    Setelah di-assign, finisher akan menerima notifikasi dan dapat mulai mengerjakan batch ini.
-                                </AlertDescription>
-                            </Alert>
-                        </div>
-                    )}
-
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                setShowAssignFinisherDialog(false)
-                                setAssignFinisherBatch(null)
-                                setSelectedFinisherId("")
-                                setAssignFinisherNotes("")
-                            }}
-                            disabled={assigningFinisher}
-                        >
-                            Batal
-                        </Button>
-                        <Button
-                            onClick={handleAssignToFinisher}
-                            disabled={assigningFinisher || !selectedFinisherId}
-                        >
-                            {assigningFinisher ? "Mengassign..." : "Assign ke Finisher"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            {/* Assign to Finisher Dialog - DEPRECATED: Use sub-batch flow */}
+            {/* Dialog ini sudah tidak digunakan. Assign finisher dilakukan melalui sub-batch */}
 
             {/* Search */}
             <div className="relative max-w-md">
@@ -2275,14 +2128,9 @@ export default function BatchManagementPage() {
                                                                                 </Button>
                                                                             )}
                                                                             {batch.status === "SEWING_VERIFIED" && (
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    variant="default"
-                                                                                    onClick={() => openAssignFinisherDialog(batch)}
-                                                                                >
-                                                                                    <UserPlus className="h-4 w-4 mr-1" />
-                                                                                    Assign Finisher
-                                                                                </Button>
+                                                                                <span className="text-xs text-muted-foreground italic">
+                                                                                    Assign finisher via sub-batch
+                                                                                </span>
                                                                             )}
                                                                             <Button
                                                                                 variant="ghost"
@@ -2520,14 +2368,9 @@ export default function BatchManagementPage() {
                                                                     </Button>
                                                                 )}
                                                                 {batch.status === "SEWING_VERIFIED" && (
-                                                                    <Button
-                                                                        size="sm"
-                                                                        className="w-full"
-                                                                        onClick={() => openAssignFinisherDialog(batch)}
-                                                                    >
-                                                                        <UserPlus className="h-4 w-4 mr-2" />
-                                                                        Assign Finisher
-                                                                    </Button>
+                                                                    <div className="text-xs text-muted-foreground italic text-center py-2">
+                                                                        Assign finisher melalui sub-batch di bawah
+                                                                    </div>
                                                                 )}
                                                             </div>
 

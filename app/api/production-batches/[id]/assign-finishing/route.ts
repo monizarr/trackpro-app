@@ -1,103 +1,33 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
+import { requireRole } from "@/lib/auth-helpers";
 
-const connectionString = process.env.DATABASE_URL!;
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
-
+// POST - Assign finishing untuk batch (DEPRECATED - use sub-batch flow)
+// Proses finishing wajib melalui sub-batch
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    await requireRole(["OWNER", "KEPALA_PRODUKSI"]);
 
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user || !["OWNER", "KEPALA_PRODUKSI"].includes(user.role)) {
-      return NextResponse.json(
-        { error: "Only OWNER or KEPALA_PRODUKSI can assign to finishing" },
-        { status: 403 },
-      );
-    }
-
-    const { id: batchId } = await params;
-    const body = await request.json();
-    const { assignedToId, piecesReceived, notes } = body;
-
-    // Check if batch exists and is SEWING_VERIFIED
-    const batch = await prisma.productionBatch.findUnique({
-      where: { id: batchId },
-      include: {
-        product: true,
+    // Endpoint ini deprecated - proses wajib melalui sub-batch
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Proses finishing wajib melalui sub-batch. Silakan assign finisher melalui sub-batch setelah penjahitan selesai.",
+        hint: "Gunakan endpoint PATCH /api/production-batches/[batchId]/sub-batches/[subBatchId] dengan action 'assign-finisher'",
       },
-    });
-
-    if (!batch) {
-      return NextResponse.json({ error: "Batch not found" }, { status: 404 });
-    }
-
-    if (batch.status !== "SEWING_VERIFIED") {
-      return NextResponse.json(
-        {
-          error: `Batch status must be SEWING_VERIFIED, currently ${batch.status}`,
-        },
-        { status: 400 },
-      );
-    }
-
-    // Verify assignedTo user exists and has FINISHING role
-    const finishingUser = await prisma.user.findUnique({
-      where: { id: assignedToId },
-    });
-
-    if (!finishingUser) {
-      return NextResponse.json(
-        { error: "Assigned user not found" },
-        { status: 404 },
-      );
-    }
-
-    if (finishingUser.role !== "FINISHING") {
-      return NextResponse.json(
-        { error: "Assigned user must have FINISHING role" },
-        { status: 400 },
-      );
-    }
-
-    // Create finishing task
-    const finishingTask = await prisma.finishingTask.create({
-      data: {
-        batchId,
-        assignedToId,
-        piecesReceived,
-        piecesCompleted: 0,
-        rejectPieces: 0,
-        status: "PENDING",
-        notes,
-      },
-    });
-
-    // Update batch status to IN_FINISHING
-    await prisma.productionBatch.update({
-      where: { id: batchId },
-      data: {
-        status: "IN_FINISHING",
-      },
-    });
-
-    // Create notification for finishing staff
+      { status: 400 }
+    );
+  } catch (error) {
+    console.error("Error:", error);
+    return NextResponse.json(
+      { success: false, error: "Endpoint deprecated" },
+      { status: 500 }
+    );
+  }
+}
     await prisma.notification.create({
       data: {
         userId: assignedToId,

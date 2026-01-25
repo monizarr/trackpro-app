@@ -16,7 +16,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select } from "@/components/ui/select"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { toast } from "@/lib/toast"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2, AlertTriangle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface MaterialColorVariant {
     id: string
@@ -41,6 +42,16 @@ interface Product {
             unit: string
             color?: string
         }
+    }>
+    colorVariants?: Array<{
+        id: string
+        colorName: string
+        colorCode?: string
+    }>
+    sizeVariants?: Array<{
+        id: string
+        sizeName: string
+        sizeOrder: number
     }>
 }
 
@@ -70,12 +81,15 @@ interface CreateBatchDialogProps {
 export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: CreateBatchDialogProps) {
     const [creating, setCreating] = useState(false)
     const [selectedProductId, setSelectedProductId] = useState("")
+    const [selectedProductColorId, setSelectedProductColorId] = useState("")
     const [notes, setNotes] = useState("")
     const [materialAllocations, setMaterialAllocations] = useState<MaterialAllocation[]>([])
     const [sizeRequests, setSizeRequests] = useState<SizeRequest[]>([])
     const [materialColorVariants, setMaterialColorVariants] = useState<MaterialColorVariant[]>([])
 
     const selectedProduct = products.find(p => p.id === selectedProductId)
+    const selectedProductColor = selectedProduct?.colorVariants?.find(c => c.id === selectedProductColorId)
+    const productSizeOptions = selectedProduct?.sizeVariants?.map(s => s.sizeName) || []
 
     // Fetch material color variants when material is selected in allocations
     useEffect(() => {
@@ -127,7 +141,24 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
 
     const handleProductChange = (productId: string) => {
         setSelectedProductId(productId)
+        setSelectedProductColorId("")
         setMaterialAllocations([])
+        setSizeRequests([])
+    }
+
+    const handleProductColorChange = (colorId: string) => {
+        setSelectedProductColorId(colorId)
+        // Reset size requests when product color changes
+        const product = products.find(p => p.id === selectedProductId)
+        const color = product?.colorVariants?.find(c => c.id === colorId)
+        if (color) {
+            setSizeRequests([{
+                color: color.colorName,
+                sizes: []
+            }])
+        } else {
+            setSizeRequests([])
+        }
     }
 
     const addMaterialAllocation = () => {
@@ -209,6 +240,11 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
         // Validation
         if (!selectedProductId) {
             toast.error("Error", "Produk harus dipilih")
+            return
+        }
+
+        if (!selectedProductColorId) {
+            toast.error("Error", "Warna produk harus dipilih")
             return
         }
 
@@ -297,6 +333,7 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
 
     const resetForm = () => {
         setSelectedProductId("")
+        setSelectedProductColorId("")
         setNotes("")
         setMaterialAllocations([])
         setSizeRequests([])
@@ -304,6 +341,28 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
 
     const totalRolls = materialAllocations.reduce((sum, alloc) => sum + (alloc.rollQuantity || 0), 0)
     const totalSizeVariants = sizeRequests.reduce((sum, req) => sum + req.sizes.length, 0)
+
+    // Check if material has matching color variant for selected product color
+    const hasMatchingMaterialColor = (materialId: string) => {
+        if (!selectedProductColor) return true
+        const variants = materialColorVariants.filter(v => v.materialId === materialId)
+        return variants.some(v => v.colorName.toLowerCase() === selectedProductColor.colorName.toLowerCase())
+    }
+
+    // Get warning message for missing material color
+    const getMaterialColorWarning = () => {
+        if (!selectedProductColor || materialAllocations.length === 0) return null
+
+        const missingColors = materialAllocations
+            .filter(alloc => alloc.materialId && !hasMatchingMaterialColor(alloc.materialId))
+            .map(alloc => alloc.materialName)
+
+        if (missingColors.length === 0) return null
+
+        return `Bahan ${missingColors.join(", ")} belum memiliki varian warna "${selectedProductColor.colorName}". Tambahkan varian warna pada halaman stok bahan baku.`
+    }
+
+    const materialColorWarning = getMaterialColorWarning()
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -317,21 +376,63 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
 
                 <div className="space-y-6 py-4">
                     {/* Product Selection */}
-                    <div className="space-y-2">
-                        <Label htmlFor="product">Produk *</Label>
-                        <Select
-                            id="product"
-                            value={selectedProductId}
-                            onChange={(e) => handleProductChange(e.target.value)}
-                        >
-                            <option value="">Pilih produk</option>
-                            {products.map((product) => (
-                                <option key={product.id} value={product.id}>
-                                    {product.name} ({product.sku})
-                                </option>
-                            ))}
-                        </Select>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="product">Produk *</Label>
+                            <Select
+                                id="product"
+                                value={selectedProductId}
+                                onChange={(e) => handleProductChange(e.target.value)}
+                            >
+                                <option value="">Pilih produk</option>
+                                {products.map((product) => (
+                                    <option key={product.id} value={product.id}>
+                                        {product.name} ({product.sku})
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="productColor">Warna Produk *</Label>
+                            <Select
+                                id="productColor"
+                                value={selectedProductColorId}
+                                onChange={(e) => handleProductColorChange(e.target.value)}
+                                disabled={!selectedProductId || !selectedProduct?.colorVariants?.length}
+                            >
+                                <option value="">Pilih warna produk</option>
+                                {selectedProduct?.colorVariants?.map((color) => (
+                                    <option key={color.id} value={color.id}>
+                                        {color.colorName} {color.colorCode ? `(${color.colorCode})` : ""}
+                                    </option>
+                                ))}
+                            </Select>
+                            {selectedProductId && (!selectedProduct?.colorVariants || selectedProduct.colorVariants.length === 0) && (
+                                <p className="text-xs text-destructive">
+                                    ⚠️ Produk ini belum memiliki varian warna. Tambahkan varian warna di halaman detail produk.
+                                </p>
+                            )}
+                        </div>
                     </div>
+
+                    {/* Warning if no size variants */}
+                    {selectedProductId && (!selectedProduct?.sizeVariants || selectedProduct.sizeVariants.length === 0) && (
+                        <Alert variant="destructive">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertDescription>
+                                Produk ini belum memiliki varian ukuran. Tambahkan varian ukuran di halaman detail produk sebelum membuat batch produksi.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {/* Material Color Warning */}
+                    {materialColorWarning && (
+                        <Alert>
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertDescription>{materialColorWarning}</AlertDescription>
+                        </Alert>
+                    )}
 
                     {/* Material Allocations */}
                     <div className="space-y-3">
@@ -465,28 +566,42 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
                     {/* Size Requests per Material Color */}
                     <div className="space-y-3">
                         <div>
-                            <Label>Request Ukuran (Berdasarkan Warna Bahan) *</Label>
+                            <Label>Request Ukuran (Berdasarkan Warna Produk) *</Label>
                             <p className="text-sm text-muted-foreground mt-1">
-                                Pilih ukuran yang akan diproduksi untuk setiap warna bahan. Jumlah potongan akan diinput saat konfirmasi batch.
+                                Pilih ukuran yang akan diproduksi untuk warna produk yang dipilih. Jumlah potongan akan diinput saat konfirmasi batch.
                             </p>
                         </div>
 
-                        {sizeRequests.length === 0 && (
+                        {!selectedProductColor && (
                             <div className="text-sm text-muted-foreground italic">
-                                Pilih bahan baku dan warna terlebih dahulu
+                                Pilih warna produk terlebih dahulu
                             </div>
+                        )}
+
+                        {productSizeOptions.length === 0 && selectedProductColor && (
+                            <Alert variant="destructive">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertDescription>
+                                    Produk ini belum memiliki varian ukuran. Tambahkan varian ukuran di halaman detail produk.
+                                </AlertDescription>
+                            </Alert>
                         )}
 
                         {sizeRequests.map((req) => (
                             <div key={req.color} className="rounded-lg border p-4 space-y-3">
                                 <div className="space-y-2">
-                                    <Label className="text-base">Warna: {req.color}</Label>
+                                    <Label className="text-base">Warna Produk: {req.color}</Label>
                                     <MultiSelect
-                                        options={["XS", "S", "M", "L", "XL", "XXL", "XXXL"]}
+                                        options={productSizeOptions.length > 0 ? productSizeOptions : ["XS", "S", "M", "L", "XL", "XXL", "XXXL"]}
                                         selected={req.sizes}
                                         onChange={(sizes) => updateSizesForColor(req.color, sizes)}
-                                        placeholder="Pilih ukuran untuk warna ini..."
+                                        placeholder={productSizeOptions.length > 0 ? "Pilih ukuran produk..." : "Pilih ukuran untuk warna ini..."}
                                     />
+                                    {productSizeOptions.length === 0 && (
+                                        <p className="text-xs text-amber-600">
+                                            ⚠️ Menggunakan ukuran standar karena produk belum memiliki varian ukuran
+                                        </p>
+                                    )}
                                 </div>
 
                                 {req.sizes.length > 0 && (

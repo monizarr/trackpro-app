@@ -1,157 +1,84 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
+import { requireRole } from "@/lib/auth-helpers";
+import { prisma } from "@/lib/prisma";
 
-const connectionString = process.env.DATABASE_URL!;
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
-
+// POST - Verify warehouse untuk batch (DEPRECATED untuk direct flow, gunakan sub-batch)
+// Proses warehouse verification wajib melalui sub-batch
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user || !["OWNER", "KEPALA_GUDANG"].includes(user.role)) {
-      return NextResponse.json(
-        { error: "Only OWNER or KEPALA_GUDANG can verify warehouse" },
-        { status: 403 },
-      );
-    }
+    await requireRole(["OWNER", "KEPALA_GUDANG"]);
 
     const { id: batchId } = await params;
-    const body = await request.json();
-    const { goodsLocation, warehouseNotes } = body;
 
-    // Get batch with finishing task
+    // Check if batch has sub-batches
     const batch = await prisma.productionBatch.findUnique({
       where: { id: batchId },
       include: {
-        finishingTask: true,
-        product: true,
+        subBatches: {
+          select: {
+            id: true,
+            subBatchSku: true,
+            status: true,
+          },
+        },
       },
     });
 
     if (!batch) {
-      return NextResponse.json({ error: "Batch not found" }, { status: 404 });
-    }
-
-    if (batch.status !== "FINISHING_COMPLETED") {
       return NextResponse.json(
-        { error: "Batch must be FINISHING_COMPLETED to verify warehouse" },
-        { status: 400 },
-      );
-    }
-
-    if (!batch.finishingTask) {
-      return NextResponse.json(
-        { error: "Finishing task not found" },
+        { success: false, error: "Batch tidak ditemukan" },
         { status: 404 },
       );
     }
 
-    // Create transaction to store finished goods
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Create finished goods entry for completed items
-      const finishedGoodsEntry = await tx.finishedGood.create({
-        data: {
-          batchId: batch.id,
-          productId: batch.productId,
-          type: "FINISHED",
-          quantity: batch.finishingTask!.piecesCompleted,
-          location: goodsLocation || "DEFAULT",
-          notes: warehouseNotes,
-          verifiedById: user.id,
-        },
-      });
+    // If batch has sub-batches, force verification through sub-batch flow
+    if (batch.subBatches.length > 0) {
+      const unverifiedSubBatches = batch.subBatches.filter(
+        (sb) => sb.status !== "WAREHOUSE_VERIFIED" && sb.status !== "COMPLETED",
+      );
 
-      // 2. Create finished goods entry for reject items (if any)
-      let rejectEntry = null;
-      if (batch.finishingTask!.rejectPieces > 0) {
-        rejectEntry = await tx.finishedGood.create({
-          data: {
-            batchId: batch.id,
-            productId: batch.productId,
-            type: "REJECT",
-            quantity: batch.finishingTask!.rejectPieces,
-            location: "REJECT_AREA",
-            notes: `Barang gagal dari finishing. ${warehouseNotes || ""}`,
-            verifiedById: user.id,
+      if (unverifiedSubBatches.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Proses verifikasi gudang harus dilakukan per sub-batch. Silakan verifikasi setiap sub-batch yang sudah selesai finishing.",
+            unverifiedSubBatches: unverifiedSubBatches.map((sb) => ({
+              sku: sb.subBatchSku,
+              status: sb.status,
+            })),
+            hint: "Gunakan endpoint POST /api/sub-batches/[id]/verify-warehouse untuk verifikasi sub-batch",
           },
-        });
+          { status: 400 },
+        );
       }
 
-      // 3. Update batch status
-      const updatedBatch = await tx.productionBatch.update({
-        where: { id: batchId },
-        data: {
-          status: "WAREHOUSE_VERIFIED",
-          actualQuantity: batch.finishingTask!.piecesCompleted,
-          rejectQuantity: batch.finishingTask!.rejectPieces,
-          completedDate: new Date(),
-        },
+      // All sub-batches are verified, just return success
+      return NextResponse.json({
+        success: true,
+        message:
+          "Semua sub-batch sudah diverifikasi gudang. Batch siap untuk diselesaikan.",
+        data: { batchId, status: batch.status },
       });
+    }
 
-      // 4. Create timeline event
-      await tx.batchTimeline.create({
-        data: {
-          batchId: batch.id,
-          event: "WAREHOUSE_VERIFIED",
-          details: `Verified by ${user.name}. Stored ${
-            finishedGoodsEntry.quantity
-          } finished goods at ${goodsLocation || "DEFAULT"}${
-            rejectEntry ? ` and ${rejectEntry.quantity} reject items` : ""
-          }`,
-        },
-      });
-
-      // 5. Notify production head
-      const produksiUser = await tx.user.findFirst({
-        where: { role: "KEPALA_PRODUKSI" },
-      });
-
-      if (produksiUser) {
-        await tx.notification.create({
-          data: {
-            userId: produksiUser.id,
-            type: "TASK_COMPLETED",
-            title: "Batch Terverifikasi Gudang",
-            message: `Batch ${
-              batch.batchSku
-            } telah diverifikasi oleh kepala gudang. Finished: ${
-              finishedGoodsEntry.quantity
-            }, Reject: ${batch.finishingTask!.rejectPieces}`,
-            link: `/production/batch`,
-            isRead: false,
-          },
-        });
-      }
-
-      return {
-        batch: updatedBatch,
-        finishedGoods: finishedGoodsEntry,
-        rejectGoods: rejectEntry,
-      };
-    });
-
-    return NextResponse.json(result);
+    // If no sub-batches, the batch should go through sub-batch flow first
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Proses produksi wajib melalui sub-batch. Batch ini belum memiliki sub-batch.",
+        hint: "Setelah cutting verified, buat sub-batch dan assign ke penjahit melalui POST /api/production-batches/[id]/sub-batches",
+      },
+      { status: 400 },
+    );
   } catch (error) {
     console.error("Error verifying warehouse:", error);
     return NextResponse.json(
-      { error: "Failed to verify warehouse" },
+      { success: false, error: "Gagal memverifikasi warehouse" },
       { status: 500 },
     );
   }

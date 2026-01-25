@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth-helpers";
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireRole(["OWNER"]);
@@ -25,6 +25,14 @@ export async function GET(
               },
             },
           },
+        },
+        colorVariants: {
+          where: { isActive: true },
+          orderBy: { colorName: "asc" },
+        },
+        sizeVariants: {
+          where: { isActive: true },
+          orderBy: { sizeOrder: "asc" },
         },
         productionBatches: {
           orderBy: {
@@ -47,7 +55,7 @@ export async function GET(
           success: false,
           error: "Product not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -62,14 +70,14 @@ export async function GET(
         success: false,
         error: "Failed to fetch product",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireRole(["OWNER"]);
@@ -85,7 +93,7 @@ export async function PATCH(
           success: false,
           error: "SKU, name, and price are required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -100,7 +108,7 @@ export async function PATCH(
           success: false,
           error: "Product not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -121,7 +129,7 @@ export async function PATCH(
             success: false,
             error: "SKU already exists",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -144,7 +152,7 @@ export async function PATCH(
           status: status?.toUpperCase() || "ACTIVE",
           materials: materials
             ? {
-                create: materials.map((m: any) => ({
+                create: materials.map((m: { materialId: string; quantity: number; unit?: string }) => ({
                   materialId: m.materialId,
                   quantity: m.quantity,
                   unit: m.unit || "PCS",
@@ -183,14 +191,14 @@ export async function PATCH(
         success: false,
         error: "Failed to update product",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireRole(["OWNER"]);
@@ -211,7 +219,7 @@ export async function DELETE(
           success: false,
           error: "Product not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -222,7 +230,7 @@ export async function DELETE(
           success: false,
           error: "Cannot delete product with existing production batches",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -250,7 +258,7 @@ export async function DELETE(
         success: false,
         error: "Failed to delete product",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

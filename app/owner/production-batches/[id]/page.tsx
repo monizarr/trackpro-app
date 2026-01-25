@@ -759,13 +759,13 @@ export default function ProductionBatchDetailPage() {
     // Calculate progress
     const totalTarget = batch.targetQuantity;
     const cuttingOutput = batch.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0) || 0;
-    
+
     // Calculate sewing/finishing output from sub-batches (preferred) or batch tasks (fallback)
-    const sewingOutput = subBatches.length > 0 
+    const sewingOutput = subBatches.length > 0
         ? subBatches.reduce((sum, sb) => sum + (sb.sewingOutput || 0), 0)
         : (batch.sewingTask?.piecesCompleted || 0);
     const sewingReject = subBatches.reduce((sum, sb) => sum + (sb.sewingReject || 0), 0);
-    
+
     const finishingOutput = subBatches.length > 0
         ? subBatches.reduce((sum, sb) => sum + (sb.finishingOutput || 0), 0)
         : (batch.finishingTask?.piecesCompleted || 0);
@@ -848,12 +848,11 @@ export default function ProductionBatchDetailPage() {
                     </Button>
                 )}
 
-                {/* Assign to Finisher - when sewing verified */}
+                {/* Assign to Finisher - deprecated, use sub-batch */}
                 {batch.status === "SEWING_VERIFIED" && (
-                    <Button onClick={() => setShowAssignFinisherDialog(true)} variant="default">
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Assign ke Finisher
-                    </Button>
+                    <span className="text-xs text-muted-foreground italic px-3 py-2">
+                        Assign finisher via sub-batch
+                    </span>
                 )}
 
                 {/* Complete Batch - when warehouse verified */}
@@ -1274,7 +1273,7 @@ export default function ProductionBatchDetailPage() {
                             <CardHeader>
                                 <CardTitle>Task Penjahitan</CardTitle>
                                 <CardDescription>
-                                    {subBatches.length > 0 
+                                    {subBatches.length > 0
                                         ? `${subBatches.length} sub-batch dengan total ${subBatches.reduce((sum, sb) => sum + sb.piecesAssigned, 0)} pcs`
                                         : "Informasi tugas penjahitan"
                                     }
@@ -1406,7 +1405,7 @@ export default function ProductionBatchDetailPage() {
                             <CardHeader>
                                 <CardTitle>Task Finishing</CardTitle>
                                 <CardDescription>
-                                    {subBatches.length > 0 
+                                    {subBatches.length > 0
                                         ? `${subBatches.length} sub-batch dengan total ${sewingOutput} pcs dari jahit`
                                         : "Informasi tugas finishing"
                                     }

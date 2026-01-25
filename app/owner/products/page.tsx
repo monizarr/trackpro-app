@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Search, Plus, ArrowUpDown, Package, X, Edit, Trash2 } from "lucide-react"
+import { Search, Plus, ArrowUpDown, Package, X, Edit, Trash2, Palette, Ruler } from "lucide-react"
 import { toast } from "@/lib/toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -54,6 +54,16 @@ interface ProductMaterial {
     quantity: number
 }
 
+interface ColorVariant {
+    colorName: string
+    colorCode?: string
+}
+
+interface SizeVariant {
+    sizeName: string
+    sizeOrder?: number
+}
+
 interface Product {
     id: string
     sku: string
@@ -63,6 +73,16 @@ interface Product {
     materials?: Array<{
         material: Material
         quantity: number
+    }>
+    colorVariants?: Array<{
+        id: string
+        colorName: string
+        colorCode?: string
+    }>
+    sizeVariants?: Array<{
+        id: string
+        sizeName: string
+        sizeOrder: number
     }>
     status: ProductStatus
     availableStock?: number
@@ -96,6 +116,11 @@ export default function ProductsPage() {
         status: "active" as ProductStatus,
     })
     const [selectedMaterials, setSelectedMaterials] = useState<ProductMaterial[]>([])
+    const [colorVariants, setColorVariants] = useState<ColorVariant[]>([])
+    const [sizeVariants, setSizeVariants] = useState<SizeVariant[]>([])
+    const [newColorName, setNewColorName] = useState("")
+    const [newColorCode, setNewColorCode] = useState("")
+    const [newSizeName, setNewSizeName] = useState("")
 
     // Fetch products
     useEffect(() => {
@@ -160,6 +185,14 @@ export default function ProductsPage() {
                         quantity: m.quantity,
                         unit: materials.find(mat => mat.id === m.materialId)?.unit || "PCS"
                     })),
+                    colorVariants: colorVariants.map(c => ({
+                        colorName: c.colorName,
+                        colorCode: c.colorCode
+                    })),
+                    sizeVariants: sizeVariants.map((s, i) => ({
+                        sizeName: s.sizeName,
+                        sizeOrder: s.sizeOrder ?? i
+                    })),
                 }),
             })
 
@@ -190,7 +223,49 @@ export default function ProductsPage() {
             status: "active",
         })
         setSelectedMaterials([])
+        setColorVariants([])
+        setSizeVariants([])
+        setNewColorName("")
+        setNewColorCode("")
+        setNewSizeName("")
         setEditingProduct(null)
+    }
+
+    const addColorVariant = () => {
+        if (!newColorName.trim()) return
+        if (colorVariants.find(c => c.colorName.toLowerCase() === newColorName.toLowerCase())) {
+            toast.warning("Duplikat", "Warna ini sudah ditambahkan")
+            return
+        }
+        setColorVariants([...colorVariants, { colorName: newColorName.trim(), colorCode: newColorCode.trim() || undefined }])
+        setNewColorName("")
+        setNewColorCode("")
+    }
+
+    const removeColorVariant = (colorName: string) => {
+        setColorVariants(colorVariants.filter(c => c.colorName !== colorName))
+    }
+
+    const addSizeVariant = () => {
+        if (!newSizeName.trim()) return
+        if (sizeVariants.find(s => s.sizeName.toLowerCase() === newSizeName.toLowerCase())) {
+            toast.warning("Duplikat", "Ukuran ini sudah ditambahkan")
+            return
+        }
+        setSizeVariants([...sizeVariants, { sizeName: newSizeName.trim(), sizeOrder: sizeVariants.length }])
+        setNewSizeName("")
+    }
+
+    const removeSizeVariant = (sizeName: string) => {
+        setSizeVariants(sizeVariants.filter(s => s.sizeName !== sizeName))
+    }
+
+    const addPredefinedSizes = () => {
+        const predefinedSizes = ["XS", "S", "M", "L", "XL", "XXL"]
+        const newSizes = predefinedSizes
+            .filter(size => !sizeVariants.find(s => s.sizeName.toLowerCase() === size.toLowerCase()))
+            .map((size, index) => ({ sizeName: size, sizeOrder: sizeVariants.length + index }))
+        setSizeVariants([...sizeVariants, ...newSizes])
     }
 
     const handleEdit = (product: Product) => {
@@ -209,6 +284,26 @@ export default function ProductsPage() {
                 product.materials.map((m) => ({
                     materialId: m.material.id,
                     quantity: m.quantity,
+                }))
+            )
+        }
+
+        // Load color variants if available
+        if (product.colorVariants) {
+            setColorVariants(
+                product.colorVariants.map((c) => ({
+                    colorName: c.colorName,
+                    colorCode: c.colorCode,
+                }))
+            )
+        }
+
+        // Load size variants if available
+        if (product.sizeVariants) {
+            setSizeVariants(
+                product.sizeVariants.map((s) => ({
+                    sizeName: s.sizeName,
+                    sizeOrder: s.sizeOrder,
                 }))
             )
         }
@@ -457,6 +552,133 @@ export default function ProductsPage() {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Color Variants Section */}
+                            <div className="space-y-2 border-t pt-4">
+                                <Label className="flex items-center gap-2">
+                                    <Palette className="h-4 w-4" />
+                                    Varian Warna
+                                </Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="Nama warna (cth: Putih)"
+                                        value={newColorName}
+                                        onChange={(e) => setNewColorName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault()
+                                                addColorVariant()
+                                            }
+                                        }}
+                                        className="flex-1"
+                                    />
+                                    <Input
+                                        placeholder="Kode (opsional)"
+                                        value={newColorCode}
+                                        onChange={(e) => setNewColorCode(e.target.value)}
+                                        className="w-32"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={addColorVariant}
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                {colorVariants.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {colorVariants.map((variant) => (
+                                            <Badge
+                                                key={variant.colorName}
+                                                variant="secondary"
+                                                className="gap-1 pr-1"
+                                            >
+                                                {variant.colorName}
+                                                {variant.colorCode && (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        ({variant.colorCode})
+                                                    </span>
+                                                )}
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-4 w-4 ml-1 hover:bg-destructive/20"
+                                                    onClick={() => removeColorVariant(variant.colorName)}
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </Button>
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Size Variants Section */}
+                            <div className="space-y-2 border-t pt-4">
+                                <div className="flex items-center justify-between">
+                                    <Label className="flex items-center gap-2">
+                                        <Ruler className="h-4 w-4" />
+                                        Varian Ukuran
+                                    </Label>
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        size="sm"
+                                        className="text-xs"
+                                        onClick={addPredefinedSizes}
+                                    >
+                                        + Tambah Ukuran Standar (XS-XXL)
+                                    </Button>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="Nama ukuran (cth: S, M, L atau All Size)"
+                                        value={newSizeName}
+                                        onChange={(e) => setNewSizeName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault()
+                                                addSizeVariant()
+                                            }
+                                        }}
+                                        className="flex-1"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={addSizeVariant}
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                {sizeVariants.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {sizeVariants.map((variant) => (
+                                            <Badge
+                                                key={variant.sizeName}
+                                                variant="outline"
+                                                className="gap-1 pr-1"
+                                            >
+                                                {variant.sizeName}
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-4 w-4 ml-1 hover:bg-destructive/20"
+                                                    onClick={() => removeSizeVariant(variant.sizeName)}
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </Button>
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             <Button type="submit" className="w-full" disabled={isSaving}>
                                 {isSaving ? "Menyimpan..." : editingProduct ? "Perbarui Produk" : "Buat Produk"}
                             </Button>

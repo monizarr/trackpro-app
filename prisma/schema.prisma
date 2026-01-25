@@ -88,6 +88,7 @@ model Product {
   productionBatches ProductionBatch[]
   materials         ProductMaterial[]
   colorVariants     ProductColorVariant[] // Varian warna produk
+  sizeVariants      ProductSizeVariant[]  // Varian ukuran produk
 
   @@index([sku])
   @@index([status])
@@ -111,6 +112,24 @@ model ProductColorVariant {
   @@index([productId])
   @@index([colorName])
   @@map("product_color_variants")
+}
+
+// Product Size Variants (Varian Ukuran Produk)
+model ProductSizeVariant {
+  id        String   @id @default(cuid())
+  productId String
+  sizeName  String // Nama ukuran (XS, S, M, L, XL, XXL, XXXL, dll atau custom)
+  sizeOrder Int      @default(0) // Urutan tampilan ukuran
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, sizeName])
+  @@index([productId])
+  @@index([sizeName])
+  @@map("product_size_variants")
 }
 
 // ============================================

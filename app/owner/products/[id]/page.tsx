@@ -18,6 +18,8 @@ import {
     TrendingUp,
     ExternalLink,
     Boxes,
+    Palette,
+    Ruler,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { CreateBatchDialog } from "@/components/create-batch-dialog";
@@ -93,6 +95,20 @@ interface ProductMaterialInput {
     quantity: number;
 }
 
+interface ProductColorVariant {
+    id: string;
+    colorName: string;
+    colorCode?: string;
+    isActive: boolean;
+}
+
+interface ProductSizeVariant {
+    id: string;
+    sizeName: string;
+    sizeOrder: number;
+    isActive: boolean;
+}
+
 interface ProductionBatch {
     id: string;
     batchSku: string;
@@ -136,6 +152,8 @@ interface Product {
     status: ProductStatus;
     images: string[];
     materials: ProductMaterial[];
+    colorVariants?: ProductColorVariant[];
+    sizeVariants?: ProductSizeVariant[];
     productionBatches: ProductionBatch[];
 }
 
@@ -194,6 +212,15 @@ export default function ProductDetailPage() {
     });
     const [selectedMaterials, setSelectedMaterials] = useState<ProductMaterialInput[]>([]);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Variant management states
+    const [newColorName, setNewColorName] = useState("");
+    const [newColorCode, setNewColorCode] = useState("");
+    const [newSizeName, setNewSizeName] = useState("");
+    const [isAddingColor, setIsAddingColor] = useState(false);
+    const [isAddingSize, setIsAddingSize] = useState(false);
+    const [deletingColorId, setDeletingColorId] = useState<string | null>(null);
+    const [deletingSizeId, setDeletingSizeId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchProduct();
@@ -393,6 +420,149 @@ export default function ProductDetailPage() {
             toast.error("Error", "Gagal menghapus batch");
         } finally {
             setIsDeletingBatch(false);
+        }
+    };
+
+    // Variant management functions
+    const handleAddColorVariant = async () => {
+        if (!newColorName.trim() || !product) return;
+
+        setIsAddingColor(true);
+        try {
+            const response = await fetch("/api/product-variants", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    productId: product.id,
+                    colorName: newColorName.trim(),
+                    colorCode: newColorCode.trim() || undefined,
+                }),
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                await fetchProduct();
+                setNewColorName("");
+                setNewColorCode("");
+                toast.success("Berhasil", "Varian warna berhasil ditambahkan");
+            } else {
+                toast.error("Gagal", data.error || "Tidak dapat menambahkan varian warna");
+            }
+        } catch (error) {
+            console.error("Error adding color variant:", error);
+            toast.error("Error", "Gagal menambahkan varian warna");
+        } finally {
+            setIsAddingColor(false);
+        }
+    };
+
+    const handleDeleteColorVariant = async (variantId: string) => {
+        setDeletingColorId(variantId);
+        try {
+            const response = await fetch(`/api/product-variants/${variantId}`, {
+                method: "DELETE",
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                await fetchProduct();
+                toast.success("Berhasil", "Varian warna berhasil dihapus");
+            } else {
+                toast.error("Gagal", data.error || "Tidak dapat menghapus varian warna");
+            }
+        } catch (error) {
+            console.error("Error deleting color variant:", error);
+            toast.error("Error", "Gagal menghapus varian warna");
+        } finally {
+            setDeletingColorId(null);
+        }
+    };
+
+    const handleAddSizeVariant = async () => {
+        if (!newSizeName.trim() || !product) return;
+
+        setIsAddingSize(true);
+        try {
+            const response = await fetch("/api/product-size-variants", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    productId: product.id,
+                    sizeName: newSizeName.trim(),
+                }),
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                await fetchProduct();
+                setNewSizeName("");
+                toast.success("Berhasil", "Varian ukuran berhasil ditambahkan");
+            } else {
+                toast.error("Gagal", data.error || "Tidak dapat menambahkan varian ukuran");
+            }
+        } catch (error) {
+            console.error("Error adding size variant:", error);
+            toast.error("Error", "Gagal menambahkan varian ukuran");
+        } finally {
+            setIsAddingSize(false);
+        }
+    };
+
+    const handleDeleteSizeVariant = async (variantId: string) => {
+        setDeletingSizeId(variantId);
+        try {
+            const response = await fetch(`/api/product-size-variants/${variantId}`, {
+                method: "DELETE",
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                await fetchProduct();
+                toast.success("Berhasil", "Varian ukuran berhasil dihapus");
+            } else {
+                toast.error("Gagal", data.error || "Tidak dapat menghapus varian ukuran");
+            }
+        } catch (error) {
+            console.error("Error deleting size variant:", error);
+            toast.error("Error", "Gagal menghapus varian ukuran");
+        } finally {
+            setDeletingSizeId(null);
+        }
+    };
+
+    const addPredefinedSizes = async () => {
+        if (!product) return;
+
+        const predefinedSizes = ["XS", "S", "M", "L", "XL", "XXL"];
+        const existingSizes = product.sizeVariants?.map(v => v.sizeName.toLowerCase()) || [];
+        const newSizes = predefinedSizes.filter(
+            size => !existingSizes.includes(size.toLowerCase())
+        );
+
+        if (newSizes.length === 0) {
+            toast.info("Info", "Semua ukuran standar sudah ada");
+            return;
+        }
+
+        setIsAddingSize(true);
+        try {
+            for (const size of newSizes) {
+                await fetch("/api/product-size-variants", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        productId: product.id,
+                        sizeName: size,
+                    }),
+                });
+            }
+            await fetchProduct();
+            toast.success("Berhasil", `${newSizes.length} ukuran standar berhasil ditambahkan`);
+        } catch (error) {
+            console.error("Error adding predefined sizes:", error);
+            toast.error("Error", "Gagal menambahkan ukuran standar");
+        } finally {
+            setIsAddingSize(false);
         }
     };
 
@@ -650,7 +820,7 @@ export default function ProductDetailPage() {
             {/* Stock Variants Section */}
             <Card>
                 <CardHeader>
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col gap-2 md:flex-row justify-between items-center">
                         <div>
                             <CardTitle>Stok Produk per Varian</CardTitle>
                             <CardDescription>
@@ -658,7 +828,7 @@ export default function ProductDetailPage() {
                             </CardDescription>
                         </div>
                         {stockVariantsData && (
-                            <div className="flex gap-2">
+                            <div className="flex justify-evenly gap-2">
                                 <Badge variant="outline" className="text-sm">
                                     {stockVariantsData.summary.colorCount} Warna
                                 </Badge>
@@ -666,7 +836,7 @@ export default function ProductDetailPage() {
                                     {stockVariantsData.summary.sizeCount} Ukuran
                                 </Badge>
                                 <Badge variant="default" className="text-sm">
-                                    Total: {stockVariantsData.summary.totalStock} pcs
+                                    Total: {stockVariantsData.summary.totalStock ?? 0} pcs
                                 </Badge>
                             </div>
                         )}
@@ -707,7 +877,7 @@ export default function ProductDetailPage() {
                                                     <Badge variant="outline">{variant.size}</Badge>
                                                 </TableCell>
                                                 <TableCell className="text-right font-mono font-semibold">
-                                                    {variant.quantity.toLocaleString("id-ID")}
+                                                    {(variant.quantity ?? 0).toLocaleString("id-ID")}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-wrap gap-1">
@@ -742,7 +912,7 @@ export default function ProductDetailPage() {
                                         </div>
                                         <div className="text-right">
                                             <p className="font-mono font-semibold text-lg">
-                                                {variant.quantity.toLocaleString("id-ID")}
+                                                {(variant.quantity ?? 0).toLocaleString("id-ID")}
                                             </p>
                                             <p className="text-xs text-muted-foreground">pcs</p>
                                         </div>
@@ -758,7 +928,7 @@ export default function ProductDetailPage() {
                                         {stockVariantsData.summary.colors.map((color) => {
                                             const colorTotal = stockVariantsData.stockVariants
                                                 .filter((v) => v.color === color)
-                                                .reduce((sum, v) => sum + v.quantity, 0);
+                                                .reduce((sum, v) => sum + (v.quantity ?? 0), 0);
                                             return (
                                                 <Badge key={color} variant="secondary" className="px-3 py-1">
                                                     {color}: {colorTotal.toLocaleString("id-ID")} pcs
@@ -986,6 +1156,184 @@ export default function ProductDetailPage() {
                                 </div>
                             )}
                         </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Product Variants Section */}
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+                {/* Color Variants Card */}
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Palette className="h-5 w-5 text-primary" />
+                                <div>
+                                    <CardTitle className="text-lg">Varian Warna</CardTitle>
+                                    <CardDescription>
+                                        Warna produk yang tersedia untuk produksi
+                                    </CardDescription>
+                                </div>
+                            </div>
+                            <Badge variant="outline">
+                                {product.colorVariants?.length || 0} warna
+                            </Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* Add Color Form */}
+                        <div className="flex gap-2">
+                            <Input
+                                placeholder="Nama warna (cth: Putih)"
+                                value={newColorName}
+                                onChange={(e) => setNewColorName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        handleAddColorVariant();
+                                    }
+                                }}
+                                className="flex-1"
+                            />
+                            <Input
+                                placeholder="Kode (opsional)"
+                                value={newColorCode}
+                                onChange={(e) => setNewColorCode(e.target.value)}
+                                className="w-28"
+                            />
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={handleAddColorVariant}
+                                disabled={isAddingColor || !newColorName.trim()}
+                            >
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </div>
+
+                        {/* Color List */}
+                        {product.colorVariants && product.colorVariants.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                                {product.colorVariants.map((variant) => (
+                                    <Badge
+                                        key={variant.id}
+                                        variant="secondary"
+                                        className="gap-1 pr-1 py-1.5"
+                                    >
+                                        {variant.colorName}
+                                        {variant.colorCode && (
+                                            <span className="text-xs text-muted-foreground">
+                                                ({variant.colorCode})
+                                            </span>
+                                        )}
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-4 w-4 ml-1 hover:bg-destructive/20"
+                                            onClick={() => handleDeleteColorVariant(variant.id)}
+                                            disabled={deletingColorId === variant.id}
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </Button>
+                                    </Badge>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-4 text-muted-foreground">
+                                <Palette className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm">Belum ada varian warna</p>
+                                <p className="text-xs">Tambahkan warna untuk produk ini</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Size Variants Card */}
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Ruler className="h-5 w-5 text-primary" />
+                                <div>
+                                    <CardTitle className="text-lg">Varian Ukuran</CardTitle>
+                                    <CardDescription>
+                                        Ukuran produk yang tersedia untuk produksi
+                                    </CardDescription>
+                                </div>
+                            </div>
+                            <Badge variant="outline">
+                                {product.sizeVariants?.length || 0} ukuran
+                            </Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* Add Size Form */}
+                        <div className="flex gap-2">
+                            <Input
+                                placeholder="Nama ukuran (cth: S, M, L)"
+                                value={newSizeName}
+                                onChange={(e) => setNewSizeName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        handleAddSizeVariant();
+                                    }
+                                }}
+                                className="flex-1"
+                            />
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={handleAddSizeVariant}
+                                disabled={isAddingSize || !newSizeName.trim()}
+                            >
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </div>
+
+                        {/* Quick Add Predefined Sizes */}
+                        <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="text-xs p-0 h-auto"
+                            onClick={addPredefinedSizes}
+                            disabled={isAddingSize}
+                        >
+                            + Tambah Ukuran Standar (XS-XXL)
+                        </Button>
+
+                        {/* Size List */}
+                        {product.sizeVariants && product.sizeVariants.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                                {product.sizeVariants.map((variant) => (
+                                    <Badge
+                                        key={variant.id}
+                                        variant="outline"
+                                        className="gap-1 pr-1 py-1.5"
+                                    >
+                                        {variant.sizeName}
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-4 w-4 ml-1 hover:bg-destructive/20"
+                                            onClick={() => handleDeleteSizeVariant(variant.id)}
+                                            disabled={deletingSizeId === variant.id}
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </Button>
+                                    </Badge>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-4 text-muted-foreground">
+                                <Ruler className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm">Belum ada varian ukuran</p>
+                                <p className="text-xs">Tambahkan ukuran untuk produk ini</p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -1255,7 +1603,9 @@ export default function ProductDetailPage() {
                         materials: product.materials.map(m => ({
                             materialId: m.material.id,
                             material: m.material
-                        }))
+                        })),
+                        colorVariants: product.colorVariants,
+                        sizeVariants: product.sizeVariants,
                     }]}
                     onSuccess={fetchProduct}
                 />

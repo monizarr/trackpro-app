@@ -10,7 +10,7 @@ export async function GET() {
     if (!session) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -27,6 +27,14 @@ export async function GET() {
               },
             },
           },
+        },
+        colorVariants: {
+          where: { isActive: true },
+          orderBy: { colorName: "asc" },
+        },
+        sizeVariants: {
+          where: { isActive: true },
+          orderBy: { sizeOrder: "asc" },
         },
       },
       orderBy: {
@@ -49,14 +57,14 @@ export async function GET() {
 
         const availableStock = finishedGoods.reduce(
           (sum, fg) => sum + fg.quantity,
-          0
+          0,
         );
 
         return {
           ...product,
           availableStock,
         };
-      })
+      }),
     );
 
     return NextResponse.json({
@@ -70,7 +78,7 @@ export async function GET() {
         success: false,
         error: "Failed to fetch products",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -80,7 +88,15 @@ export async function POST(request: Request) {
     const session = await requireRole(["OWNER"]);
 
     const body = await request.json();
-    const { sku, name, description, price, materials } = body;
+    const {
+      sku,
+      name,
+      description,
+      price,
+      materials,
+      colorVariants,
+      sizeVariants,
+    } = body;
 
     // Validate required fields
     if (!sku || !name || !price) {
@@ -89,7 +105,7 @@ export async function POST(request: Request) {
           success: false,
           error: "SKU, name, and price are required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -104,11 +120,11 @@ export async function POST(request: Request) {
           success: false,
           error: "Product with this SKU already exists",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Create product with materials
+    // Create product with materials, color variants, and size variants
     const product = await prisma.product.create({
       data: {
         sku,
@@ -123,7 +139,28 @@ export async function POST(request: Request) {
                 materialId: material.materialId,
                 quantity: material.quantity,
                 unit: "METER", // Default unit, you may want to fetch this from material
-              })
+              }),
+            ) || [],
+        },
+        colorVariants: {
+          create:
+            colorVariants?.map(
+              (variant: { colorName: string; colorCode?: string }) => ({
+                colorName: variant.colorName,
+                colorCode: variant.colorCode,
+              }),
+            ) || [],
+        },
+        sizeVariants: {
+          create:
+            sizeVariants?.map(
+              (
+                variant: { sizeName: string; sizeOrder?: number },
+                index: number,
+              ) => ({
+                sizeName: variant.sizeName,
+                sizeOrder: variant.sizeOrder ?? index,
+              }),
             ) || [],
         },
       },
@@ -132,6 +169,10 @@ export async function POST(request: Request) {
           include: {
             material: true,
           },
+        },
+        colorVariants: true,
+        sizeVariants: {
+          orderBy: { sizeOrder: "asc" },
         },
       },
     });
@@ -147,7 +188,7 @@ export async function POST(request: Request) {
         success: false,
         error: "Failed to create product",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

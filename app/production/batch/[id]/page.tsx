@@ -256,10 +256,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
     const [verifySewingNotes, setVerifySewingNotes] = useState("");
     const [verifyingSewing, setVerifyingSewing] = useState(false);
 
-    const [showAssignFinisherDialog, setShowAssignFinisherDialog] = useState(false);
-    const [selectedFinisherId, setSelectedFinisherId] = useState("");
-    const [assignFinisherNotes, setAssignFinisherNotes] = useState("");
-    const [assigningFinisher, setAssigningFinisher] = useState(false);
+    // Note: Direct assign finisher deprecated - use sub-batch flow via SubBatchList component
 
     const [showSubBatchDialog, setShowSubBatchDialog] = useState(false);
 
@@ -592,43 +589,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
         }
     };
 
-    const handleAssignToFinisher = async () => {
-        if (!batch || !selectedFinisherId) {
-            toast.error("Error", "Pilih finisher terlebih dahulu");
-            return;
-        }
-
-        setAssigningFinisher(true);
-        try {
-            const response = await fetch(`/api/production-batches/${batch.id}/assign-finisher`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    assignedToId: selectedFinisherId,
-                    notes: assignFinisherNotes,
-                }),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                toast.success("Berhasil", result.message || "Batch berhasil di-assign ke finisher");
-                setShowAssignFinisherDialog(false);
-                setSelectedFinisherId("");
-                setAssignFinisherNotes("");
-                fetchBatchDetail();
-            } else {
-                toast.error("Error", result.error || "Gagal assign batch");
-            }
-        } catch (error) {
-            console.error("Error assigning batch to finisher:", error);
-            toast.error("Error", "Terjadi kesalahan saat assign batch");
-        } finally {
-            setAssigningFinisher(false);
-        }
-    };
+    // Note: handleAssignToFinisher removed - use sub-batch flow instead via SubBatchList component
 
     const handleCompleteBatch = async () => {
         if (!batch) return;
@@ -930,13 +891,9 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                     )}
 
                     {batch.status === "SEWING_VERIFIED" && (
-                        <Button
-                            size="sm"
-                            onClick={() => setShowAssignFinisherDialog(true)}
-                        >
-                            <UserPlus className="h-4 w-4 mr-2" />
-                            Assign ke Finisher
-                        </Button>
+                        <span className="text-xs text-muted-foreground italic px-3 py-2">
+                            Assign finisher via sub-batch
+                        </span>
                     )}
 
                     {batch.status === "WAREHOUSE_VERIFIED" && (
@@ -2520,55 +2477,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 </DialogContent>
             </Dialog>
 
-            {/* Assign to Finisher Dialog */}
-            <Dialog open={showAssignFinisherDialog} onOpenChange={setShowAssignFinisherDialog}>
-                <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>Assign ke Finisher</DialogTitle>
-                        <DialogDescription>
-                            Pilih finisher untuk mengerjakan batch ini
-                        </DialogDescription>
-                    </DialogHeader>
-                    {batch && (
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="finisher">Pilih Finisher *</Label>
-                                <Select
-                                    id="finisher"
-                                    value={selectedFinisherId}
-                                    onChange={(e) => setSelectedFinisherId(e.target.value)}
-                                >
-                                    <option value="">Pilih finisher</option>
-                                    {finishers.map((finisher) => (
-                                        <option key={finisher.id} value={finisher.id}>
-                                            {finisher.name} ({finisher._count.finishingTasks} active tasks)
-                                        </option>
-                                    ))}
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="assignFinisherNotes">Catatan (Opsional)</Label>
-                                <Textarea
-                                    id="assignFinisherNotes"
-                                    placeholder="Tambahkan catatan untuk finisher..."
-                                    value={assignFinisherNotes}
-                                    onChange={(e) => setAssignFinisherNotes(e.target.value)}
-                                    rows={3}
-                                />
-                            </div>
-                        </div>
-                    )}
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowAssignFinisherDialog(false)} disabled={assigningFinisher}>
-                            Batal
-                        </Button>
-                        <Button onClick={handleAssignToFinisher} disabled={assigningFinisher || !selectedFinisherId}>
-                            {assigningFinisher ? "Mengassign..." : "Assign ke Finisher"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            {/* Note: Assign to Finisher Dialog removed - use sub-batch flow via SubBatchList component */}
 
             {/* Create Sub-Batch Dialog */}
             {batch && (
