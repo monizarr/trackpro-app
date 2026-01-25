@@ -154,21 +154,32 @@ interface TimelineEvent {
     createdAt: string;
 }
 
+interface SubBatchItem {
+    id: string;
+    productSize: string;
+    color: string;
+    goodQuantity: number;
+    rejectKotor: number;
+    rejectSobek: number;
+    rejectRusakJahit: number;
+}
+
 interface SubBatchSummary {
     id: string;
     subBatchSku: string;
     status: string;
-    piecesAssigned: number;
-    sewingOutput: number;
-    sewingReject: number;
-    finishingOutput: number;
-    finishingReject: number;
-    assignedSewer?: { id: string; name: string } | null;
-    assignedFinisher?: { id: string; name: string } | null;
-    sewingStartedAt?: string | null;
-    sewingCompletedAt?: string | null;
-    finishingStartedAt?: string | null;
-    finishingCompletedAt?: string | null;
+    finishingGoodOutput: number;
+    rejectKotor: number;
+    rejectSobek: number;
+    rejectRusakJahit: number;
+    notes?: string | null;
+    items: SubBatchItem[];
+    warehouseVerifiedBy?: { id: string; name: string; username: string } | null;
+    warehouseVerifiedAt?: string | null;
+    submittedToWarehouseAt?: string | null;
+    verifiedByProdAt?: string | null;
+    createdAt: string;
+    updatedAt: string;
 }
 
 interface ProductionBatch {
@@ -760,16 +771,54 @@ export default function ProductionBatchDetailPage() {
     const totalTarget = batch.targetQuantity;
     const cuttingOutput = batch.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0) || 0;
 
-    // Calculate sewing/finishing output from sub-batches (preferred) or batch tasks (fallback)
+    // Calculate sewing output from sub-batches items (preferred) or batch task (fallback)
     const sewingOutput = subBatches.length > 0
-        ? subBatches.reduce((sum, sb) => sum + (sb.sewingOutput || 0), 0)
+        ? subBatches.reduce((sum, sb) => {
+            let total = 0;
+            if (sb.items && Array.isArray(sb.items)) {
+                for (const item of sb.items) {
+                    total += (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
+                }
+            }
+            return sum + total;
+        }, 0)
         : (batch.sewingTask?.piecesCompleted || 0);
-    const sewingReject = subBatches.reduce((sum, sb) => sum + (sb.sewingReject || 0), 0);
+
+    const sewingReject = subBatches.length > 0
+        ? subBatches.reduce((sum, sb) => {
+            let total = 0;
+            if (sb.items && Array.isArray(sb.items)) {
+                for (const item of sb.items) {
+                    total += (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
+                }
+            }
+            return sum + total;
+        }, 0)
+        : (batch.sewingTask?.rejectPieces || 0);
 
     const finishingOutput = subBatches.length > 0
-        ? subBatches.reduce((sum, sb) => sum + (sb.finishingOutput || 0), 0)
+        ? subBatches.reduce((sum, sb) => {
+            let total = 0;
+            if (sb.items && Array.isArray(sb.items)) {
+                for (const item of sb.items) {
+                    total += item.goodQuantity || 0;
+                }
+            }
+            return sum + total;
+        }, 0)
         : (batch.finishingTask?.piecesCompleted || 0);
-    const finishingReject = subBatches.reduce((sum, sb) => sum + (sb.finishingReject || 0), 0);
+
+    const finishingReject = subBatches.length > 0
+        ? subBatches.reduce((sum, sb) => {
+            let total = 0;
+            if (sb.items && Array.isArray(sb.items)) {
+                for (const item of sb.items) {
+                    total += (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
+                }
+            }
+            return sum + total;
+        }, 0)
+        : (batch.finishingTask?.rejectPieces || 0);
 
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -1274,7 +1323,7 @@ export default function ProductionBatchDetailPage() {
                                 <CardTitle>Task Penjahitan</CardTitle>
                                 <CardDescription>
                                     {subBatches.length > 0
-                                        ? `${subBatches.length} sub-batch dengan total ${subBatches.reduce((sum, sb) => sum + sb.piecesAssigned, 0)} pcs`
+                                        ? `${subBatches.length} sub-batch dengan total ${sewingOutput} pcs dari potongan`
                                         : "Informasi tugas penjahitan"
                                     }
                                 </CardDescription>
@@ -1282,39 +1331,39 @@ export default function ProductionBatchDetailPage() {
                             <CardContent>
                                 {subBatches.length > 0 ? (
                                     <div className="space-y-4">
-                                        {subBatches.map((sb) => (
-                                            <div key={sb.id} className="border rounded-lg p-3 space-y-2">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="font-mono text-sm font-medium">{sb.subBatchSku}</span>
-                                                    {getStatusBadge(sb.status)}
+                                        {subBatches.map((sb) => {
+                                            const sbSewingTotal = sb.items?.reduce((sum, item) => sum + (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0), 0) || 0;
+                                            return (
+                                                <div key={sb.id} className="border rounded-lg p-3 space-y-2">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="font-mono text-sm font-medium">{sb.subBatchSku}</span>
+                                                        {getStatusBadge(sb.status)}
+                                                    </div>
+                                                    <Separator />
+                                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-muted-foreground">Dari Potongan</span>
+                                                            <span className="font-medium">{sbSewingTotal} pcs</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-muted-foreground">Baik</span>
+                                                            <span className="font-medium text-green-600">{sb.items?.reduce((sum, item) => sum + (item.goodQuantity || 0), 0) || 0} pcs</span>
+                                                        </div>
+                                                        {(sb.items?.some(item => (item.rejectKotor || 0) > 0) || (sb.rejectKotor || 0) > 0) && (
+                                                            <div className="flex justify-between">
+                                                                <span className="text-muted-foreground">Reject</span>
+                                                                <span className="font-medium text-destructive">{sb.items?.reduce((sum, item) => sum + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0), 0) || 0} pcs</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {sb.items && sb.items.length > 0 && (
+                                                        <div className="text-xs text-muted-foreground space-y-1 pt-2">
+                                                            <p>Item: {sb.items.map(item => `${item.color} ${item.productSize}`).join(", ")}</p>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <Separator />
-                                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Penjahit</span>
-                                                        <span className="font-medium">{sb.assignedSewer?.name || "-"}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Diterima</span>
-                                                        <span className="font-medium">{sb.piecesAssigned} pcs</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Selesai</span>
-                                                        <span className="font-medium text-green-600">{sb.sewingOutput} pcs</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Reject</span>
-                                                        <span className="font-medium text-destructive">{sb.sewingReject} pcs</span>
-                                                    </div>
-                                                </div>
-                                                {sb.sewingStartedAt && (
-                                                    <div className="flex justify-between text-xs text-muted-foreground pt-1">
-                                                        <span>Mulai: {formatDateTime(sb.sewingStartedAt)}</span>
-                                                        {sb.sewingCompletedAt && <span>Selesai: {formatDateTime(sb.sewingCompletedAt)}</span>}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 ) : batch.sewingTask ? (
                                     <div className="space-y-3">
@@ -1414,39 +1463,45 @@ export default function ProductionBatchDetailPage() {
                             <CardContent>
                                 {subBatches.length > 0 ? (
                                     <div className="space-y-4">
-                                        {subBatches.map((sb) => (
-                                            <div key={sb.id} className="border rounded-lg p-3 space-y-2">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="font-mono text-sm font-medium">{sb.subBatchSku}</span>
-                                                    {getStatusBadge(sb.status)}
+                                        {subBatches.map((sb) => {
+                                            const sbInputTotal = sb.items?.reduce((sum, item) => sum + (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0), 0) || 0;
+                                            const sbGoodOutput = sb.items?.reduce((sum, item) => sum + (item.goodQuantity || 0), 0) || 0;
+                                            const sbRejectKotor = sb.items?.reduce((sum, item) => sum + (item.rejectKotor || 0), 0) || 0;
+                                            const sbRejectSobek = sb.items?.reduce((sum, item) => sum + (item.rejectSobek || 0), 0) || 0;
+                                            const sbRejectRusakJahit = sb.items?.reduce((sum, item) => sum + (item.rejectRusakJahit || 0), 0) || 0;
+                                            return (
+                                                <div key={sb.id} className="border rounded-lg p-3 space-y-2">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="font-mono text-sm font-medium">{sb.subBatchSku}</span>
+                                                        {getStatusBadge(sb.status)}
+                                                    </div>
+                                                    <Separator />
+                                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-muted-foreground">Input dari Jahit</span>
+                                                            <span className="font-medium">{sbInputTotal} pcs</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-muted-foreground">Baik</span>
+                                                            <span className="font-medium text-green-600">{sbGoodOutput} pcs</span>
+                                                        </div>
+                                                    </div>
+                                                    {(sbRejectKotor > 0 || sbRejectSobek > 0 || sbRejectRusakJahit > 0) && (
+                                                        <div className="space-y-1 pt-2 text-xs text-destructive">
+                                                            <div className="font-medium">Reject:</div>
+                                                            {sbRejectKotor > 0 && <div className="ml-2">• Kotor (cuci): {sbRejectKotor} pcs</div>}
+                                                            {sbRejectSobek > 0 && <div className="ml-2">• Sobek: {sbRejectSobek} pcs</div>}
+                                                            {sbRejectRusakJahit > 0 && <div className="ml-2">• Rusak Jahit: {sbRejectRusakJahit} pcs</div>}
+                                                        </div>
+                                                    )}
+                                                    {sb.items && sb.items.length > 0 && (
+                                                        <div className="text-xs text-muted-foreground space-y-1 pt-2">
+                                                            <p>Item: {sb.items.map(item => `${item.color} ${item.productSize}`).join(", ")}</p>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <Separator />
-                                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Finisher</span>
-                                                        <span className="font-medium">{sb.assignedFinisher?.name || "-"}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Input</span>
-                                                        <span className="font-medium">{sb.sewingOutput} pcs</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Selesai</span>
-                                                        <span className="font-medium text-green-600">{sb.finishingOutput} pcs</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Reject</span>
-                                                        <span className="font-medium text-destructive">{sb.finishingReject} pcs</span>
-                                                    </div>
-                                                </div>
-                                                {sb.finishingStartedAt && (
-                                                    <div className="flex justify-between text-xs text-muted-foreground pt-1">
-                                                        <span>Mulai: {formatDateTime(sb.finishingStartedAt)}</span>
-                                                        {sb.finishingCompletedAt && <span>Selesai: {formatDateTime(sb.finishingCompletedAt)}</span>}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 ) : batch.finishingTask ? (
                                     <div className="space-y-3">
