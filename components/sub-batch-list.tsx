@@ -4,56 +4,46 @@ import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Select } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
     ChevronDown,
     ChevronUp,
     CheckCircle2,
     Clock,
-    Play,
-    UserPlus,
     Package,
-    Scissors,
-    Shirt
+    Warehouse,
+    AlertTriangle
 } from "lucide-react"
 import { toast } from "@/lib/toast"
 import { cn } from "@/lib/utils"
 
+// Sub-batch item dengan reject detail
 interface SubBatchItem {
     id: string
     productSize: string
     color: string
-    piecesAssigned: number
-    sewingOutput: number
-    finishingOutput: number
+    goodQuantity: number
+    rejectKotor: number
+    rejectSobek: number
+    rejectRusakJahit: number
 }
 
+// Sub-batch untuk workflow baru (dibuat di tahap finishing)
 interface SubBatch {
     id: string
     subBatchSku: string
-    status: string
-    piecesAssigned: number
-    sewingOutput: number
-    sewingReject: number
-    finishingOutput: number
-    finishingReject: number
-    assignedSewer: { id: string; name: string; username: string }
-    assignedFinisher?: { id: string; name: string; username: string }
+    status: string // CREATED | SUBMITTED_TO_WAREHOUSE | WAREHOUSE_VERIFIED | COMPLETED
+    finishingGoodOutput: number
+    rejectKotor: number
+    rejectSobek: number
+    rejectRusakJahit: number
+    notes?: string
+    warehouseVerifiedBy?: { id: string; name: string; username: string }
     items: SubBatchItem[]
-    sewingStartedAt?: string
-    sewingCompletedAt?: string
-    finishingStartedAt?: string
-    finishingCompletedAt?: string
-}
-
-interface Finisher {
-    id: string
-    name: string
-    username: string
+    createdAt: string
+    verifiedByProdAt?: string
+    submittedToWarehouseAt?: string
+    warehouseVerifiedAt?: string
 }
 
 interface SubBatchListProps {
@@ -62,31 +52,41 @@ interface SubBatchListProps {
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-    ASSIGNED_TO_SEWER: { label: "Menunggu Jahit", color: "bg-yellow-100 text-yellow-800", icon: <Clock className="h-3 w-3" /> },
-    IN_SEWING: { label: "Sedang Dijahit", color: "bg-blue-100 text-blue-800", icon: <Play className="h-3 w-3" /> },
-    SEWING_COMPLETED: { label: "Jahit Selesai", color: "bg-green-100 text-green-800", icon: <CheckCircle2 className="h-3 w-3" /> },
-    ASSIGNED_TO_FINISHING: { label: "Menunggu Finishing", color: "bg-yellow-100 text-yellow-800", icon: <Clock className="h-3 w-3" /> },
-    IN_FINISHING: { label: "Sedang Finishing", color: "bg-blue-100 text-blue-800", icon: <Play className="h-3 w-3" /> },
-    FINISHING_COMPLETED: { label: "Finishing Selesai", color: "bg-green-100 text-green-800", icon: <CheckCircle2 className="h-3 w-3" /> },
-    SUBMITTED_TO_WAREHOUSE: { label: "Diserahkan ke Gudang", color: "bg-purple-100 text-purple-800", icon: <Package className="h-3 w-3" /> },
-    WAREHOUSE_VERIFIED: { label: "Terverifikasi Gudang", color: "bg-green-100 text-green-800", icon: <CheckCircle2 className="h-3 w-3" /> },
-    COMPLETED: { label: "Selesai", color: "bg-gray-100 text-gray-800", icon: <CheckCircle2 className="h-3 w-3" /> },
+    CREATED: {
+        label: "Menunggu Verifikasi Ka. Prod",
+        color: "bg-yellow-100 text-yellow-800",
+        icon: <Clock className="h-3 w-3" />
+    },
+    SUBMITTED_TO_WAREHOUSE: {
+        label: "Diserahkan ke Gudang",
+        color: "bg-purple-100 text-purple-800",
+        icon: <Package className="h-3 w-3" />
+    },
+    WAREHOUSE_VERIFIED: {
+        label: "Terverifikasi Gudang",
+        color: "bg-green-100 text-green-800",
+        icon: <CheckCircle2 className="h-3 w-3" />
+    },
+    COMPLETED: {
+        label: "Selesai",
+        color: "bg-gray-100 text-gray-800",
+        icon: <CheckCircle2 className="h-3 w-3" />
+    },
 }
 
+/**
+ * Komponen untuk menampilkan daftar Sub-Batch di tahap Finishing
+ * 
+ * Workflow baru:
+ * 1. CREATED - Sub-batch dibuat dari hasil finishing, menunggu verifikasi Ka. Prod
+ * 2. SUBMITTED_TO_WAREHOUSE - Ka. Prod menyerahkan ke gudang
+ * 3. WAREHOUSE_VERIFIED - Ka. Gudang memverifikasi
+ * 4. COMPLETED - Selesai
+ */
 export function SubBatchList({ batchId, onRefresh }: SubBatchListProps) {
     const [subBatches, setSubBatches] = useState<SubBatch[]>([])
     const [loading, setLoading] = useState(true)
     const [expandedId, setExpandedId] = useState<string | null>(null)
-
-    // Dialog states
-    const [showInputDialog, setShowInputDialog] = useState(false)
-    const [showAssignFinisherDialog, setShowAssignFinisherDialog] = useState(false)
-    const [selectedSubBatch, setSelectedSubBatch] = useState<SubBatch | null>(null)
-    const [inputType, setInputType] = useState<"sewing" | "finishing">("sewing")
-    const [itemInputs, setItemInputs] = useState<Record<string, number>>({})
-    const [rejectCount, setRejectCount] = useState(0)
-    const [finishers, setFinishers] = useState<Finisher[]>([])
-    const [selectedFinisherId, setSelectedFinisherId] = useState("")
     const [processing, setProcessing] = useState(false)
 
     const fetchSubBatches = useCallback(async () => {
@@ -107,25 +107,13 @@ export function SubBatchList({ batchId, onRefresh }: SubBatchListProps) {
         fetchSubBatches()
     }, [fetchSubBatches])
 
-    const fetchFinishers = async () => {
-        try {
-            const response = await fetch("/api/users/finishers")
-            const result = await response.json()
-            if (result.success) {
-                setFinishers(result.data)
-            }
-        } catch (error) {
-            console.error("Error fetching finishers:", error)
-        }
-    }
-
-    const handleAction = async (subBatch: SubBatch, action: string, body?: Record<string, unknown>) => {
+    const handleAction = async (subBatch: SubBatch, action: string) => {
         setProcessing(true)
         try {
             const response = await fetch(`/api/production-batches/${batchId}/sub-batches/${subBatch.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action, ...body }),
+                body: JSON.stringify({ action }),
             })
 
             const result = await response.json()
@@ -145,61 +133,12 @@ export function SubBatchList({ batchId, onRefresh }: SubBatchListProps) {
         }
     }
 
-    const openInputDialog = (subBatch: SubBatch, type: "sewing" | "finishing") => {
-        setSelectedSubBatch(subBatch)
-        setInputType(type)
-
-        // Initialize with current values or assigned pieces
-        const inputs: Record<string, number> = {}
-        for (const item of subBatch.items) {
-            if (type === "sewing") {
-                inputs[item.id] = item.sewingOutput || item.piecesAssigned
-            } else {
-                inputs[item.id] = item.finishingOutput || item.sewingOutput
-            }
-        }
-        setItemInputs(inputs)
-        setRejectCount(type === "sewing" ? subBatch.sewingReject : subBatch.finishingReject)
-        setShowInputDialog(true)
+    const getTotalReject = (subBatch: SubBatch) => {
+        return subBatch.rejectKotor + subBatch.rejectSobek + subBatch.rejectRusakJahit
     }
 
-    const handleInputSubmit = async () => {
-        if (!selectedSubBatch) return
-
-        const items = selectedSubBatch.items.map((item) => ({
-            id: item.id,
-            [inputType === "sewing" ? "sewingOutput" : "finishingOutput"]: itemInputs[item.id] || 0,
-        }))
-
-        await handleAction(
-            selectedSubBatch,
-            inputType === "sewing" ? "INPUT_SEWING_RESULT" : "INPUT_FINISHING_RESULT",
-            {
-                items,
-                [inputType === "sewing" ? "sewingReject" : "finishingReject"]: rejectCount,
-            }
-        )
-
-        setShowInputDialog(false)
-        setSelectedSubBatch(null)
-    }
-
-    const openAssignFinisherDialog = async (subBatch: SubBatch) => {
-        setSelectedSubBatch(subBatch)
-        setSelectedFinisherId("")
-        await fetchFinishers()
-        setShowAssignFinisherDialog(true)
-    }
-
-    const handleAssignFinisher = async () => {
-        if (!selectedSubBatch || !selectedFinisherId) return
-
-        await handleAction(selectedSubBatch, "ASSIGN_FINISHING", {
-            finisherId: selectedFinisherId,
-        })
-
-        setShowAssignFinisherDialog(false)
-        setSelectedSubBatch(null)
+    const getGrandTotal = (subBatch: SubBatch) => {
+        return subBatch.finishingGoodOutput + getTotalReject(subBatch)
     }
 
     if (loading) {
@@ -207,19 +146,73 @@ export function SubBatchList({ batchId, onRefresh }: SubBatchListProps) {
     }
 
     if (subBatches.length === 0) {
-        return null
+        return (
+            <Card className="border-dashed">
+                <CardContent className="py-8 text-center text-muted-foreground">
+                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Belum ada sub-batch hasil finishing</p>
+                    <p className="text-sm">Buat sub-batch untuk mengirim hasil finishing ke gudang</p>
+                </CardContent>
+            </Card>
+        )
     }
+
+    // Calculate summary
+    const summary = subBatches.reduce(
+        (acc, sb) => ({
+            total: acc.total + 1,
+            goodOutput: acc.goodOutput + sb.finishingGoodOutput,
+            rejectKotor: acc.rejectKotor + sb.rejectKotor,
+            rejectSobek: acc.rejectSobek + sb.rejectSobek,
+            rejectRusakJahit: acc.rejectRusakJahit + sb.rejectRusakJahit,
+            verified: acc.verified + (sb.status === "WAREHOUSE_VERIFIED" || sb.status === "COMPLETED" ? 1 : 0),
+        }),
+        { total: 0, goodOutput: 0, rejectKotor: 0, rejectSobek: 0, rejectRusakJahit: 0, verified: 0 }
+    )
 
     return (
         <div className="space-y-4">
-            <h3 className="font-semibold text-lg flex items-center gap-2">
-                <Scissors className="h-5 w-5" />
-                Sub-Batch ({subBatches.length})
-            </h3>
+            {/* Summary Card */}
+            <Card className="bg-muted">
+                <CardHeader className="py-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                        <Package className="h-5 w-5" />
+                        Sub-Batch Hasil Finishing ({summary.verified}/{summary.total} terverifikasi)
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="py-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center">
+                        <div>
+                            <p className="text-2xl font-bold text-green-600">{summary.goodOutput}</p>
+                            <p className="text-xs text-muted-foreground">Barang Jadi</p>
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-yellow-600">{summary.rejectKotor}</p>
+                            <p className="text-xs text-muted-foreground">Kotor</p>
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-red-600">{summary.rejectSobek}</p>
+                            <p className="text-xs text-muted-foreground">Sobek</p>
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-red-600">{summary.rejectRusakJahit}</p>
+                            <p className="text-xs text-muted-foreground">Rusak Jahit</p>
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold">
+                                {summary.goodOutput + summary.rejectKotor + summary.rejectSobek + summary.rejectRusakJahit}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Total</p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
+            {/* Sub-batch list */}
             {subBatches.map((subBatch) => {
                 const status = statusConfig[subBatch.status] || statusConfig.COMPLETED
                 const isExpanded = expandedId === subBatch.id
+                const totalReject = getTotalReject(subBatch)
 
                 return (
                     <Card key={subBatch.id} className="overflow-hidden">
@@ -233,8 +226,8 @@ export function SubBatchList({ batchId, onRefresh }: SubBatchListProps) {
                                     <div>
                                         <CardTitle className="text-sm">{subBatch.subBatchSku}</CardTitle>
                                         <CardDescription className="text-xs">
-                                            Penjahit: {subBatch.assignedSewer.name}
-                                            {subBatch.assignedFinisher && ` → Finishing: ${subBatch.assignedFinisher.name}`}
+                                            Dibuat: {new Date(subBatch.createdAt).toLocaleDateString("id-ID")}
+                                            {subBatch.warehouseVerifiedBy && ` • Verifikasi: ${subBatch.warehouseVerifiedBy.name}`}
                                         </CardDescription>
                                     </div>
                                 </div>
@@ -243,9 +236,15 @@ export function SubBatchList({ batchId, onRefresh }: SubBatchListProps) {
                                         {status.icon}
                                         <span className="ml-1">{status.label}</span>
                                     </Badge>
-                                    <Badge variant="outline">
-                                        {subBatch.finishingOutput || subBatch.sewingOutput || subBatch.piecesAssigned} pcs
+                                    <Badge variant="outline" className="text-green-600">
+                                        {subBatch.finishingGoodOutput} good
                                     </Badge>
+                                    {totalReject > 0 && (
+                                        <Badge variant="outline" className="text-red-600">
+                                            <AlertTriangle className="h-3 w-3 mr-1" />
+                                            {totalReject} reject
+                                        </Badge>
+                                    )}
                                 </div>
                             </div>
                         </CardHeader>
@@ -258,9 +257,11 @@ export function SubBatchList({ batchId, onRefresh }: SubBatchListProps) {
                                         <TableRow>
                                             <TableHead>Ukuran</TableHead>
                                             <TableHead>Warna</TableHead>
-                                            <TableHead className="text-right">Assigned</TableHead>
-                                            <TableHead className="text-right">Jahit</TableHead>
-                                            <TableHead className="text-right">Finishing</TableHead>
+                                            <TableHead className="text-right text-green-600">Good</TableHead>
+                                            <TableHead className="text-right text-yellow-600">Kotor</TableHead>
+                                            <TableHead className="text-right text-red-600">Sobek</TableHead>
+                                            <TableHead className="text-right text-red-600">Rusak Jahit</TableHead>
+                                            <TableHead className="text-right">Total</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -268,110 +269,38 @@ export function SubBatchList({ batchId, onRefresh }: SubBatchListProps) {
                                             <TableRow key={item.id}>
                                                 <TableCell>{item.productSize}</TableCell>
                                                 <TableCell>{item.color}</TableCell>
-                                                <TableCell className="text-right">{item.piecesAssigned}</TableCell>
-                                                <TableCell className="text-right">{item.sewingOutput || "-"}</TableCell>
-                                                <TableCell className="text-right">{item.finishingOutput || "-"}</TableCell>
+                                                <TableCell className="text-right text-green-600">{item.goodQuantity}</TableCell>
+                                                <TableCell className="text-right text-yellow-600">{item.rejectKotor || "-"}</TableCell>
+                                                <TableCell className="text-right text-red-600">{item.rejectSobek || "-"}</TableCell>
+                                                <TableCell className="text-right text-red-600">{item.rejectRusakJahit || "-"}</TableCell>
+                                                <TableCell className="text-right font-semibold">
+                                                    {item.goodQuantity + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0)}
+                                                </TableCell>
                                             </TableRow>
                                         ))}
-                                        <TableRow className="font-semibold">
+                                        <TableRow className="font-semibold bg-muted">
                                             <TableCell colSpan={2}>Total</TableCell>
-                                            <TableCell className="text-right">{subBatch.piecesAssigned}</TableCell>
-                                            <TableCell className="text-right">
-                                                {subBatch.sewingOutput || "-"}
-                                                {subBatch.sewingReject > 0 && (
-                                                    <span className="text-destructive text-xs ml-1">(-{subBatch.sewingReject})</span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                {subBatch.finishingOutput || "-"}
-                                                {subBatch.finishingReject > 0 && (
-                                                    <span className="text-destructive text-xs ml-1">(-{subBatch.finishingReject})</span>
-                                                )}
-                                            </TableCell>
+                                            <TableCell className="text-right text-green-600">{subBatch.finishingGoodOutput}</TableCell>
+                                            <TableCell className="text-right text-yellow-600">{subBatch.rejectKotor || "-"}</TableCell>
+                                            <TableCell className="text-right text-red-600">{subBatch.rejectSobek || "-"}</TableCell>
+                                            <TableCell className="text-right text-red-600">{subBatch.rejectRusakJahit || "-"}</TableCell>
+                                            <TableCell className="text-right">{getGrandTotal(subBatch)}</TableCell>
                                         </TableRow>
                                     </TableBody>
                                 </Table>
 
+                                {/* Notes */}
+                                {subBatch.notes && (
+                                    <div className="bg-muted p-3 rounded-md">
+                                        <p className="text-sm text-muted-foreground">
+                                            <strong>Catatan:</strong> {subBatch.notes}
+                                        </p>
+                                    </div>
+                                )}
+
                                 {/* Actions */}
                                 <div className="flex flex-wrap gap-2">
-                                    {subBatch.status === "ASSIGNED_TO_SEWER" && (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => openInputDialog(subBatch, "sewing")}
-                                            disabled={processing}
-                                        >
-                                            <Shirt className="h-4 w-4 mr-1" />
-                                            Input Hasil Jahit
-                                        </Button>
-                                    )}
-
-                                    {subBatch.status === "IN_SEWING" && (
-                                        <>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => openInputDialog(subBatch, "sewing")}
-                                                disabled={processing}
-                                            >
-                                                <Shirt className="h-4 w-4 mr-1" />
-                                                Update Hasil Jahit
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                onClick={() => handleAction(subBatch, "CONFIRM_SEWING")}
-                                                disabled={processing || subBatch.sewingOutput === 0}
-                                            >
-                                                <CheckCircle2 className="h-4 w-4 mr-1" />
-                                                Konfirmasi Jahit
-                                            </Button>
-                                        </>
-                                    )}
-
-                                    {subBatch.status === "SEWING_COMPLETED" && (
-                                        <Button
-                                            size="sm"
-                                            onClick={() => openAssignFinisherDialog(subBatch)}
-                                            disabled={processing}
-                                        >
-                                            <UserPlus className="h-4 w-4 mr-1" />
-                                            Assign ke Finishing
-                                        </Button>
-                                    )}
-
-                                    {subBatch.status === "ASSIGNED_TO_FINISHING" && (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => openInputDialog(subBatch, "finishing")}
-                                            disabled={processing}
-                                        >
-                                            Input Hasil Finishing
-                                        </Button>
-                                    )}
-
-                                    {subBatch.status === "IN_FINISHING" && (
-                                        <>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => openInputDialog(subBatch, "finishing")}
-                                                disabled={processing}
-                                            >
-                                                Update Hasil Finishing
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                onClick={() => handleAction(subBatch, "CONFIRM_FINISHING")}
-                                                disabled={processing || subBatch.finishingOutput === 0}
-                                            >
-                                                <CheckCircle2 className="h-4 w-4 mr-1" />
-                                                Konfirmasi Finishing
-                                            </Button>
-                                        </>
-                                    )}
-
-                                    {subBatch.status === "FINISHING_COMPLETED" && (
+                                    {subBatch.status === "CREATED" && (
                                         <Button
                                             size="sm"
                                             onClick={() => handleAction(subBatch, "SUBMIT_TO_WAREHOUSE")}
@@ -388,113 +317,43 @@ export function SubBatchList({ batchId, onRefresh }: SubBatchListProps) {
                                             onClick={() => handleAction(subBatch, "VERIFY_WAREHOUSE")}
                                             disabled={processing}
                                         >
-                                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                                            <Warehouse className="h-4 w-4 mr-1" />
                                             Verifikasi Gudang
                                         </Button>
                                     )}
+
+                                    {(subBatch.status === "WAREHOUSE_VERIFIED" || subBatch.status === "COMPLETED") && (
+                                        <Badge className="bg-green-100 text-green-800">
+                                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                                            Selesai
+                                        </Badge>
+                                    )}
                                 </div>
+
+                                {/* Reject info */}
+                                {totalReject > 0 && (
+                                    <div className="bg-amber-50 border border-amber-200 p-3 rounded-md">
+                                        <p className="text-sm text-amber-800">
+                                            <strong>Penanganan Reject:</strong>
+                                        </p>
+                                        <ul className="text-sm text-amber-700 mt-1 space-y-1">
+                                            {subBatch.rejectKotor > 0 && (
+                                                <li>• {subBatch.rejectKotor} pcs kotor → Re-produksi dengan dicuci di gudang</li>
+                                            )}
+                                            {subBatch.rejectSobek > 0 && (
+                                                <li>• {subBatch.rejectSobek} pcs sobek → Simpan di Bad Stock (BS)</li>
+                                            )}
+                                            {subBatch.rejectRusakJahit > 0 && (
+                                                <li>• {subBatch.rejectRusakJahit} pcs rusak jahit → Simpan di Bad Stock (BS)</li>
+                                            )}
+                                        </ul>
+                                    </div>
+                                )}
                             </CardContent>
                         )}
                     </Card>
                 )
             })}
-
-            {/* Input Dialog */}
-            <Dialog open={showInputDialog} onOpenChange={setShowInputDialog}>
-                <DialogContent className="max-w-[95vw] sm:max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle>
-                            Input Hasil {inputType === "sewing" ? "Jahitan" : "Finishing"}
-                        </DialogTitle>
-                        <DialogDescription>
-                            {selectedSubBatch?.subBatchSku}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-4">
-                        {selectedSubBatch?.items.map((item) => (
-                            <div key={item.id} className="flex items-center gap-4">
-                                <Label className="w-24">
-                                    {item.productSize} {item.color}
-                                </Label>
-                                <Input
-                                    type="number"
-                                    value={itemInputs[item.id] || 0}
-                                    onChange={(e) => setItemInputs({
-                                        ...itemInputs,
-                                        [item.id]: parseInt(e.target.value) || 0,
-                                    })}
-                                    className="w-24"
-                                    min={0}
-                                    max={inputType === "sewing" ? item.piecesAssigned : item.sewingOutput}
-                                />
-                                <span className="text-sm text-muted-foreground">
-                                    / {inputType === "sewing" ? item.piecesAssigned : item.sewingOutput}
-                                </span>
-                            </div>
-                        ))}
-
-                        <div className="flex items-center gap-4 pt-2 border-t">
-                            <Label className="w-24">Reject</Label>
-                            <Input
-                                type="number"
-                                value={rejectCount}
-                                onChange={(e) => setRejectCount(parseInt(e.target.value) || 0)}
-                                className="w-24"
-                                min={0}
-                            />
-                            <span className="text-sm text-muted-foreground">pcs</span>
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowInputDialog(false)}>
-                            Batal
-                        </Button>
-                        <Button onClick={handleInputSubmit} disabled={processing}>
-                            {processing ? "Menyimpan..." : "Simpan"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Assign Finisher Dialog */}
-            <Dialog open={showAssignFinisherDialog} onOpenChange={setShowAssignFinisherDialog}>
-                <DialogContent className="max-w-[95vw] sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Assign ke Finishing</DialogTitle>
-                        <DialogDescription>
-                            {selectedSubBatch?.subBatchSku} - {selectedSubBatch?.sewingOutput} pcs
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Pilih Finisher</Label>
-                            <Select
-                                value={selectedFinisherId}
-                                onChange={(e) => setSelectedFinisherId(e.target.value)}
-                            >
-                                <option value="">Pilih Finisher</option>
-                                {finishers.map((finisher) => (
-                                    <option key={finisher.id} value={finisher.id}>
-                                        {finisher.name} ({finisher.username})
-                                    </option>
-                                ))}
-                            </Select>
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowAssignFinisherDialog(false)}>
-                            Batal
-                        </Button>
-                        <Button onClick={handleAssignFinisher} disabled={processing || !selectedFinisherId}>
-                            {processing ? "Menyimpan..." : "Assign"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     )
 }

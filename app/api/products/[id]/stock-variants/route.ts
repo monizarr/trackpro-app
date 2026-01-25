@@ -43,8 +43,10 @@ export async function GET(
               select: {
                 productSize: true,
                 color: true,
-                piecesAssigned: true,
-                finishingOutput: true,
+                goodQuantity: true, // Updated field name from piecesAssigned
+                rejectKotor: true,
+                rejectSobek: true,
+                rejectRusakJahit: true,
               },
             },
           },
@@ -87,18 +89,6 @@ export async function GET(
       if (fg.subBatch && fg.subBatch.items && fg.subBatch.items.length > 0) {
         const items = fg.subBatch.items;
 
-        // Calculate totals for distribution
-        const totalItemsOutput = items.reduce(
-          (sum, i) => sum + (i.finishingOutput ?? 0),
-          0,
-        );
-        const totalAssigned = items.reduce(
-          (sum, i) => sum + (i.piecesAssigned ?? 0),
-          0,
-        );
-
-        const useItemsOutput = totalItemsOutput > 0;
-
         for (const item of items) {
           const key = `${item.color}-${item.productSize}`;
           if (!stockMap[key]) {
@@ -110,15 +100,8 @@ export async function GET(
             };
           }
 
-          let itemQuantity = 0;
-          if (useItemsOutput) {
-            itemQuantity = item.finishingOutput ?? 0;
-          } else if (totalAssigned > 0) {
-            const proportion = (item.piecesAssigned ?? 0) / totalAssigned;
-            itemQuantity = Math.round(fgQuantity * proportion);
-          } else if (items.length === 1) {
-            itemQuantity = fgQuantity;
-          }
+          // Use goodQuantity directly as that's the finished good count
+          const itemQuantity = item.goodQuantity ?? 0;
 
           stockMap[key].quantity += itemQuantity;
           if (!stockMap[key].batches.includes(fg.batch.batchSku)) {
@@ -160,7 +143,8 @@ export async function GET(
         fg.batch.sizeColorRequests.length > 0
       ) {
         const totalRequested = fg.batch.sizeColorRequests.reduce(
-          (sum, r) => sum + (r.requestedPieces ?? 0),
+          (sum: number, r: { requestedPieces?: number }) =>
+            sum + (r.requestedPieces ?? 0),
           0,
         );
 

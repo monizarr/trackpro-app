@@ -6,7 +6,7 @@ import { SubBatchStatus } from "@prisma/client";
 // POST - Verify sub-batch warehouse (simpan sebagai finished goods)
 export async function POST(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await requireRole(["OWNER", "KEPALA_GUDANG"]);
@@ -18,7 +18,7 @@ export async function POST(
     if (!goodsLocation?.trim()) {
       return NextResponse.json(
         { success: false, error: "Lokasi penyimpanan harus diisi" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -35,14 +35,13 @@ export async function POST(
           },
         },
         items: true,
-        assignedFinisher: { select: { name: true } },
       },
     });
 
     if (!subBatch) {
       return NextResponse.json(
         { success: false, error: "Sub-batch tidak ditemukan" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -52,7 +51,7 @@ export async function POST(
           success: false,
           error: `Sub-batch harus berstatus SUBMITTED_TO_WAREHOUSE. Status saat ini: ${subBatch.status}`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -73,14 +72,14 @@ export async function POST(
 
       // Create finished goods for good pieces
       let finishedGood = null;
-      if (subBatch.finishingOutput > 0) {
+      if (subBatch.finishingGoodOutput > 0) {
         finishedGood = await tx.finishedGood.create({
           data: {
             batchId: subBatch.batch.id,
             productId: subBatch.batch.productId,
             subBatchId: subBatchId,
             type: "FINISHED",
-            quantity: subBatch.finishingOutput,
+            quantity: subBatch.finishingGoodOutput,
             location: goodsLocation,
             notes: `Sub-batch: ${subBatch.subBatchSku}. ${
               warehouseNotes || ""
@@ -91,9 +90,10 @@ export async function POST(
         });
       }
 
-      // Create reject goods if any
+      // Create reject goods if any (categorized by type)
+      const totalReject =
+        subBatch.rejectKotor + subBatch.rejectSobek + subBatch.rejectRusakJahit;
       let rejectGood = null;
-      const totalReject = subBatch.sewingReject + subBatch.finishingReject;
       if (totalReject > 0) {
         rejectGood = await tx.finishedGood.create({
           data: {
@@ -103,7 +103,7 @@ export async function POST(
             type: "REJECT",
             quantity: totalReject,
             location: goodsLocation,
-            notes: `Sub-batch: ${subBatch.subBatchSku}. Sewing reject: ${subBatch.sewingReject}, Finishing reject: ${subBatch.finishingReject}`,
+            notes: `Sub-batch: ${subBatch.subBatchSku}. Kotor: ${subBatch.rejectKotor}, Sobek: ${subBatch.rejectSobek}, Rusak Jahit: ${subBatch.rejectRusakJahit}`,
             verifiedById: session.user.id,
             verifiedAt: new Date(),
           },
@@ -115,7 +115,7 @@ export async function POST(
         data: {
           subBatchId,
           event: "WAREHOUSE_VERIFIED",
-          details: `Diverifikasi gudang oleh ${session.user.name}. Good: ${subBatch.finishingOutput}, Reject: ${totalReject}. Lokasi: ${goodsLocation}`,
+          details: `Diverifikasi gudang oleh ${session.user.name}. Good: ${subBatch.finishingGoodOutput}, Reject: ${totalReject} (Kotor: ${subBatch.rejectKotor}, Sobek: ${subBatch.rejectSobek}, Rusak Jahit: ${subBatch.rejectRusakJahit}). Lokasi: ${goodsLocation}`,
         },
       });
 
@@ -128,19 +128,20 @@ export async function POST(
         (sb) =>
           sb.id === subBatchId ||
           sb.status === SubBatchStatus.WAREHOUSE_VERIFIED ||
-          sb.status === SubBatchStatus.COMPLETED
+          sb.status === SubBatchStatus.COMPLETED,
       );
 
       // If all verified, update main batch status
       if (allVerified) {
         // Calculate totals
         const totalFinished = allSubBatches.reduce(
-          (sum, sb) => sum + sb.finishingOutput,
-          0
+          (sum, sb) => sum + sb.finishingGoodOutput,
+          0,
         );
-        const totalReject = allSubBatches.reduce(
-          (sum, sb) => sum + sb.sewingReject + sb.finishingReject,
-          0
+        const totalRejectAll = allSubBatches.reduce(
+          (sum, sb) =>
+            sum + sb.rejectKotor + sb.rejectSobek + sb.rejectRusakJahit,
+          0,
         );
 
         await tx.productionBatch.update({
@@ -148,7 +149,7 @@ export async function POST(
           data: {
             status: "WAREHOUSE_VERIFIED",
             actualQuantity: totalFinished,
-            rejectQuantity: totalReject,
+            rejectQuantity: totalRejectAll,
           },
         });
 
@@ -156,7 +157,7 @@ export async function POST(
           data: {
             batchId: subBatch.batch.id,
             event: "WAREHOUSE_VERIFIED",
-            details: `Semua sub-batch diverifikasi gudang. Total finished: ${totalFinished}, Total reject: ${totalReject}`,
+            details: `Semua sub-batch diverifikasi gudang. Total finished: ${totalFinished}, Total reject: ${totalRejectAll}`,
           },
         });
       }
@@ -177,7 +178,7 @@ export async function POST(
     console.error("Error verifying sub-batch warehouse:", error);
     return NextResponse.json(
       { success: false, error: "Gagal memverifikasi sub-batch" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

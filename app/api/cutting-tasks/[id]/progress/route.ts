@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 export async function PATCH(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const params = await context.params;
@@ -29,7 +29,7 @@ export async function PATCH(
     if (!user || user.role !== "PEMOTONG") {
       return NextResponse.json(
         { error: "Only PEMOTONG can update progress" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -41,7 +41,7 @@ export async function PATCH(
     if (!cuttingResults || !Array.isArray(cuttingResults)) {
       return NextResponse.json(
         { error: "Cutting results are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -64,21 +64,21 @@ export async function PATCH(
     if (task.assignedToId !== user.id) {
       return NextResponse.json(
         { error: "Task not assigned to you" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     if (task.status !== "IN_PROGRESS") {
       return NextResponse.json(
         { error: `Cannot update progress for task with status ${task.status}` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Calculate total actual pieces
     const totalActualPieces = cuttingResults.reduce(
       (sum: number, r: any) => sum + (r.actualPieces || 0),
-      0
+      0,
     );
 
     // Update in transaction
@@ -124,7 +124,6 @@ export async function PATCH(
         where: { id: taskId },
         data: {
           piecesCompleted: totalActualPieces,
-          rejectPieces: 0,
           wasteQty: null,
           notes: notes || null,
         },
@@ -138,7 +137,7 @@ export async function PATCH(
     console.error("Error updating cutting task progress:", error);
     return NextResponse.json(
       { error: "Failed to update progress" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

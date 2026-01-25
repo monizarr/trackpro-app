@@ -4,9 +4,15 @@ import { requireRole } from "@/lib/auth-helpers";
 import { SubBatchStatus } from "@prisma/client";
 
 // GET - List sub-batches with optional status filter
+// Sub-batches are created at FINISHING stage for tracking partial delivery to warehouse
 export async function GET(request: Request) {
   try {
-    await requireRole(["OWNER", "KEPALA_PRODUKSI", "KEPALA_GUDANG"]);
+    await requireRole([
+      "OWNER",
+      "KEPALA_PRODUKSI",
+      "KEPALA_GUDANG",
+      "FINISHING",
+    ]);
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
@@ -31,12 +37,6 @@ export async function GET(request: Request) {
             },
           },
         },
-        assignedSewer: {
-          select: { id: true, name: true, username: true },
-        },
-        assignedFinisher: {
-          select: { id: true, name: true, username: true },
-        },
         warehouseVerifiedBy: {
           select: { id: true, name: true, username: true },
         },
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     console.error("Error fetching sub-batches:", error);
     return NextResponse.json(
       { success: false, error: "Failed to fetch sub-batches" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

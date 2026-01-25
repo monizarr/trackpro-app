@@ -102,6 +102,12 @@ interface Batch {
             role: string
         }
     }>
+    // Hasil jahitan untuk diproses di tahap finishing
+    sewingOutputs?: Array<{
+        productSize: string
+        color: string
+        quantity: number
+    }>
     subBatches?: SubBatch[]
 }
 
@@ -173,25 +179,22 @@ interface SubBatchItem {
     id: string
     productSize: string
     color: string
-    pieces: number
+    goodQuantity: number
+    rejectKotor: number
+    rejectSobek: number
+    rejectRusakJahit: number
 }
 
 interface SubBatch {
     id: string
     subBatchSku: string
-    piecesAssigned: number
-    sewingOutput: number
-    sewingReject: number
-    finishingOutput: number
-    finishingReject: number
+    finishingGoodOutput: number
+    rejectKotor: number
+    rejectSobek: number
+    rejectRusakJahit: number
     status: string
     createdAt: string
-    assignedSewer?: {
-        id: string
-        name: string
-        username: string
-    }
-    assignedFinisher?: {
+    warehouseVerifiedBy?: {
         id: string
         name: string
         username: string
@@ -897,14 +900,18 @@ export default function BatchManagementPage() {
                 onSuccess={fetchBatches}
             />
 
-            {/* Create Sub-Batch Dialog (Assign to multiple sewers) */}
+            {/* Create Sub-Batch Dialog (Input hasil finishing untuk partial delivery ke gudang) */}
             {subBatchBatch && (
                 <CreateSubBatchDialog
                     open={showSubBatchDialog}
                     onOpenChange={setShowSubBatchDialog}
                     batchId={subBatchBatch.id}
                     batchSku={subBatchBatch.batchSku}
-                    cuttingResults={subBatchBatch.cuttingResults || []}
+                    sewingOutputs={subBatchBatch.sewingOutputs || (subBatchBatch.cuttingResults?.map(cr => ({
+                        productSize: cr.productSize,
+                        color: cr.color,
+                        quantity: cr.actualPieces,
+                    })) || [])}
                     onSuccess={() => {
                         fetchBatches()
                         setSubBatchBatch(null)
@@ -2179,37 +2186,30 @@ export default function BatchManagementPage() {
 
                                                                                                 <div className="grid grid-cols-4 gap-2 text-sm">
                                                                                                     <div>
-                                                                                                        <p className="text-xs text-muted-foreground">Di-assign</p>
-                                                                                                        <p className="font-semibold">{subBatch.piecesAssigned} pcs</p>
+                                                                                                        <p className="text-xs text-muted-foreground">Good</p>
+                                                                                                        <p className="font-semibold text-green-600">{subBatch.finishingGoodOutput} pcs</p>
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <p className="text-xs text-muted-foreground">Jahitan</p>
-                                                                                                        <p className="font-semibold text-blue-600">{subBatch.sewingOutput} pcs</p>
+                                                                                                        <p className="text-xs text-muted-foreground">Kotor</p>
+                                                                                                        <p className="font-semibold text-yellow-600">{subBatch.rejectKotor} pcs</p>
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <p className="text-xs text-muted-foreground">Finishing</p>
-                                                                                                        <p className="font-semibold text-green-600">{subBatch.finishingOutput} pcs</p>
+                                                                                                        <p className="text-xs text-muted-foreground">Sobek</p>
+                                                                                                        <p className="font-semibold text-orange-600">{subBatch.rejectSobek} pcs</p>
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <p className="text-xs text-muted-foreground">Total Reject</p>
-                                                                                                        <p className="font-semibold text-red-600">{subBatch.sewingReject + subBatch.finishingReject} pcs</p>
+                                                                                                        <p className="text-xs text-muted-foreground">Rusak Jahit</p>
+                                                                                                        <p className="font-semibold text-red-600">{subBatch.rejectRusakJahit} pcs</p>
                                                                                                     </div>
                                                                                                 </div>
 
-                                                                                                {/* Assigned Workers */}
+                                                                                                {/* Warehouse Verification */}
                                                                                                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                                                                                                    {subBatch.assignedSewer && (
+                                                                                                    {subBatch.warehouseVerifiedBy && (
                                                                                                         <div className="flex items-center gap-1 text-muted-foreground">
                                                                                                             <Users className="h-3 w-3" />
-                                                                                                            <span>{subBatch.assignedSewer.name}</span>
-                                                                                                            <Badge variant="outline" className="text-xs">Penjahit</Badge>
-                                                                                                        </div>
-                                                                                                    )}
-                                                                                                    {subBatch.assignedFinisher && (
-                                                                                                        <div className="flex items-center gap-1 text-muted-foreground">
-                                                                                                            <Users className="h-3 w-3" />
-                                                                                                            <span>{subBatch.assignedFinisher.name}</span>
-                                                                                                            <Badge variant="outline" className="text-xs">Finisher</Badge>
+                                                                                                            <span>Verified by: {subBatch.warehouseVerifiedBy.name}</span>
+                                                                                                            <Badge variant="outline" className="text-xs">Gudang</Badge>
                                                                                                         </div>
                                                                                                     )}
                                                                                                 </div>
@@ -2225,7 +2225,7 @@ export default function BatchManagementPage() {
                                                                                                                     className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1"
                                                                                                                 >
                                                                                                                     <span>{item.productSize} - {item.color}</span>
-                                                                                                                    <span className="font-semibold">{item.pieces} pcs</span>
+                                                                                                                    <span className="font-semibold">{item.goodQuantity} good</span>
                                                                                                                 </div>
                                                                                                             ))}
                                                                                                         </div>
@@ -2408,37 +2408,30 @@ export default function BatchManagementPage() {
 
                                                                                     <div className="grid grid-cols-2 gap-2 text-xs mb-2">
                                                                                         <div>
-                                                                                            <p className="text-muted-foreground">Di-assign</p>
-                                                                                            <p className="font-semibold">{subBatch.piecesAssigned}</p>
+                                                                                            <p className="text-muted-foreground">Good</p>
+                                                                                            <p className="font-semibold text-green-600">{subBatch.finishingGoodOutput}</p>
                                                                                         </div>
                                                                                         <div>
-                                                                                            <p className="text-muted-foreground">Jahitan</p>
-                                                                                            <p className="font-semibold text-blue-600">{subBatch.sewingOutput}</p>
+                                                                                            <p className="text-muted-foreground">Kotor</p>
+                                                                                            <p className="font-semibold text-yellow-600">{subBatch.rejectKotor}</p>
                                                                                         </div>
                                                                                         <div>
-                                                                                            <p className="text-muted-foreground">Finishing</p>
-                                                                                            <p className="font-semibold text-green-600">{subBatch.finishingOutput}</p>
+                                                                                            <p className="text-muted-foreground">Sobek</p>
+                                                                                            <p className="font-semibold text-orange-600">{subBatch.rejectSobek}</p>
                                                                                         </div>
                                                                                         <div>
-                                                                                            <p className="text-muted-foreground">Reject</p>
-                                                                                            <p className="font-semibold text-red-600">{subBatch.sewingReject + subBatch.finishingReject}</p>
+                                                                                            <p className="text-muted-foreground">Rusak Jahit</p>
+                                                                                            <p className="font-semibold text-red-600">{subBatch.rejectRusakJahit}</p>
                                                                                         </div>
                                                                                     </div>
 
-                                                                                    {/* Workers */}
+                                                                                    {/* Warehouse Verification */}
                                                                                     <div className="flex flex-col gap-1 text-xs mb-2">
-                                                                                        {subBatch.assignedSewer && (
+                                                                                        {subBatch.warehouseVerifiedBy && (
                                                                                             <div className="flex items-center gap-1 text-muted-foreground">
                                                                                                 <Users className="h-3 w-3" />
-                                                                                                <span>{subBatch.assignedSewer.name}</span>
-                                                                                                <Badge variant="outline" className="text-xs">Penjahit</Badge>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {subBatch.assignedFinisher && (
-                                                                                            <div className="flex items-center gap-1 text-muted-foreground">
-                                                                                                <Users className="h-3 w-3" />
-                                                                                                <span>{subBatch.assignedFinisher.name}</span>
-                                                                                                <Badge variant="outline" className="text-xs">Finisher</Badge>
+                                                                                                <span>Verified by: {subBatch.warehouseVerifiedBy.name}</span>
+                                                                                                <Badge variant="outline" className="text-xs">Gudang</Badge>
                                                                                             </div>
                                                                                         )}
                                                                                     </div>
@@ -2454,7 +2447,7 @@ export default function BatchManagementPage() {
                                                                                                         className="flex items-center justify-between text-xs bg-background rounded px-2 py-1"
                                                                                                     >
                                                                                                         <span>{item.productSize} - {item.color}</span>
-                                                                                                        <span className="font-semibold">{item.pieces} pcs</span>
+                                                                                                        <span className="font-semibold">{item.goodQuantity} good</span>
                                                                                                     </div>
                                                                                                 ))}
                                                                                             </div>

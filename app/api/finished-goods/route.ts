@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     if (!user || user.role !== "KEPALA_GUDANG") {
       return NextResponse.json(
         { error: "Only KEPALA_GUDANG can access finished goods" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -46,12 +46,6 @@ export async function GET(request: Request) {
           select: {
             id: true,
             subBatchSku: true,
-            assignedSewer: {
-              select: { name: true },
-            },
-            assignedFinisher: {
-              select: { name: true },
-            },
           },
         },
         verifiedBy: {
@@ -70,7 +64,7 @@ export async function GET(request: Request) {
     console.error("Error fetching finished goods:", error);
     return NextResponse.json(
       { error: "Failed to fetch finished goods" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

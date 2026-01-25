@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth-helpers";
 // POST input cutting results by Kepala Produksi
 export async function POST(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await requireRole(["OWNER", "KEPALA_PRODUKSI"]);
@@ -22,7 +22,7 @@ export async function POST(
           success: false,
           error: "Cutting results are required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -41,7 +41,7 @@ export async function POST(
           success: false,
           error: "Production batch not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -52,14 +52,14 @@ export async function POST(
           success: false,
           error: `Cannot input cutting results for batch with status ${batch.status}`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Calculate totals
     const totalActualPieces = cuttingResults.reduce(
       (sum: number, r: any) => sum + (r.actualPieces || 0),
-      0
+      0,
     );
 
     // Update batch in transaction
@@ -75,7 +75,6 @@ export async function POST(
           where: { id: cuttingTask.id },
           data: {
             piecesCompleted: totalActualPieces,
-            rejectPieces: 0,
             wasteQty: null,
             notes: notes || null,
             status: "COMPLETED",
@@ -99,7 +98,6 @@ export async function POST(
             assignedToId: firstCutter.id,
             materialReceived: 0, // Will be updated separately
             piecesCompleted: totalActualPieces,
-            rejectPieces: 0,
             wasteQty: null,
             notes: notes || null,
             status: "COMPLETED",
@@ -183,7 +181,7 @@ export async function POST(
         success: false,
         error: "Failed to input cutting results",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

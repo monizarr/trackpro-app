@@ -5,22 +5,21 @@ import { requireRole } from "@/lib/auth-helpers";
 // GET - List sub-batches untuk batch tertentu
 export async function GET(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireRole(["OWNER", "KEPALA_PRODUKSI", "KEPALA_GUDANG"]);
+    await requireRole([
+      "OWNER",
+      "KEPALA_PRODUKSI",
+      "KEPALA_GUDANG",
+      "FINISHING",
+    ]);
     const params = await context.params;
     const { id } = params;
 
     const subBatches = await prisma.subBatch.findMany({
       where: { batchId: id },
       include: {
-        assignedSewer: {
-          select: { id: true, name: true, username: true },
-        },
-        assignedFinisher: {
-          select: { id: true, name: true, username: true },
-        },
         warehouseVerifiedBy: {
           select: { id: true, name: true, username: true },
         },
@@ -41,213 +40,212 @@ export async function GET(
     console.error("Error fetching sub-batches:", error);
     return NextResponse.json(
       { success: false, error: "Failed to fetch sub-batches" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
-// POST - Create sub-batches (assign ke penjahit)
+// POST - Create sub-batch dari hasil finishing (untuk partial delivery ke gudang)
+// Sub-batch dibuat di tahap FINISHING setelah Ka. Finishing input hasil
 export async function POST(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await requireRole(["OWNER", "KEPALA_PRODUKSI"]);
+    const session = await requireRole([
+      "OWNER",
+      "KEPALA_PRODUKSI",
+      "FINISHING",
+    ]);
     const params = await context.params;
     const { id } = params;
     const body = await request.json();
 
-    // Validate request body
-    // Format: { assignments: [{ sewerId: string, items: [{ productSize, color, pieces }] }] }
-    const { assignments } = body;
+    /**
+     * Request body format:
+     * {
+     *   items: [
+     *     { productSize: "M", color: "Putih", goodQuantity: 50, rejectKotor: 2, rejectSobek: 1, rejectRusakJahit: 0 },
+     *     { productSize: "L", color: "Putih", goodQuantity: 30, rejectKotor: 0, rejectSobek: 0, rejectRusakJahit: 1 }
+     *   ],
+     *   notes?: string
+     * }
+     */
+    const { items, notes } = body;
 
-    if (
-      !assignments ||
-      !Array.isArray(assignments) ||
-      assignments.length === 0
-    ) {
+    if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
-        { success: false, error: "Assignments are required" },
-        { status: 400 }
+        { success: false, error: "Items are required" },
+        { status: 400 },
       );
     }
 
-    // Get batch with cutting results
+    // Get batch with finishing task
     const batch = await prisma.productionBatch.findUnique({
       where: { id },
       include: {
-        cuttingResults: {
-          where: { isConfirmed: true },
+        finishingTask: true,
+        sewingTask: true,
+        subBatches: {
+          include: { items: true },
         },
-        subBatches: true,
       },
     });
 
     if (!batch) {
       return NextResponse.json(
         { success: false, error: "Production batch not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-    // Validate batch status - harus CUTTING_VERIFIED
-    if (batch.status !== "CUTTING_VERIFIED") {
+    // Validate batch status - harus IN_FINISHING
+    if (!["IN_FINISHING", "FINISHING_COMPLETED"].includes(batch.status)) {
       return NextResponse.json(
         {
           success: false,
-          error: `Batch harus dalam status CUTTING_VERIFIED untuk di-assign ke penjahit. Status saat ini: ${batch.status}`,
+          error: `Batch harus dalam status IN_FINISHING untuk membuat sub-batch. Status saat ini: ${batch.status}`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Check if sub-batches already exist
-    if (batch.subBatches.length > 0) {
-      return NextResponse.json(
-        { success: false, error: "Sub-batches sudah dibuat untuk batch ini" },
-        { status: 400 }
-      );
-    }
-
-    // Validate total pieces assigned matches cutting results
-    const cuttingResultsMap = new Map<string, number>();
-    for (const result of batch.cuttingResults) {
-      const key = `${result.productSize}-${result.color}`;
-      cuttingResultsMap.set(
-        key,
-        (cuttingResultsMap.get(key) || 0) + result.actualPieces
-      );
-    }
-
-    const assignedPiecesMap = new Map<string, number>();
-    for (const assignment of assignments) {
-      for (const item of assignment.items) {
-        const key = `${item.productSize}-${item.color}`;
-        assignedPiecesMap.set(
-          key,
-          (assignedPiecesMap.get(key) || 0) + item.pieces
-        );
-      }
-    }
-
-    // Check if all cutting results are assigned
-    for (const [key, cuttingPieces] of cuttingResultsMap) {
-      const assignedPieces = assignedPiecesMap.get(key) || 0;
-      if (assignedPieces !== cuttingPieces) {
+    // Validate items
+    for (const item of items) {
+      if (!item.productSize || !item.color) {
         return NextResponse.json(
           {
             success: false,
-            error: `Jumlah pieces untuk ${key} tidak sesuai. Hasil potong: ${cuttingPieces}, Di-assign: ${assignedPieces}`,
+            error: "Setiap item harus memiliki productSize dan color",
           },
-          { status: 400 }
+          { status: 400 },
+        );
+      }
+
+      const totalPieces =
+        (item.goodQuantity || 0) +
+        (item.rejectKotor || 0) +
+        (item.rejectSobek || 0) +
+        (item.rejectRusakJahit || 0);
+
+      if (totalPieces <= 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Item ${item.productSize} ${item.color} harus memiliki quantity > 0`,
+          },
+          { status: 400 },
         );
       }
     }
 
-    // Validate sewers exist and have correct role
-    const sewerIds = [
-      ...new Set(assignments.map((a: { sewerId: string }) => a.sewerId)),
-    ];
-    const sewers = await prisma.user.findMany({
-      where: {
-        id: { in: sewerIds },
-        role: "PENJAHIT",
-        isActive: true,
-      },
-    });
+    // Calculate totals from items
+    let totalGoodOutput = 0;
+    let totalRejectKotor = 0;
+    let totalRejectSobek = 0;
+    let totalRejectRusakJahit = 0;
 
-    if (sewers.length !== sewerIds.length) {
-      return NextResponse.json(
-        { success: false, error: "Satu atau lebih penjahit tidak valid" },
-        { status: 400 }
-      );
+    for (const item of items) {
+      totalGoodOutput += item.goodQuantity || 0;
+      totalRejectKotor += item.rejectKotor || 0;
+      totalRejectSobek += item.rejectSobek || 0;
+      totalRejectRusakJahit += item.rejectRusakJahit || 0;
     }
 
-    // Create sub-batches in transaction
+    // Create sub-batch in transaction
     const result = await prisma.$transaction(async (tx) => {
-      const createdSubBatches = [];
+      // Get next sub-batch number
+      const existingCount = batch.subBatches.length;
+      const subBatchNumber = String(existingCount + 1).padStart(3, "0");
+      const subBatchSku = `${batch.batchSku}-SUB-${subBatchNumber}`;
 
-      for (let i = 0; i < assignments.length; i++) {
-        const assignment = assignments[i];
-        const subBatchNumber = String(i + 1).padStart(3, "0");
-        const subBatchSku = `${batch.batchSku}-SUB-${subBatchNumber}`;
-
-        // Calculate total pieces for this sub-batch
-        const totalPieces = assignment.items.reduce(
-          (sum: number, item: { pieces: number }) => sum + item.pieces,
-          0
-        );
-
-        // Create sub-batch
-        const subBatch = await tx.subBatch.create({
-          data: {
-            subBatchSku,
-            batchId: id,
-            assignedSewerId: assignment.sewerId,
-            piecesAssigned: totalPieces,
-            status: "ASSIGNED_TO_SEWER",
-            notes: assignment.notes || null,
-            items: {
-              create: assignment.items.map(
-                (item: {
-                  productSize: string;
-                  color: string;
-                  pieces: number;
-                }) => ({
-                  productSize: item.productSize,
-                  color: item.color,
-                  piecesAssigned: item.pieces,
-                })
-              ),
-            },
-            timeline: {
-              create: {
-                event: "SUB_BATCH_CREATED",
-                details: `Sub-batch dibuat dan ditugaskan ke penjahit oleh ${session.user.name}`,
-              },
-            },
-          },
-          include: {
-            items: true,
-            assignedSewer: {
-              select: { id: true, name: true, username: true },
-            },
-          },
-        });
-
-        createdSubBatches.push(subBatch);
-      }
-
-      // Update batch status
-      await tx.productionBatch.update({
-        where: { id },
+      // Create sub-batch
+      const subBatch = await tx.subBatch.create({
         data: {
-          status: "ASSIGNED_TO_SEWER",
+          subBatchSku,
+          batchId: id,
+          finishingGoodOutput: totalGoodOutput,
+          rejectKotor: totalRejectKotor,
+          rejectSobek: totalRejectSobek,
+          rejectRusakJahit: totalRejectRusakJahit,
+          status: "CREATED",
+          notes: notes || null,
+          items: {
+            create: items.map(
+              (item: {
+                productSize: string;
+                color: string;
+                goodQuantity?: number;
+                rejectKotor?: number;
+                rejectSobek?: number;
+                rejectRusakJahit?: number;
+              }) => ({
+                productSize: item.productSize,
+                color: item.color,
+                goodQuantity: item.goodQuantity || 0,
+                rejectKotor: item.rejectKotor || 0,
+                rejectSobek: item.rejectSobek || 0,
+                rejectRusakJahit: item.rejectRusakJahit || 0,
+              }),
+            ),
+          },
+          timeline: {
+            create: {
+              event: "SUB_BATCH_CREATED",
+              details: `Sub-batch hasil finishing dibuat oleh ${session.user.name}. Good: ${totalGoodOutput}, Kotor: ${totalRejectKotor}, Sobek: ${totalRejectSobek}, Rusak Jahit: ${totalRejectRusakJahit}`,
+            },
+          },
+        },
+        include: {
+          items: true,
         },
       });
+
+      // Update finishing task totals
+      if (batch.finishingTask) {
+        const currentCompleted = batch.finishingTask.piecesCompleted;
+        const currentRejectKotor = batch.finishingTask.rejectKotor;
+        const currentRejectSobek = batch.finishingTask.rejectSobek;
+        const currentRejectRusakJahit = batch.finishingTask.rejectRusakJahit;
+
+        await tx.finishingTask.update({
+          where: { id: batch.finishingTask.id },
+          data: {
+            piecesCompleted:
+              currentCompleted +
+              totalGoodOutput +
+              totalRejectKotor +
+              totalRejectSobek +
+              totalRejectRusakJahit,
+            rejectKotor: currentRejectKotor + totalRejectKotor,
+            rejectSobek: currentRejectSobek + totalRejectSobek,
+            rejectRusakJahit: currentRejectRusakJahit + totalRejectRusakJahit,
+          },
+        });
+      }
 
       // Create timeline entry for main batch
       await tx.batchTimeline.create({
         data: {
           batchId: id,
-          event: "SUB_BATCHES_CREATED",
-          details: `${createdSubBatches.length} sub-batch dibuat dan ditugaskan ke penjahit oleh ${session.user.name}`,
+          event: "SUB_BATCH_CREATED",
+          details: `Sub-batch ${subBatchSku} dibuat dari hasil finishing. Good: ${totalGoodOutput}, Reject: ${totalRejectKotor + totalRejectSobek + totalRejectRusakJahit}`,
         },
       });
 
-      return createdSubBatches;
+      return subBatch;
     });
 
     return NextResponse.json({
       success: true,
       data: result,
-      message: `${result.length} sub-batch berhasil dibuat`,
+      message: `Sub-batch ${result.subBatchSku} berhasil dibuat`,
     });
   } catch (error) {
-    console.error("Error creating sub-batches:", error);
+    console.error("Error creating sub-batch:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to create sub-batches" },
-      { status: 500 }
+      { success: false, error: "Failed to create sub-batch" },
+      { status: 500 },
     );
   }
 }

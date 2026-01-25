@@ -49,9 +49,7 @@ model User {
   notifications           Notification[]
   auditLogs               AuditLog[]
 
-  // Sub-batch relations
-  assignedSubBatchesSewing    SubBatch[] @relation("SubBatchSewer")
-  assignedSubBatchesFinishing SubBatch[] @relation("SubBatchFinisher")
+  // Sub-batch relations (warehouse verification only)
   verifiedSubBatchesWarehouse SubBatch[] @relation("SubBatchWarehouseVerifier")
 
   @@index([email])
@@ -284,17 +282,18 @@ enum BatchStatus {
   PENDING // Batch created, waiting for material allocation
   MATERIAL_REQUESTED // Material request sent to warehouse
   MATERIAL_ALLOCATED // Material allocated by warehouse
-  ASSIGNED_TO_CUTTER // Assigned to cutting department
+  ASSIGNED_TO_CUTTER // Assigned to cutting department (Ka. Pemotong)
   IN_CUTTING // Currently being cut
   CUTTING_COMPLETED // Cutting done, waiting for verification
-  CUTTING_VERIFIED // Verified by production head
-  ASSIGNED_TO_SEWER // Assigned to sewing department
+  CUTTING_VERIFIED // Verified by production head, ready for sewing
+  ASSIGNED_TO_SEWER // Assigned to sewing department (Ka. Penjahit)
   IN_SEWING // Currently being sewn
   SEWING_COMPLETED // Sewing done, waiting for verification
-  SEWING_VERIFIED // Verified by production head
-  IN_FINISHING // Currently in finishing
-  FINISHING_COMPLETED // Finishing done, waiting for warehouse verification
-  WAREHOUSE_VERIFIED // Verified by warehouse head, stored as finished goods
+  SEWING_VERIFIED // Verified by production head, ready for finishing
+  ASSIGNED_TO_FINISHING // Assigned to finishing department (Ka. Finishing)
+  IN_FINISHING // Currently in finishing (iterative with partial sub-batches)
+  FINISHING_COMPLETED // All finishing done, all goods sent to warehouse
+  WAREHOUSE_VERIFIED // All goods verified by warehouse head
   COMPLETED // All processes completed
   CANCELLED // Batch cancelled
 }
@@ -403,15 +402,14 @@ enum TaskStatus {
   REJECTED
 }
 
-// Cutting Task (Pemotong)
+// Cutting Task (Tracking hasil pemotongan - no reject at this stage)
 model CuttingTask {
   id               String     @id @default(cuid())
   batchId          String     @unique
-  assignedToId     String
+  assignedToId     String // Ka. Pemotong yang bertanggung jawab
   materialReceived Decimal    @db.Decimal(15, 3)
   piecesCompleted  Int        @default(0)
-  rejectPieces     Int        @default(0)
-  wasteQty         Decimal?   @db.Decimal(15, 3)
+  wasteQty         Decimal?   @db.Decimal(15, 3) // Sisa bahan (bukan reject)
   status           TaskStatus @default(PENDING)
   notes            String?
   startedAt        DateTime?
@@ -430,14 +428,13 @@ model CuttingTask {
   @@map("cutting_tasks")
 }
 
-// Sewing Task (Penjahit)
+// Sewing Task (Tracking hasil jahitan - no reject at this stage)
 model SewingTask {
   id              String     @id @default(cuid())
   batchId         String     @unique
-  assignedToId    String
-  piecesReceived  Int
-  piecesCompleted Int        @default(0)
-  rejectPieces    Int        @default(0)
+  assignedToId    String // Ka. Penjahit yang bertanggung jawab
+  piecesReceived  Int // Pieces dari cutting
+  piecesCompleted Int        @default(0) // Hasil jahitan
   status          TaskStatus @default(PENDING)
   notes           String?
   startedAt       DateTime?
@@ -456,14 +453,19 @@ model SewingTask {
   @@map("sewing_tasks")
 }
 
-// Finishing Task
+// Finishing Task (Tracking keseluruhan finishing - reject dicatat di sini)
 model FinishingTask {
   id              String     @id @default(cuid())
   batchId         String     @unique
-  assignedToId    String
-  piecesReceived  Int
-  piecesCompleted Int        @default(0)
-  rejectPieces    Int        @default(0)
+  assignedToId    String // Ka. Finishing yang bertanggung jawab
+  piecesReceived  Int // Pieces dari sewing
+  piecesCompleted Int        @default(0) // Total hasil finishing (good + reject)
+  
+  // Reject tracking - baru dicatat di tahap finishing
+  rejectKotor      Int        @default(0) // Kotor - di-reproduksi dengan dicuci
+  rejectSobek      Int        @default(0) // Sobek - masuk Bad Stock
+  rejectRusakJahit Int        @default(0) // Rusak jahit - masuk Bad Stock
+  
   status          TaskStatus @default(PENDING)
   notes           String?
   startedAt       DateTime?
@@ -483,19 +485,22 @@ model FinishingTask {
 }
 
 // ============================================
-// SUB-BATCH (Pemecahan Batch untuk Sewing & Finishing)
+// SUB-BATCH (Pemecahan hasil finishing untuk tracking ke gudang)
+// Sub-batch dibuat di tahap FINISHING untuk tracking partial delivery ke warehouse
 // ============================================
 
 enum SubBatchStatus {
-  ASSIGNED_TO_SEWER // Ditugaskan ke penjahit
-  IN_SEWING // Sedang dijahit
-  SEWING_COMPLETED // Jahitan selesai, menunggu konfirmasi
-  ASSIGNED_TO_FINISHING // Ditugaskan ke finishing
-  IN_FINISHING // Sedang finishing
-  FINISHING_COMPLETED // Finishing selesai
+  CREATED // Sub-batch dibuat dari hasil finishing
   SUBMITTED_TO_WAREHOUSE // Diserahkan ke gudang
   WAREHOUSE_VERIFIED // Diverifikasi gudang
   COMPLETED // Selesai
+}
+
+// Jenis reject/defect di finishing
+enum FinishingDefectType {
+  KOTOR // Kotor - akan di-reproduksi dengan dicuci di gudang
+  SOBEK // Sobek - masuk Bad Stock (BS)
+  RUSAK_JAHIT // Rusak jahit - masuk Bad Stock (BS)
 }
 
 model SubBatch {
@@ -503,42 +508,30 @@ model SubBatch {
   subBatchSku String @unique // Format: BATCH-SKU-SUB-001
   batchId     String
 
-  // Penjahit assignment
-  assignedSewerId String
-
-  // Finishing assignment (optional, diisi saat assign finishing)
-  assignedFinisherId String?
-
-  // Warehouse verification
+  // Warehouse verification (diisi saat verifikasi gudang)
   warehouseVerifiedById String?
 
-  // Quantity tracking per size/color
-  piecesAssigned  Int // Total pieces yang di-assign dari cutting
-  sewingOutput    Int @default(0) // Hasil jahitan (good pieces)
-  sewingReject    Int @default(0) // Reject dari jahitan
-  finishingOutput Int @default(0) // Hasil finishing (good pieces)
-  finishingReject Int @default(0) // Reject dari finishing
+  // Quantity tracking - output dari finishing yang siap ke gudang
+  finishingGoodOutput Int @default(0) // Hasil finishing barang jadi (good pieces)
+  
+  // Reject tracking - reject baru dicatat di tahap finishing
+  rejectKotor     Int @default(0) // Kotor - di-reproduksi dengan dicuci
+  rejectSobek     Int @default(0) // Sobek - masuk Bad Stock
+  rejectRusakJahit Int @default(0) // Rusak jahit - masuk Bad Stock
 
-  status SubBatchStatus @default(ASSIGNED_TO_SEWER)
+  status SubBatchStatus @default(CREATED)
   notes  String?
 
   // Timestamps
-  sewingStartedAt        DateTime?
-  sewingCompletedAt      DateTime?
-  sewingConfirmedAt      DateTime? // Konfirmasi oleh kepala produksi
-  finishingStartedAt     DateTime?
-  finishingCompletedAt   DateTime?
-  finishingConfirmedAt   DateTime? // Konfirmasi oleh kepala produksi
+  createdAt              DateTime  @default(now())
+  verifiedByProdAt       DateTime? // Diverifikasi Ka. Prod sebelum ke gudang
   submittedToWarehouseAt DateTime?
   warehouseVerifiedAt    DateTime?
 
-  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
   batch               ProductionBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  assignedSewer       User               @relation("SubBatchSewer", fields: [assignedSewerId], references: [id])
-  assignedFinisher    User?              @relation("SubBatchFinisher", fields: [assignedFinisherId], references: [id])
   warehouseVerifiedBy User?              @relation("SubBatchWarehouseVerifier", fields: [warehouseVerifiedById], references: [id])
   items               SubBatchItem[] // Detail per size/color
   timeline            SubBatchTimeline[]
@@ -546,22 +539,24 @@ model SubBatch {
 
   @@index([batchId])
   @@index([status])
-  @@index([assignedSewerId])
-  @@index([assignedFinisherId])
   @@map("sub_batches")
 }
 
-// Detail item per size/color dalam sub-batch
+// Detail item per size/color dalam sub-batch (hasil finishing)
 model SubBatchItem {
-  id              String   @id @default(cuid())
-  subBatchId      String
-  productSize     String // Ukuran (S, M, L, XL, XXL)
-  color           String // Warna
-  piecesAssigned  Int // Jumlah yang di-assign
-  sewingOutput    Int      @default(0) // Hasil jahitan
-  finishingOutput Int      @default(0) // Hasil finishing
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id          String @id @default(cuid())
+  subBatchId  String
+  productSize String // Ukuran (S, M, L, XL, XXL)
+  color       String // Warna
+  
+  // Hasil finishing per item
+  goodQuantity      Int @default(0) // Barang jadi bagus
+  rejectKotor       Int @default(0) // Kotor - dicuci di gudang
+  rejectSobek       Int @default(0) // Sobek - Bad Stock
+  rejectRusakJahit  Int @default(0) // Rusak jahit - Bad Stock
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   subBatch SubBatch @relation(fields: [subBatchId], references: [id], onDelete: Cascade)
 
@@ -705,24 +700,28 @@ enum TimelineEvent {
   BATCH_CREATED
   MATERIAL_REQUESTED
   MATERIAL_ALLOCATED
+  // Cutting events
   ASSIGNED_TO_CUTTER
   CUTTING_STARTED
   CUTTING_COMPLETED
   CUTTING_VERIFIED
-  // Legacy events (untuk backward compatibility)
+  // Sewing events
   ASSIGNED_TO_SEWER
   SEWING_STARTED
   SEWING_COMPLETED
   SEWING_VERIFIED
+  // Finishing events
   ASSIGNED_TO_FINISHING
   FINISHING_STARTED
   FINISHING_COMPLETED
+  // Sub-batch events (untuk partial delivery ke warehouse)
+  SUB_BATCH_CREATED
+  SUB_BATCH_SUBMITTED_TO_WAREHOUSE
+  SUB_BATCH_WAREHOUSE_VERIFIED
+  // Warehouse & completion events
   WAREHOUSE_VERIFIED
   BATCH_COMPLETED
   BATCH_CANCELLED
-  // Sub-batch events
-  SUB_BATCHES_CREATED
-  ALL_SUB_BATCHES_COMPLETED
 }
 
 model BatchTimeline {

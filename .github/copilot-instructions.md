@@ -36,33 +36,41 @@ Status progression is **strictly sequential** (enforced in `app/api/production-b
 
 ```
 PENDING → MATERIAL_REQUESTED (optional) → MATERIAL_ALLOCATED → ASSIGNED_TO_CUTTER →
-CUTTING_COMPLETED → CUTTING_VERIFIED → [Sub-Batch Creation] →
-ASSIGNED_TO_SEWER → IN_SEWING → SEWING_COMPLETED → SEWING_VERIFIED →
-ASSIGNED_TO_FINISHING → IN_FINISHING → FINISHING_COMPLETED →
+CUTTING_COMPLETED → CUTTING_VERIFIED → ASSIGNED_TO_SEWER → IN_SEWING →
+SEWING_COMPLETED → SEWING_VERIFIED → [Sub-Batch at Finishing] →
+IN_FINISHING → FINISHING_COMPLETED → SUBMITTED_TO_WAREHOUSE →
 WAREHOUSE_VERIFIED → COMPLETED
 ```
 
 **Key State Transitions:**
 
 1. **PENDING/MATERIAL_REQUESTED** → **MATERIAL_ALLOCATED**: Confirm batch to allocate materials
-2. **MATERIAL_ALLOCATED** → **ASSIGNED_TO_CUTTER**: Assign to cutter (creates CuttingTask)
-3. **ASSIGNED_TO_CUTTER** → **CUTTING_COMPLETED**: Input cutting results (can be done by Kepala Produksi/Owner or Cutter)
-4. **CUTTING_COMPLETED** → **CUTTING_VERIFIED**: Verify cutting quality
-5. **CUTTING_VERIFIED** → **Sub-Batches**: Create sub-batches for parallel sewing (managed via SubBatch system)
-6. **Sub-Batch** → **ASSIGNED_TO_SEWER**: Each sub-batch assigned to different sewers
-7. **IN_SEWING** → **SEWING_COMPLETED**: Sewer completes work
-8. **SEWING_COMPLETED** → **SEWING_VERIFIED**: Verify sewing quality
-9. **SEWING_VERIFIED** → **ASSIGNED_TO_FINISHING**: Assign to finisher
-10. **IN_FINISHING** → **FINISHING_COMPLETED**: Finisher completes work
-11. **FINISHING_COMPLETED** → **WAREHOUSE_VERIFIED**: Warehouse verifies quantity/quality
-12. **WAREHOUSE_VERIFIED** → **COMPLETED**: Batch completed
+2. **MATERIAL_ALLOCATED** → **ASSIGNED_TO_CUTTER**: Assign to Kepala Pemotong (creates CuttingTask)
+3. **ASSIGNED_TO_CUTTER** → **CUTTING_COMPLETED**: Ka. Pemotong/Ka. Prod inputs cutting results (NO REJECT at cutting stage)
+4. **CUTTING_COMPLETED** → **CUTTING_VERIFIED**: Owner/Ka. Prod verifies cutting quality
+5. **CUTTING_VERIFIED** → **ASSIGNED_TO_SEWER**: Assign to Ka. Penjahit (starts sewing)
+6. **IN_SEWING** → **SEWING_COMPLETED**: Ka. Penjahit inputs sewing results (NO REJECT at sewing stage)
+7. **SEWING_COMPLETED** → **SEWING_VERIFIED**: Owner/Ka. Prod verifies sewing quality
+8. **SEWING_VERIFIED** → **Sub-Batches at Finishing**: Create sub-batches for partial finishing outputs
+9. **IN_FINISHING** → **FINISHING_COMPLETED**: Ka. Finishing inputs results (can be partial). **This is where rejects are identified** (kotor/dirty, sobek/torn, rusak jahit/sewing damage)
+10. **FINISHING_COMPLETED** → **SUBMITTED_TO_WAREHOUSE**: Ka. Prod submits finished goods to warehouse (can be partial batches)
+11. **SUBMITTED_TO_WAREHOUSE** → **WAREHOUSE_VERIFIED**: Owner/Ka. Gudang verifies quantity/quality
+12. **WAREHOUSE_VERIFIED** → **COMPLETED**: When ALL finishing output equals warehouse input
 
 **Important Notes:**
 
 - **Never skip states**. Each transition updates `ProductionBatch.status` and creates audit logs.
-- After **CUTTING_VERIFIED**, the workflow uses **Sub-Batches** for parallel sewing by multiple sewers
+- **NO rejects at Cutting and Sewing stages** - quality issues are identified at Finishing
+- **Sub-Batches are at FINISHING** (not sewing) - used to track partial finishing batches being sent to warehouse
+- **No individual worker assignment** - focus is on coordination between heads (Ka. Produksi, Ka. Pemotong, Ka. Penjahit, Ka. Finishing, Ka. Gudang)
+- Steps 9-11 (Finishing → Warehouse) are **iterative** until all sewing output is processed
 - Owner and Kepala Produksi can perform all production actions (assign, verify, input results)
-- Workers (Pemotong, Penjahit, Finishing) can only update their own task status
+
+**Reject/Defect Handling at Finishing:**
+
+- **Kotor (Dirty)**: Re-production by washing at warehouse
+- **Sobek (Torn)**: Bad Stock (BS) - stored separately
+- **Rusak Jahit (Sewing Damage)**: Bad Stock (BS) - stored separately
 
 ## Development Workflows
 
@@ -279,10 +287,66 @@ GET / api / production - batches / [id] / timeline;
 5. **Hard deletes**: Use soft delete flags (`isActive: false`) for materials/products
 6. **Mobile breakpoints**: Use `sm:` prefix (640px), not `md:` for form grids
 
+## Detailed Production Workflow
+
+### Phase 1: Persiapan Produksi
+
+- Owner / Ka. Prod membuat request produksi dengan varian (warna & ukuran)
+- Owner / Ka. Prod verifikasi & alokasi material
+
+### Phase 2: Pemotongan
+
+- Bahan dibawa ke Ka. Pemotong
+- Ka. Pemotong / Ka. Prod **mengisi hasil pemotongan**
+- Owner / Ka. Prod **verifikasi hasil pemotongan**
+- Owner / Ka. Prod **menugaskan ke Ka. Penjahit**
+- ⚠️ **Tidak ada reject di tahap pemotongan**
+
+### Phase 3: Penjahitan
+
+- Bahan hasil potong dibawa ke tempat jahit
+- Ka. Penjahit / Ka. Prod **mengisi hasil jahitan**
+- Owner / Ka. Prod **verifikasi hasil jahitan**
+- Owner / Ka. Prod **menugaskan ke Ka. Finishing**
+- ⚠️ **Tidak ada reject di tahap penjahitan**
+
+### Phase 4: Finishing (Iterative)
+
+- Hasil jahit dibawa ke finishing
+- Ka. Finishing **mengisi hasil finishing** (bisa partial, menyesuaikan barang yang sudah selesai)
+- Ka. Prod **verifikasi hasil finishing**
+- Ka. Prod **menyerahkan ke Ka. Gudang** (partial submission)
+- 🔴 **Di tahap ini baru ada reject**: kotor, sobek, rusak jahit
+
+### Phase 5: Gudang (Iterative)
+
+- Owner / Ka. Gudang **verifikasi hasil finishing** yang masuk
+- Ka. Gudang melakukan **re-produksi** untuk barang kotor (cuci)
+- Ka. Gudang **menyimpan**:
+  - Barang jadi → rak barang jadi
+  - Barang cacat (sobek/rusak jahit) → Bad Stock (BS)
+
+### ⚠️ Important: Sub-Batch Location
+
+**Sub-batch berada di Finishing** (bukan di Penjahitan):
+
+- Digunakan untuk menyimpan data hasil finishing yang siap diteruskan ke gudang
+- Hanya input hasil saja, tidak perlu assign ke finisher individual
+- Fokus koordinasi antar kepala, bukan penugasan ke worker individual
+
+### Completion Criteria
+
+Proses produksi selesai ketika:
+
+- Semua hasil jahit masuk ke finishing ✓
+- Semua hasil finishing masuk ke gudang ✓
+- Input finishing = Output warehouse (termasuk reject)
+
 ## Documentation Files
 
 - `README.md` - Quick start, test credentials, workflow overview
 - `WORKFLOW.md` - Detailed business logic per role
+- `fix-workflow.md` - Correct workflow reference (authoritative)
 - `DATABASE.md` - Database schema documentation
 - `PROJECT_STRUCTURE.md` - File organization
 - `MOBILE_RESPONSIVE_UPDATE.md` - Responsive design patterns
@@ -297,5 +361,7 @@ GET / api / production - batches / [id] / timeline;
 4. **Verification checkpoints**: Kepala Produksi verifies quality at each stage transition
 5. **Audit trail**: All state changes logged in `AuditLog` with user, timestamp, changes
 6. **QR code tracking**: Batches identified by SKU (format: `PROD-YYYYMMDD-XXX`)
+7. **Coordination focus**: System focuses on head-to-head coordination, not individual worker assignment
+8. **Sub-batch at Finishing**: Sub-batches created at finishing stage for partial warehouse submissions
 
 When in doubt, check existing patterns in `app/owner/stocks/page.tsx` (comprehensive CRUD example) or `app/api/material-transactions/route.ts` (transaction handling).

@@ -1,48 +1,130 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { BatchStatus } from "@prisma/client";
 
-// POST - Assign finishing untuk batch (DEPRECATED - use sub-batch flow)
-// Proses finishing wajib melalui sub-batch
+// POST assign to finishing
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireRole(["OWNER", "KEPALA_PRODUKSI"]);
+    const params = await context.params;
+    const session = await requireRole(["OWNER", "KEPALA_PRODUKSI"]);
+    const body = await request.json();
+    const { assignedToId, notes } = body;
 
-    // Endpoint ini deprecated - proses wajib melalui sub-batch
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          "Proses finishing wajib melalui sub-batch. Silakan assign finisher melalui sub-batch setelah penjahitan selesai.",
-        hint: "Gunakan endpoint PATCH /api/production-batches/[batchId]/sub-batches/[subBatchId] dengan action 'assign-finisher'",
-      },
-      { status: 400 }
-    );
-  } catch (error) {
-    console.error("Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Endpoint deprecated" },
-      { status: 500 }
-    );
-  }
-}
-    await prisma.notification.create({
-      data: {
-        userId: assignedToId,
-        type: "BATCH_ASSIGNMENT",
-        title: "Finishing Task Baru",
-        message: `Batch ${batch.batchSku} (${batch.product.name}) telah ditugaskan untuk finishing. Pieces: ${piecesReceived}`,
-        isRead: false,
+    if (!assignedToId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "assignedToId harus diisi",
+        },
+        { status: 400 },
+      );
+    }
+
+    const batchId = params.id;
+
+    // Check if batch exists and has correct status
+    const batch = await prisma.productionBatch.findUnique({
+      where: { id: batchId },
+      include: {
+        product: true,
+        sewingTask: true,
       },
     });
 
-    return NextResponse.json(finishingTask, { status: 201 });
+    if (!batch) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Batch tidak ditemukan",
+        },
+        { status: 404 },
+      );
+    }
+
+    if (batch.status !== "SEWING_VERIFIED") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Batch harus berstatus SEWING_VERIFIED untuk di-assign ke finishing. Status saat ini: ${batch.status}`,
+        },
+        { status: 400 },
+      );
+    }
+
+    // Check if finisher exists and has correct role
+    const finisher = await prisma.user.findUnique({
+      where: { id: assignedToId },
+    });
+
+    if (!finisher) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Kepala finishing tidak ditemukan",
+        },
+        { status: 404 },
+      );
+    }
+
+    if (finisher.role !== "FINISHING") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User yang dipilih bukan FINISHING",
+        },
+        { status: 400 },
+      );
+    }
+
+    // Execute assignment in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create finishing task
+      const finishingTask = await tx.finishingTask.create({
+        data: {
+          batchId,
+          assignedToId,
+          piecesReceived: batch.sewingTask?.piecesCompleted || 0,
+          status: "PENDING",
+          notes,
+        },
+      });
+
+      // Update batch status
+      await tx.productionBatch.update({
+        where: { id: batchId },
+        data: {
+          status: BatchStatus.ASSIGNED_TO_FINISHING,
+        },
+      });
+
+      // Create timeline entry
+      await tx.batchTimeline.create({
+        data: {
+          batchId,
+          event: "ASSIGNED_TO_FINISHING",
+          details: `Batch ditugaskan ke ${finisher.name} oleh ${session.user.name}`,
+        },
+      });
+
+      return finishingTask;
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: result,
+      message: `Batch berhasil di-assign ke ${finisher.name}`,
+    });
   } catch (error) {
-    console.error("Error assigning to finishing:", error);
+    console.error("Error assigning batch to finishing:", error);
     return NextResponse.json(
-      { error: "Failed to assign to finishing" },
+      {
+        success: false,
+        error: "Failed to assign batch to finishing",
+      },
       { status: 500 },
     );
   }

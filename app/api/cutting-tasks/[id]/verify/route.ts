@@ -5,7 +5,7 @@ import { BatchStatus } from "@prisma/client";
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const params = await context.params;
@@ -19,7 +19,7 @@ export async function POST(
           success: false,
           error: "Invalid action. Must be 'approve' or 'reject'",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -49,7 +49,7 @@ export async function POST(
           success: false,
           error: "Task tidak ditemukan",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -59,7 +59,7 @@ export async function POST(
           success: false,
           error: `Task harus berstatus COMPLETED untuk diverifikasi. Status saat ini: ${task.status}`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -69,7 +69,7 @@ export async function POST(
           success: false,
           error: "Task sudah diverifikasi sebelumnya",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -122,7 +122,7 @@ export async function POST(
             action === "approve" ? "CUTTING_VERIFIED" : "CUTTING_COMPLETED",
           details:
             action === "approve"
-              ? `Potongan diverifikasi oleh ${session.user.name}. Pieces completed: ${task.piecesCompleted}, Reject: ${task.rejectPieces}`
+              ? `Potongan diverifikasi oleh ${session.user.name}. Pieces completed: ${task.piecesCompleted}`
               : `Potongan ditolak oleh ${session.user.name}. Alasan: ${
                   notes || "Tidak ada catatan"
                 }`,
@@ -164,7 +164,7 @@ export async function POST(
         success: false,
         error: "Gagal memverifikasi task",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

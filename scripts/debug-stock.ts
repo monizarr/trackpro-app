@@ -37,10 +37,14 @@ async function debug() {
           "  -",
           item.color,
           item.productSize,
-          "assigned:",
-          item.piecesAssigned,
-          "output:",
-          item.finishingOutput,
+          "good:",
+          item.goodQuantity,
+          "kotor:",
+          item.rejectKotor,
+          "sobek:",
+          item.rejectSobek,
+          "rusak_jahit:",
+          item.rejectRusakJahit,
         );
       }
     } else {

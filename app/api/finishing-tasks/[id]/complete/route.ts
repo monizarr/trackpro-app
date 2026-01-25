@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -28,13 +28,24 @@ export async function PATCH(
     if (!user || user.role !== "FINISHING") {
       return NextResponse.json(
         { error: "Only FINISHING can complete finishing tasks" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     const { id: taskId } = await params;
     const body = await request.json();
-    const { piecesCompleted, rejectPieces, notes } = body;
+
+    // Reject tracking with detail types:
+    // - rejectKotor: Kotor - akan di-reproduksi dengan dicuci di gudang
+    // - rejectSobek: Sobek - masuk Bad Stock (BS)
+    // - rejectRusakJahit: Rusak jahit - masuk Bad Stock (BS)
+    const {
+      piecesCompleted,
+      rejectKotor,
+      rejectSobek,
+      rejectRusakJahit,
+      notes,
+    } = body;
 
     // Check if task exists and belongs to this user
     const task = await prisma.finishingTask.findUnique({
@@ -48,24 +59,30 @@ export async function PATCH(
     if (task.assignedToId !== user.id) {
       return NextResponse.json(
         { error: "Task not assigned to you" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     if (task.status !== "IN_PROGRESS") {
       return NextResponse.json(
         { error: `Cannot complete task with status ${task.status}` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Update task to completed
+    const totalReject =
+      (rejectKotor || 0) + (rejectSobek || 0) + (rejectRusakJahit || 0);
+    const totalCompleted = (piecesCompleted || 0) + totalReject;
+
+    // Update task to completed with detailed reject tracking
     const updatedTask = await prisma.finishingTask.update({
       where: { id: taskId },
       data: {
         status: "COMPLETED",
-        piecesCompleted,
-        rejectPieces,
+        piecesCompleted: totalCompleted,
+        rejectKotor: rejectKotor || 0,
+        rejectSobek: rejectSobek || 0,
+        rejectRusakJahit: rejectRusakJahit || 0,
         notes,
         completedAt: new Date(),
       },
@@ -76,6 +93,15 @@ export async function PATCH(
       where: { id: task.batchId },
       data: {
         status: "FINISHING_COMPLETED",
+      },
+    });
+
+    // Create timeline event with detailed reject info
+    await prisma.batchTimeline.create({
+      data: {
+        batchId: task.batchId,
+        event: "FINISHING_COMPLETED",
+        details: `Finishing selesai. Good: ${piecesCompleted}, Kotor: ${rejectKotor || 0}, Sobek: ${rejectSobek || 0}, Rusak Jahit: ${rejectRusakJahit || 0}${notes ? `. Catatan: ${notes}` : ""}`,
       },
     });
 
@@ -91,7 +117,7 @@ export async function PATCH(
           userId: produksiUser.id,
           type: "TASK_COMPLETED",
           title: "Finishing Task Selesai",
-          message: `Task finishing telah selesai dan menunggu verifikasi final. Pieces: ${piecesCompleted}, Reject: ${rejectPieces}`,
+          message: `Task finishing telah selesai. Good: ${piecesCompleted}, Reject: ${totalReject} (Kotor: ${rejectKotor || 0}, Sobek: ${rejectSobek || 0}, Rusak Jahit: ${rejectRusakJahit || 0})`,
           isRead: false,
         },
       });
@@ -102,7 +128,7 @@ export async function PATCH(
     console.error("Error completing finishing task:", error);
     return NextResponse.json(
       { error: "Failed to complete finishing task" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

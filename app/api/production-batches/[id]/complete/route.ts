@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth-helpers";
 // POST - Complete production batch setelah semua sub-batch selesai
 export async function POST(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await requireRole(["OWNER", "KEPALA_PRODUKSI"]);
@@ -30,7 +30,7 @@ export async function POST(
     if (!batch) {
       return NextResponse.json(
         { success: false, error: "Production batch not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -38,13 +38,13 @@ export async function POST(
     if (batch.subBatches.length === 0) {
       return NextResponse.json(
         { success: false, error: "Batch tidak memiliki sub-batch" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Check if all sub-batches are verified by warehouse
     const unverifiedSubBatches = batch.subBatches.filter(
-      (sb) => sb.status !== "WAREHOUSE_VERIFIED" && sb.status !== "COMPLETED"
+      (sb) => sb.status !== "WAREHOUSE_VERIFIED" && sb.status !== "COMPLETED",
     );
 
     if (unverifiedSubBatches.length > 0) {
@@ -57,18 +57,55 @@ export async function POST(
             status: sb.status,
           })),
         },
-        { status: 400 }
+        { status: 400 },
+      );
+    }
+
+    // Validate: All finishing output must be processed in sub-batches
+    // This enforces: totalFinishingInput === totalSewingOutput
+    let totalFinishingInput = 0;
+    for (const subBatch of batch.subBatches) {
+      if (subBatch.items && Array.isArray(subBatch.items)) {
+        for (const item of subBatch.items) {
+          totalFinishingInput +=
+            (item.goodQuantity || 0) +
+            (item.rejectKotor || 0) +
+            (item.rejectSobek || 0) +
+            (item.rejectRusakJahit || 0);
+        }
+      }
+    }
+
+    // Get sewing output (source of truth for what should be in finishing)
+    const sewingTask = await prisma.sewingTask.findUnique({
+      where: { batchId: id },
+      select: { piecesCompleted: true },
+    });
+    const totalSewingOutput = sewingTask?.piecesCompleted || 0;
+
+    // Enforce: finishing input must equal sewing output
+    if (totalFinishingInput !== totalSewingOutput) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Jumlah pcs yang masuk finishing (${totalFinishingInput}) tidak sama dengan hasil jahitan (${totalSewingOutput}). Semua hasil jahitan harus diproses di finishing terlebih dahulu.`,
+          details: {
+            totalFinishingInput,
+            totalSewingOutput,
+          },
+        },
+        { status: 400 },
       );
     }
 
     // Calculate totals
     const totalFinishedPieces = batch.subBatches.reduce(
-      (sum, sb) => sum + sb.finishingOutput,
-      0
+      (sum, sb) => sum + sb.finishingGoodOutput,
+      0,
     );
     const totalRejectPieces = batch.subBatches.reduce(
-      (sum, sb) => sum + sb.sewingReject + sb.finishingReject,
-      0
+      (sum, sb) => sum + sb.rejectKotor + sb.rejectSobek + sb.rejectRusakJahit,
+      0,
     );
 
     // Complete batch
@@ -93,8 +130,6 @@ export async function POST(
           subBatches: {
             include: {
               items: true,
-              assignedSewer: { select: { name: true } },
-              assignedFinisher: { select: { name: true } },
             },
           },
         },
@@ -126,7 +161,7 @@ export async function POST(
     console.error("Error completing batch:", error);
     return NextResponse.json(
       { success: false, error: "Failed to complete batch" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

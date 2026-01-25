@@ -74,7 +74,9 @@ export async function GET(request: Request) {
         finishingTask: {
           select: {
             piecesCompleted: true,
-            rejectPieces: true,
+            rejectKotor: true,
+            rejectSobek: true,
+            rejectRusakJahit: true,
             notes: true,
             completedAt: true,
           },

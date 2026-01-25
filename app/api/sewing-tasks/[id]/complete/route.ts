@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -28,13 +28,14 @@ export async function PATCH(
     if (!user || user.role !== "PENJAHIT") {
       return NextResponse.json(
         { error: "Only PENJAHIT can complete sewing tasks" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     const { id: taskId } = await params;
     const body = await request.json();
-    const { piecesCompleted, rejectPieces, notes } = body;
+    // Note: No reject tracking at sewing stage - rejects are only tracked at finishing
+    const { piecesCompleted, notes } = body;
 
     // Check if task exists and belongs to this user
     const task = await prisma.sewingTask.findUnique({
@@ -48,24 +49,23 @@ export async function PATCH(
     if (task.assignedToId !== user.id) {
       return NextResponse.json(
         { error: "Task not assigned to you" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     if (task.status !== "IN_PROGRESS" && task.status !== "REJECTED") {
       return NextResponse.json(
         { error: `Cannot complete task with status ${task.status}` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Update task to completed
+    // Update task to completed (no reject tracking at sewing - rejects tracked at finishing)
     const updatedTask = await prisma.sewingTask.update({
       where: { id: taskId },
       data: {
         status: "COMPLETED",
         piecesCompleted,
-        rejectPieces,
         notes,
         completedAt: new Date(),
       },
@@ -84,7 +84,7 @@ export async function PATCH(
       data: {
         batchId: task.batchId,
         event: "SEWING_COMPLETED",
-        details: `Penjahitan selesai. Total: ${piecesCompleted} selesai, ${rejectPieces} reject${
+        details: `Penjahitan selesai. Total: ${piecesCompleted} pieces${
           notes ? `. Catatan: ${notes}` : ""
         }`,
       },
@@ -102,7 +102,7 @@ export async function PATCH(
           userId: produksiUser.id,
           type: "TASK_COMPLETED",
           title: "Sewing Task Selesai",
-          message: `Task penjahitan telah selesai dan menunggu verifikasi. Pieces: ${piecesCompleted}, Reject: ${rejectPieces}`,
+          message: `Task penjahitan telah selesai dan menunggu verifikasi. Pieces: ${piecesCompleted}`,
           isRead: false,
         },
       });
@@ -113,7 +113,7 @@ export async function PATCH(
     console.error("Error completing sewing task:", error);
     return NextResponse.json(
       { error: "Failed to complete sewing task" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
