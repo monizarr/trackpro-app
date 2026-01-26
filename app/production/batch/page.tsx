@@ -243,7 +243,14 @@ export default function BatchManagementPage() {
     const [verifySewingAction, setVerifySewingAction] = useState<"approve" | "reject">("approve")
     const [verifySewingNotes, setVerifySewingNotes] = useState("")
     const [verifyingSewing, setVerifyingSewing] = useState(false)
-    // Sub-batch state
+    // Assign to finishing state
+    const [showAssignFinishingDialog, setShowAssignFinishingDialog] = useState(false)
+    const [assignFinishingBatch, setAssignFinishingBatch] = useState<Batch | null>(null)
+    const [finishers, setFinishers] = useState<Array<{ id: string; name: string; email: string; _count: { finishingTasks: number } }>>([])
+    const [selectedFinisherId, setSelectedFinisherId] = useState("")
+    const [assignFinishingNotes, setAssignFinishingNotes] = useState("")
+    const [assigningFinishing, setAssigningFinishing] = useState(false)
+    // Sub-batch state - created at FINISHING stage
     const [showSubBatchDialog, setShowSubBatchDialog] = useState(false)
     const [subBatchBatch, setSubBatchBatch] = useState<Batch | null>(null)
     const [showInputCuttingDialog, setShowInputCuttingDialog] = useState(false)
@@ -255,6 +262,15 @@ export default function BatchManagementPage() {
     }>>([])
     const [cuttingNotes, setCuttingNotes] = useState("")
     const [submittingCutting, setSubmittingCutting] = useState(false)
+    const [showInputSewingDialog, setShowInputSewingDialog] = useState(false)
+    const [inputSewingBatch, setInputSewingBatch] = useState<Batch | null>(null)
+    const [sewingResults, setSewingResults] = useState<Array<{
+        productSize: string
+        color: string
+        actualPieces: number
+    }>>([])
+    const [sewingNotes, setSewingNotes] = useState("")
+    const [submittingSewing, setSubmittingSewing] = useState(false)
 
     // Form state - handled by CreateBatchDialog component
 
@@ -361,7 +377,6 @@ export default function BatchManagementPage() {
     // Batch creation handled by CreateBatchDialog component
 
     const handleConfirmBatch = async () => {
-        console.log(selectedBatch)
         if (!selectedBatch) return
 
         setConfirming(true)
@@ -579,7 +594,7 @@ export default function BatchManagementPage() {
         }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     const openAssignSewerDialog = async (batch: Batch) => {
         setAssignSewerBatch(batch)
         setSelectedSewerId("")
@@ -592,11 +607,85 @@ export default function BatchManagementPage() {
 
             if (result.success) {
                 setSewers(result.data)
-                setShowAssignSewerDialog(true)
+            } else {
+                toast.error("Error", "Gagal memuat daftar penjahit")
+                return
             }
         } catch (error) {
             console.error("Error fetching sewers:", error)
             toast.error("Error", "Gagal memuat daftar penjahit")
+            return
+        }
+
+        setShowAssignSewerDialog(true)
+    }
+
+    const openAssignFinishingDialog = async (batch: Batch) => {
+        setAssignFinishingBatch(batch)
+        setSelectedFinisherId("")
+        setAssignFinishingNotes("")
+
+        // Fetch finishers
+        try {
+            const response = await fetch("/api/users/finishers")
+            const result = await response.json()
+
+            if (result.success) {
+                setFinishers(result.data)
+                setShowAssignFinishingDialog(true)
+            } else {
+                toast.error("Error", "Gagal memuat daftar finisher")
+                return
+            }
+        } catch (error) {
+            console.error("Error fetching finishers:", error)
+            toast.error("Error", "Gagal memuat daftar finisher")
+            return
+        }
+    }
+
+    const handleAssignToFinishing = async () => {
+        if (!assignFinishingBatch || !selectedFinisherId) {
+            toast.error("Error", "Pilih kepala finishing terlebih dahulu")
+            return
+        }
+
+        // Validate batch status
+        if (assignFinishingBatch.status !== "SEWING_VERIFIED") {
+            toast.error("Error", `Batch harus berstatus SEWING_VERIFIED untuk di-assign ke finishing. Status saat ini: ${assignFinishingBatch.status}`)
+            return
+        }
+
+        setAssigningFinishing(true)
+        try {
+            const response = await fetch(`/api/production-batches/${assignFinishingBatch.id}/assign-finishing`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    assignedToId: selectedFinisherId,
+                    notes: assignFinishingNotes,
+                }),
+            })
+
+            const result = await response.json()
+
+            if (result.success) {
+                toast.success("Berhasil", result.message || "Batch berhasil di-assign ke finishing")
+                setShowAssignFinishingDialog(false)
+                setAssignFinishingBatch(null)
+                setSelectedFinisherId("")
+                setAssignFinishingNotes("")
+                fetchBatches()
+            } else {
+                toast.error("Error", result.error || "Gagal assign batch ke finishing")
+            }
+        } catch (error) {
+            console.error("Error assigning to finishing:", error)
+            toast.error("Error", "Terjadi kesalahan saat assign ke finishing")
+        } finally {
+            setAssigningFinishing(false)
         }
     }
 
@@ -621,6 +710,12 @@ export default function BatchManagementPage() {
     const handleAssignToSewer = async () => {
         if (!assignSewerBatch || !selectedSewerId) {
             toast.error("Error", "Pilih penjahit terlebih dahulu")
+            return
+        }
+
+        // Validate batch status
+        if (assignSewerBatch.status !== "CUTTING_VERIFIED") {
+            toast.error("Error", `Batch harus berstatus CUTTING_VERIFIED untuk di-assign ke penjahit. Status saat ini: ${assignSewerBatch.status}`)
             return
         }
 
@@ -715,8 +810,50 @@ export default function BatchManagementPage() {
         }
     }
 
-    // Note: Direct assign finisher is deprecated - use sub-batch flow instead
-    // Finishers are now assigned per sub-batch, not per batch
+    const handleSubmitSewingResults = async () => {
+        if (!inputSewingBatch || sewingResults.length === 0) {
+            toast.error("Error", "Tidak ada hasil jahitan untuk disimpan")
+            return
+        }
+
+        const totalActual = sewingResults.reduce((sum, r) => sum + r.actualPieces, 0)
+        if (totalActual === 0) {
+            toast.error("Error", "Total actual pieces harus lebih dari 0")
+            return
+        }
+
+        setSubmittingSewing(true)
+        try {
+            const response = await fetch(`/api/production-batches/${inputSewingBatch.id}/input-sewing-results`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    sewingResults,
+                    notes: sewingNotes,
+                }),
+            })
+
+            const result = await response.json()
+
+            if (result.success) {
+                toast.success("Berhasil", "Hasil jahitan berhasil disimpan")
+                setShowInputSewingDialog(false)
+                setSewingResults([])
+                setSewingNotes("")
+                setInputSewingBatch(null)
+                fetchBatches()
+            } else {
+                toast.error("Error", result.error || "Gagal menyimpan hasil jahitan")
+            }
+        } catch (error) {
+            console.error("Error submitting sewing results:", error)
+            toast.error("Error", "Terjadi kesalahan saat menyimpan hasil jahitan")
+        } finally {
+            setSubmittingSewing(false)
+        }
+    }
 
     const openInputCuttingDialog = async (batch: Batch) => {
         // Fetch full batch details
@@ -1702,7 +1839,7 @@ export default function BatchManagementPage() {
                                     <p className="font-medium">{assignSewerBatch.totalRolls} roll</p>
                                 </div>
                                 <div>
-                                    <Label className="text-muted-foreground">Status</Label>
+                                    <Label className="text-muted-foreground">Status</Label> <br />
                                     <Badge>{getStatusLabel(assignSewerBatch.status)}</Badge>
                                 </div>
                             </div>
@@ -1806,7 +1943,7 @@ export default function BatchManagementPage() {
                                     <CardTitle>Hasil Penjahitan</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-3">
-                                    <div className="grid grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <Label className="text-muted-foreground">Pieces Diterima</Label>
                                             <p className="text-2xl font-bold">{sewingTask.piecesReceived}</p>
@@ -1814,10 +1951,6 @@ export default function BatchManagementPage() {
                                         <div>
                                             <Label className="text-muted-foreground">Pieces Completed</Label>
                                             <p className="text-2xl font-bold text-green-600">{sewingTask.piecesCompleted}</p>
-                                        </div>
-                                        <div>
-                                            <Label className="text-muted-foreground">Reject Pieces</Label>
-                                            <p className="text-2xl font-bold text-red-600">{sewingTask.rejectPieces}</p>
                                         </div>
                                     </div>
                                     {sewingTask.notes && (
@@ -1923,8 +2056,256 @@ export default function BatchManagementPage() {
                 </DialogContent>
             </Dialog>
 
+            {/* Assign to Finishing Dialog */}
+            <Dialog open={showAssignFinishingDialog} onOpenChange={setShowAssignFinishingDialog}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Assign ke Finishing</DialogTitle>
+                        <DialogDescription>
+                            Lanjutkan batch ke tahap finishing untuk pemrosesan akhir
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {assignFinishingBatch && (
+                        <div className="space-y-4 py-4">
+                            {/* Batch Info */}
+                            <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/50">
+                                <div>
+                                    <Label className="text-muted-foreground">Kode Batch</Label>
+                                    <p className="font-mono font-medium">{assignFinishingBatch.batchSku}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">Produk</Label>
+                                    <p className="font-medium">{assignFinishingBatch.product.name}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">Status Saat Ini</Label><br />
+                                    <Badge>{getStatusLabel(assignFinishingBatch.status)}</Badge>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">Status Setelah</Label><br />
+                                    <Badge variant="outline">Masuk Finishing</Badge>
+                                </div>
+                            </div>
+
+                            {/* Sewing Output Info */}
+                            {assignFinishingBatch.cuttingResults && assignFinishingBatch.cuttingResults.length > 0 && (
+                                <div className="space-y-2">
+                                    <Label>Hasil Jahitan untuk Finishing</Label>
+                                    <div className="border rounded-lg overflow-hidden">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Size</TableHead>
+                                                    <TableHead>Warna</TableHead>
+                                                    <TableHead className="text-right">Jumlah</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {assignFinishingBatch.cuttingResults.map((result, idx) => (
+                                                    <TableRow key={idx}>
+                                                        <TableCell className="font-medium">{result.productSize}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">{result.color}</Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">{result.actualPieces} pcs</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                                <TableRow className="font-bold bg-muted/50">
+                                                    <TableCell colSpan={2}>Total</TableCell>
+                                                    <TableCell className="text-right">
+                                                        {assignFinishingBatch.cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0)} pcs
+                                                    </TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Finisher Selection */}
+                            <div className="space-y-2">
+                                <Label htmlFor="finisherSelect">Kepala Finishing</Label>
+                                <select
+                                    id="finisherSelect"
+                                    value={selectedFinisherId}
+                                    onChange={(e) => setSelectedFinisherId(e.target.value)}
+                                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                >
+                                    <option value="">Pilih Kepala Finishing</option>
+                                    {finishers.map((finisher) => (
+                                        <option key={finisher.id} value={finisher.id}>
+                                            {finisher.name} ({finisher._count.finishingTasks} tasks)
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Notes */}
+                            <div className="space-y-2">
+                                <Label htmlFor="assignFinishingNotes">Catatan (Opsional)</Label>
+                                <Textarea
+                                    id="assignFinishingNotes"
+                                    placeholder="Tambahkan catatan khusus untuk kepala finishing..."
+                                    value={assignFinishingNotes}
+                                    onChange={(e) => setAssignFinishingNotes(e.target.value)}
+                                    className="min-h-24"
+                                />
+                            </div>
+
+                            <Alert>
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                    Batch akan di-assign ke kepala finishing yang dipilih. Mereka kemudian dapat membuat sub-batch untuk pengiriman partial ke gudang.
+                                </AlertDescription>
+                            </Alert>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowAssignFinishingDialog(false)
+                                setAssignFinishingBatch(null)
+                                setSelectedFinisherId("")
+                                setAssignFinishingNotes("")
+                            }}
+                            disabled={assigningFinishing}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            onClick={handleAssignToFinishing}
+                            disabled={assigningFinishing || !selectedFinisherId}
+                        >
+                            {assigningFinishing ? "Memproses..." : "Assign ke Finishing"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Input Sewing Results Dialog */}
+            <Dialog open={showInputSewingDialog} onOpenChange={setShowInputSewingDialog}>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Input Hasil Jahitan</DialogTitle>
+                        <DialogDescription>
+                            Input hasil jahitan untuk batch yang sudah di-assign ke penjahit
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {inputSewingBatch && sewingResults.length > 0 && (
+                        <div className="space-y-4 py-4">
+                            {/* Batch Info */}
+                            <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/50">
+                                <div>
+                                    <Label className="text-muted-foreground">Kode Batch</Label>
+                                    <p className="font-mono font-medium">{inputSewingBatch.batchSku}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">Produk</Label>
+                                    <p className="font-medium">{inputSewingBatch.product.name}</p>
+                                </div>
+                            </div>
+
+                            {/* Sewing Results by Size & Color */}
+                            <div className="space-y-3">
+                                <Label>Hasil Jahitan per Size & Warna *</Label>
+                                <div className="border rounded-lg overflow-hidden">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Size</TableHead>
+                                                <TableHead>Warna</TableHead>
+                                                <TableHead>Dari Potongan</TableHead>
+                                                <TableHead className="text-right">Actual Pieces</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {sewingResults.map((result, idx) => (
+                                                <TableRow key={idx}>
+                                                    <TableCell className="font-medium">{result.productSize}</TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="outline">{result.color}</Badge>
+                                                    </TableCell>
+                                                    <TableCell>{result.actualPieces} pcs</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            max={result.actualPieces}
+                                                            value={result.actualPieces}
+                                                            onChange={(e) => {
+                                                                const newResults = [...sewingResults]
+                                                                newResults[idx].actualPieces = parseInt(e.target.value) || 0
+                                                                setSewingResults(newResults)
+                                                            }}
+                                                            className="w-24 text-right"
+                                                        />
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            <TableRow className="font-bold bg-muted/50">
+                                                <TableCell colSpan={2}>Total</TableCell>
+                                                <TableCell>
+                                                    {sewingResults.reduce((sum: number, r: { productSize: string; color: string; actualPieces: number }) => sum + r.actualPieces, 0)} pcs
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {sewingResults.reduce((sum: number, r: { productSize: string; color: string; actualPieces: number }) => sum + r.actualPieces, 0)} pcs
+                                                </TableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+
+                            {/* Notes */}
+                            <div className="space-y-2">
+                                <Label htmlFor="sewingNotes">Catatan</Label>
+                                <Textarea
+                                    id="sewingNotes"
+                                    placeholder="Tambahkan catatan hasil jahitan (opsional)..."
+                                    value={sewingNotes}
+                                    onChange={(e) => setSewingNotes(e.target.value)}
+                                    rows={3}
+                                />
+                            </div>
+
+                            <Alert>
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                    Setelah menyimpan, hasil jahitan akan tercatat dan batch akan berstatus SEWING_COMPLETED.
+                                </AlertDescription>
+                            </Alert>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowInputSewingDialog(false)
+                                setSewingResults([])
+                                setSewingNotes("")
+                                setInputSewingBatch(null)
+                            }}
+                            disabled={submittingSewing}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            onClick={handleSubmitSewingResults}
+                            disabled={submittingSewing || sewingResults.reduce((sum: number, r: { productSize: string; color: string; actualPieces: number }) => sum + r.actualPieces, 0) === 0}
+                        >
+                            {submittingSewing ? "Menyimpan..." : "Simpan Hasil Jahitan"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Assign to Finisher Dialog - DEPRECATED: Use sub-batch flow */}
-            {/* Dialog ini sudah tidak digunakan. Assign finisher dilakukan melalui sub-batch */}
+            {/* Dialog ini sudah tidak digunakan. Sub-batch dibuat di tahap finishing */}
 
             {/* Filter Section - Month and Search */}
             <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
@@ -2155,10 +2536,30 @@ export default function BatchManagementPage() {
                                                                                 <Button
                                                                                     size="sm"
                                                                                     variant="default"
-                                                                                    onClick={() => openSubBatchDialog(batch)}
+                                                                                    onClick={() => openAssignSewerDialog(batch)}
                                                                                 >
                                                                                     <UserPlus className="h-4 w-4 mr-1" />
                                                                                     Assign Penjahit
+                                                                                </Button>
+                                                                            )}
+                                                                            {(batch.status === "ASSIGNED_TO_SEWER" || batch.status === "IN_SEWING") && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    onClick={() => {
+                                                                                        // Initialize sewing results from cutting results
+                                                                                        setInputSewingBatch(batch)
+                                                                                        if (batch.cuttingResults) {
+                                                                                            setSewingResults(batch.cuttingResults.map((cr) => ({
+                                                                                                productSize: cr.productSize,
+                                                                                                color: cr.color,
+                                                                                                actualPieces: cr.actualPieces,
+                                                                                            })));
+                                                                                        }
+                                                                                        setShowInputSewingDialog(true);
+                                                                                    }}
+                                                                                >
+                                                                                    <Scissors className="h-4 w-4 mr-2" />
+                                                                                    Input Hasil Jahitan
                                                                                 </Button>
                                                                             )}
                                                                             {batch.status === "SEWING_COMPLETED" && (
@@ -2171,10 +2572,26 @@ export default function BatchManagementPage() {
                                                                                     Verifikasi
                                                                                 </Button>
                                                                             )}
+                                                                            {/* assign ke finishing */}
                                                                             {batch.status === "SEWING_VERIFIED" && (
-                                                                                <span className="text-xs text-muted-foreground italic">
-                                                                                    Assign finisher via sub-batch
-                                                                                </span>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="default"
+                                                                                    onClick={() => openAssignFinishingDialog(batch)}
+                                                                                >
+                                                                                    <UserPlus className="h-4 w-4 mr-1" />
+                                                                                    Assign Finishing
+                                                                                </Button>
+                                                                            )}
+                                                                            {batch.status === "IN_FINISHING" && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="default"
+                                                                                    onClick={() => openSubBatchDialog(batch)}
+                                                                                >
+                                                                                    <Plus className="h-4 w-4 mr-1" />
+                                                                                    Buat Sub-Batch
+                                                                                </Button>
                                                                             )}
                                                                             <Button
                                                                                 variant="ghost"
@@ -2388,10 +2805,30 @@ export default function BatchManagementPage() {
                                                                     <Button
                                                                         size="sm"
                                                                         className="w-full"
-                                                                        onClick={() => openSubBatchDialog(batch)}
+                                                                        onClick={() => openAssignSewerDialog(batch)}
                                                                     >
                                                                         <UserPlus className="h-4 w-4 mr-2" />
                                                                         Assign Penjahit
+                                                                    </Button>
+                                                                )}
+                                                                {(batch.status === "ASSIGNED_TO_SEWER" || batch.status === "IN_SEWING") && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        onClick={() => {
+                                                                            // Initialize sewing results from cutting results
+                                                                            setInputSewingBatch(batch)
+                                                                            if (batch.cuttingResults) {
+                                                                                setSewingResults(batch.cuttingResults.map((cr) => ({
+                                                                                    productSize: cr.productSize,
+                                                                                    color: cr.color,
+                                                                                    actualPieces: cr.actualPieces,
+                                                                                })));
+                                                                            }
+                                                                            setShowInputSewingDialog(true);
+                                                                        }}
+                                                                    >
+                                                                        <Scissors className="h-4 w-4 mr-2" />
+                                                                        Input Hasil Jahitan
                                                                     </Button>
                                                                 )}
                                                                 {batch.status === "SEWING_COMPLETED" && (
@@ -2405,9 +2842,24 @@ export default function BatchManagementPage() {
                                                                     </Button>
                                                                 )}
                                                                 {batch.status === "SEWING_VERIFIED" && (
-                                                                    <div className="text-xs text-muted-foreground italic text-center py-2">
-                                                                        Assign finisher melalui sub-batch di bawah
-                                                                    </div>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="w-full"
+                                                                        onClick={() => openAssignFinishingDialog(batch)}
+                                                                    >
+                                                                        <UserPlus className="h-4 w-4 mr-2" />
+                                                                        Assign Finishing
+                                                                    </Button>
+                                                                )}
+                                                                {batch.status === "IN_FINISHING" && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="w-full"
+                                                                        onClick={() => openSubBatchDialog(batch)}
+                                                                    >
+                                                                        <Plus className="h-4 w-4 mr-2" />
+                                                                        Buat Sub-Batch
+                                                                    </Button>
                                                                 )}
                                                             </div>
 

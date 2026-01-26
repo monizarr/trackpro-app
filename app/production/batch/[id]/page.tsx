@@ -1072,8 +1072,17 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                         {getStatusBadge(batch.status)}
                     </div>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
 
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsQRDialogOpen(true)}
+                >
+                    <QrCode className="h-4 w-4 mr-2" />
+                    Show QR Code
+                </Button>
+                <div className="flex w-full flex-wrap items-center justify-between gap-2 border p-4 rounded-md bg-accent-foreground/5">
+                    <p className="font-medium">Aksi Produksi</p>
                     {/* Action Buttons Based on Status */}
                     {(batch.status === "PENDING" || batch.status === "MATERIAL_REQUESTED") && (
                         <Button
@@ -1208,14 +1217,6 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                         </Button>
                     )}
 
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsQRDialogOpen(true)}
-                    >
-                        <QrCode className="h-4 w-4 mr-2" />
-                        Show QR Code
-                    </Button>
                 </div>
             </div>
 

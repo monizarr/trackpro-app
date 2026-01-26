@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 
 const connectionString =
   process.env.DATABASE_URL ||
-  "postgresql://postgres:iop@localhost:5432/trackpro-db-dev?schema=public";
+  "postgresql://postgres:iop@localhost:5432/trackpro-db?schema=public";
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });

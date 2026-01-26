@@ -819,7 +819,7 @@ export default function ProductionBatchDetailPage() {
             return sum + total;
         }, 0)
         : (batch.finishingTask?.rejectPieces || 0);
-
+    console.log("Batch : ", batch)
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
             {/* Breadcrumb */}
@@ -857,10 +857,11 @@ export default function ProductionBatchDetailPage() {
             </div>
 
             {/* Action Buttons based on status */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 border p-4 rounded-md bg-accent-foreground/5">
+                <p className="font-medium">Aksi Produksi</p>
                 {/* Confirm Batch - when PENDING or MATERIAL_REQUESTED */}
                 {(batch.status === "PENDING" || batch.status === "MATERIAL_REQUESTED") && (
-                    <Button onClick={() => setShowConfirmDialog(true)} className="bg-green-600 hover:bg-green-700">
+                    <Button onClick={() => setShowConfirmDialog(true)} size="sm">
                         <CheckCircle className="h-4 w-4 mr-2" />
                         Konfirmasi Batch
                     </Button>
@@ -899,7 +900,7 @@ export default function ProductionBatchDetailPage() {
 
                 {/* Verify Sewing - when sewing completed */}
                 {batch.status === "SEWING_COMPLETED" && (
-                    <Button onClick={() => setShowVerifySewingDialog(true)} className="bg-purple-600 hover:bg-purple-700">
+                    <Button onClick={() => setShowVerifySewingDialog(true)} size="sm">
                         <CheckCircle className="h-4 w-4 mr-2" />
                         Verifikasi Jahitan
                     </Button>
@@ -914,7 +915,7 @@ export default function ProductionBatchDetailPage() {
 
                 {/* Complete Batch - when warehouse verified */}
                 {batch.status === "WAREHOUSE_VERIFIED" && (
-                    <Button onClick={() => setShowCompleteDialog(true)} className="bg-green-600 hover:bg-green-700">
+                    <Button onClick={() => setShowCompleteDialog(true)} size="sm">
                         <CheckCircle className="h-4 w-4 mr-2" />
                         Selesaikan Batch
                     </Button>
@@ -1712,7 +1713,7 @@ export default function ProductionBatchDetailPage() {
                         <Button variant="outline" onClick={() => setShowConfirmDialog(false)} disabled={confirming}>
                             Batal
                         </Button>
-                        <Button onClick={handleConfirmBatch} disabled={confirming} className="bg-green-600 hover:bg-green-700">
+                        <Button onClick={handleConfirmBatch} disabled={confirming} className="my-2">
                             {confirming ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Memproses...</> : "Konfirmasi"}
                         </Button>
                     </DialogFooter>

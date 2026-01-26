@@ -727,7 +727,7 @@ export default function ProductDetailPage() {
                 <div className="space-y-1">
                     <Link href="/owner/products" className="text-sm text-muted-foreground hover:text-foreground flex items-center mb-2">
                         <ChevronLeft className="h-4 w-4 mr-1" />
-                        Kembali ke Products
+                        Kembali
                     </Link>
                     <h2 className="text-3xl font-bold tracking-tight">{product.name}</h2>
                     <div className="flex items-center gap-2">
@@ -740,17 +740,17 @@ export default function ProductDetailPage() {
                 <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={handleEdit}>
                         <Edit className="h-4 w-4 mr-2" />
-                        Edit Product
+                        Edit Produk
                     </Button>
                     <Button variant="outline" size="sm" onClick={handleDeleteClick}>
                         <Trash2 className="h-4 w-4 mr-2 text-destructive" />
-                        Delete
+                        Hapus
                     </Button>
                 </div>
             </div>
 
             {/* Overview Stats */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Stok Tersedia</CardTitle>
@@ -820,7 +820,7 @@ export default function ProductDetailPage() {
             {/* Stock Variants Section */}
             <Card>
                 <CardHeader>
-                    <div className="flex flex-col gap-2 md:flex-row justify-between items-center">
+                    <div className="flex flex-col items-start gap-2 md:flex-row justify-between md:items-center">
                         <div>
                             <CardTitle>Stok Produk per Varian</CardTitle>
                             <CardDescription>
@@ -973,7 +973,8 @@ export default function ProductDetailPage() {
                         </div>
 
                         {/* Production Table */}
-                        <div className="rounded-md border">
+                        {/* Desktop Table */}
+                        <div className="hidden md:block rounded-md border">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -1060,6 +1061,89 @@ export default function ProductDetailPage() {
                                     )}
                                 </TableBody>
                             </Table>
+                        </div>
+
+                        {/* Mobile Cards */}
+                        <div className="md:hidden space-y-3">
+                            {sortedProductions.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-8 text-center">
+                                    <Package className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                                    <p className="text-muted-foreground">Belum ada batch produksi</p>
+                                    <p className="text-xs text-muted-foreground">Klik tombol Add Production untuk membuat batch baru</p>
+                                </div>
+                            ) : (
+                                sortedProductions.map((batch) => (
+                                    <Link
+                                        key={batch.id}
+                                        href={`/owner/production-batches/${batch.id}`}
+                                        className="block"
+                                    >
+                                        <Card className="hover:bg-muted/50 transition-colors">
+                                            <CardContent className="pt-6">
+                                                <div className="space-y-3">
+                                                    {/* Header with Batch Code and Date */}
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-mono font-bold text-base text-primary">
+                                                                    {batch.batchSku}
+                                                                </span>
+                                                                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground mt-1">
+                                                                {formatDate(batch.createdAt)}
+                                                            </p>
+                                                        </div>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                handleDeleteBatchClick(batch);
+                                                            }}
+                                                            disabled={!['PENDING', 'MATERIAL_REQUESTED', 'MATERIAL_ALLOCATED'].includes(batch.status)}
+                                                        >
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    </div>
+
+                                                    <Separator className="my-2" />
+
+                                                    {/* Rolls / Pieces */}
+                                                    <div className="flex justify-between items-center text-sm">
+                                                        <span className="text-muted-foreground">Rolls</span>
+                                                        <div className="text-right">
+                                                            <p className="font-semibold">{batch.totalRolls}</p>
+                                                            {(batch.actualQuantity !== null && batch.actualQuantity > 0) && (
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    → {batch.actualQuantity} pcs
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Status and Stage */}
+                                                    <div className="flex flex-col gap-2">
+                                                        <div className="flex justify-between items-center text-sm">
+                                                            <span className="text-muted-foreground">Tahap</span>
+                                                            <Badge variant="secondary" className="text-xs">
+                                                                {getCurrentStage(batch.status)}
+                                                            </Badge>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-sm">
+                                                            <span className="text-muted-foreground">Status</span>
+                                                            <div>
+                                                                {getStatusBadge(batch.status)}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </Link>
+                                ))
+                            )}
                         </div>
 
                         {/* Pagination */}
@@ -1342,9 +1426,9 @@ export default function ProductDetailPage() {
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent className="max-w-2xl p-6 rounded-lg shadow-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Edit Product</DialogTitle>
+                        <DialogTitle>Edit Produk</DialogTitle>
                         <DialogDescription>
-                            Update product information and materials
+                            Update detail produk dan bahan yang digunakan
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleUpdate} className="space-y-4">
@@ -1458,7 +1542,7 @@ export default function ProductDetailPage() {
                                         return (
                                             <div
                                                 key={item.materialId}
-                                                className="flex items-center gap-2 p-2 bg-muted rounded-md"
+                                                className="flex items-center gap-2 p-2 mt-1 bg-muted rounded-md"
                                             >
                                                 <div className="flex-1">
                                                     <p className="text-sm font-medium">{material.name}</p>
@@ -1466,23 +1550,6 @@ export default function ProductDetailPage() {
                                                         {material.code}
                                                     </p>
                                                 </div>
-                                                <Input
-                                                    type="number"
-                                                    min="0.01"
-                                                    step="0.01"
-                                                    value={item.quantity}
-                                                    onChange={(e) =>
-                                                        updateMaterialQuantity(
-                                                            item.materialId,
-                                                            parseFloat(e.target.value) || 0
-                                                        )
-                                                    }
-                                                    className="w-24"
-                                                    placeholder="Qty"
-                                                />
-                                                <span className="text-xs text-muted-foreground">
-                                                    {material.unit}
-                                                </span>
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
