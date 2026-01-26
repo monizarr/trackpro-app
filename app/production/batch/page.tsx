@@ -209,6 +209,10 @@ export default function BatchManagementPage() {
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState("")
     const [activeTab, setActiveTab] = useState("PENDING")
+    const [selectedMonth, setSelectedMonth] = useState(() => {
+        const now = new Date()
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    })
     const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set())
     const [loadingSubBatches, setLoadingSubBatches] = useState<Set<string>>(new Set())
     const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -855,7 +859,12 @@ export default function BatchManagementPage() {
                 batch.product.name.toLowerCase().includes(search.toLowerCase()) ||
                 batch.product.sku.toLowerCase().includes(search.toLowerCase())
 
-            return matchesStatus && matchesSearch
+            // Filter by month
+            const batchDate = new Date(batch.createdAt)
+            const batchMonth = `${batchDate.getFullYear()}-${String(batchDate.getMonth() + 1).padStart(2, '0')}`
+            const matchesMonth = batchMonth === selectedMonth
+
+            return matchesStatus && matchesSearch && matchesMonth
         })
     }
 
@@ -1917,15 +1926,43 @@ export default function BatchManagementPage() {
             {/* Assign to Finisher Dialog - DEPRECATED: Use sub-batch flow */}
             {/* Dialog ini sudah tidak digunakan. Assign finisher dilakukan melalui sub-batch */}
 
-            {/* Search */}
-            <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="Cari batch, produk, atau SKU..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10"
-                />
+            {/* Filter Section - Month and Search */}
+            <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
+                {/* Month Filter */}
+                <div className="w-full sm:w-auto">
+                    <Label className="text-sm text-muted-foreground mb-2 block">Filter Bulan</Label>
+                    <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                        {Array.from({ length: 12 }, (_, i) => {
+                            const date = new Date()
+                            date.setMonth(date.getMonth() - i)
+                            const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+                            const label = date.toLocaleDateString("id-ID", { month: "long", year: "numeric" })
+                            return (
+                                <option key={value} value={value}>
+                                    {label}
+                                </option>
+                            )
+                        })}
+                    </select>
+                </div>
+
+                {/* Search */}
+                <div className="flex-1 relative">
+                    <Label className="text-sm text-muted-foreground mb-2 block">Cari Batch</Label>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Cari batch, produk, atau SKU..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-10"
+                        />
+                    </div>
+                </div>
             </div>
 
             {/* Tabs by Status Group */}

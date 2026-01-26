@@ -49,6 +49,7 @@ interface SubBatch {
 interface SubBatchListProps {
     batchId: string
     onRefresh: () => void
+    onVerifyFinishing?: (subBatch: SubBatch) => void
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -83,7 +84,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
  * 3. WAREHOUSE_VERIFIED - Ka. Gudang memverifikasi
  * 4. COMPLETED - Selesai
  */
-export function SubBatchList({ batchId, onRefresh }: SubBatchListProps) {
+export function SubBatchList({ batchId, onRefresh, onVerifyFinishing }: SubBatchListProps) {
     const [subBatches, setSubBatches] = useState<SubBatch[]>([])
     const [loading, setLoading] = useState(true)
     const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -300,6 +301,19 @@ export function SubBatchList({ batchId, onRefresh }: SubBatchListProps) {
 
                                 {/* Actions */}
                                 <div className="flex flex-wrap gap-2">
+                                    {subBatch.status === "CREATED" && (
+                                        <>
+                                            <Button
+                                                size="sm"
+                                                onClick={() => onVerifyFinishing?.(subBatch)}
+                                                variant="default"
+                                            >
+                                                <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                Verifikasi Hasil
+                                            </Button>
+                                        </>
+                                    )}
+
                                     {subBatch.status === "CREATED" && (
                                         <Button
                                             size="sm"

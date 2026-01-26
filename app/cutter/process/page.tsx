@@ -549,7 +549,7 @@ export default function CuttingProcessPage() {
             )}
 
             {/* Update Progress (if IN_PROGRESS) */}
-            {currentBatch.status === 'IN_PROGRESS' && (
+            {(currentBatch.status === 'IN_PROGRESS' || currentBatch.status === 'REJECTED') && (
                 <Card>
                     <CardHeader>
                         <CardTitle>Update Progress</CardTitle>

@@ -20,22 +20,22 @@ async function main() {
 
   // Create users
   const owner = await prisma.user.upsert({
-    where: { email: "owner@trackpro.com" },
+    where: { email: "owner@edelweis.web.id" },
     update: {},
     create: {
-      email: "owner@trackpro.com",
+      email: "owner@edelweis.web.id",
       username: "owner",
       password: hashedPassword,
-      name: "Owner TrackPro",
+      name: "Owner Edelweis",
       role: UserRole.OWNER,
     },
   });
 
   const kepalaGudang = await prisma.user.upsert({
-    where: { email: "gudang@trackpro.com" },
+    where: { email: "gudang@edelweis.web.id" },
     update: {},
     create: {
-      email: "gudang@trackpro.com",
+      email: "gudang@edelweis.web.id",
       username: "gudang",
       password: hashedPassword,
       name: "Kepala Gudang",
@@ -44,10 +44,10 @@ async function main() {
   });
 
   const kepalaProduksi = await prisma.user.upsert({
-    where: { email: "produksi@trackpro.com" },
+    where: { email: "produksi@edelweis.web.id" },
     update: {},
     create: {
-      email: "produksi@trackpro.com",
+      email: "produksi@edelweis.web.id",
       username: "produksi",
       password: hashedPassword,
       name: "Kepala Produksi",
@@ -56,49 +56,49 @@ async function main() {
   });
 
   const pemotong = await prisma.user.upsert({
-    where: { email: "pemotong@trackpro.com" },
+    where: { email: "pemotong@edelweis.web.id" },
     update: {},
     create: {
-      email: "pemotong@trackpro.com",
+      email: "pemotong@edelweis.web.id",
       username: "pemotong",
       password: hashedPassword,
-      name: "Staff Pemotong",
+      name: "Kepala Pemotong",
       role: UserRole.PEMOTONG,
     },
   });
 
   const penjahit = await prisma.user.upsert({
-    where: { email: "penjahit@trackpro.com" },
+    where: { email: "penjahit@edelweis.web.id" },
     update: {},
     create: {
-      email: "penjahit@trackpro.com",
+      email: "penjahit@edelweis.web.id",
       username: "penjahit",
       password: hashedPassword,
-      name: "Staff Penjahit",
+      name: "Kepala Penjahit",
       role: UserRole.PENJAHIT,
     },
   });
 
-  const penjahit2 = await prisma.user.upsert({
-    where: { email: "penjahit2@trackpro.com" },
-    update: {},
-    create: {
-      email: "penjahit2@trackpro.com",
-      username: "penjahit2",
-      password: hashedPassword,
-      name: "Staff Penjahit 2",
-      role: UserRole.PENJAHIT,
-    },
-  });
+  // const penjahit2 = await prisma.user.upsert({
+  //   where: { email: "penjahit2@edelweis.web.id" },
+  //   update: {},
+  //   create: {
+  //     email: "penjahit2@edelweis.web.id",
+  //     username: "penjahit2",
+  //     password: hashedPassword,
+  //     name: "Staff Penjahit 2",
+  //     role: UserRole.PENJAHIT,
+  //   },
+  // });
 
   const finishing = await prisma.user.upsert({
-    where: { email: "finishing@trackpro.com" },
+    where: { email: "finishing@edelweis.web.id" },
     update: {},
     create: {
-      email: "finishing@trackpro.com",
+      email: "finishing@edelweis.web.id",
       username: "finishing",
       password: hashedPassword,
-      name: "Staff Finishing",
+      name: "Kepala Finishing",
       role: UserRole.FINISHING,
     },
   });
@@ -510,7 +510,7 @@ async function main() {
   await prisma.sewingTask.create({
     data: {
       batchId: batch2.id,
-      assignedToId: penjahit2.id,
+      assignedToId: penjahit.id,
       piecesReceived: 50,
       piecesCompleted: 50,
       status: "VERIFIED",
@@ -746,12 +746,12 @@ async function main() {
   console.log("   • Batch 5: MATERIAL_ALLOCATED (ready for cutting)");
   console.log("   • Batch 6: PENDING (new batch)");
   console.log("\n📝 Test credentials:");
-  console.log("   owner:        owner@trackpro.com / password123");
-  console.log("   gudang:       gudang@trackpro.com / password123");
-  console.log("   produksi:     produksi@trackpro.com / password123");
-  console.log("   pemotong:     pemotong@trackpro.com / password123");
-  console.log("   penjahit:     penjahit@trackpro.com / password123");
-  console.log("   finishing:    finishing@trackpro.com / password123");
+  console.log("   owner:        owner@edelweis.web.id / password123");
+  console.log("   gudang:       gudang@edelweis.web.id / password123");
+  console.log("   produksi:     produksi@edelweis.web.id / password123");
+  console.log("   pemotong:     pemotong@edelweis.web.id / password123");
+  console.log("   penjahit:     penjahit@edelweis.web.id / password123");
+  console.log("   finishing:    finishing@edelweis.web.id / password123");
 }
 
 main()

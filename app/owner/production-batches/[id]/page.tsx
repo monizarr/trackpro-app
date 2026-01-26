@@ -844,6 +844,14 @@ export default function ProductionBatchDetailPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
+                    {/* nama produk */}
+                    {
+                        batch.product && (
+                            <Badge variant="outline" className="py-1 px-3">
+                                Produk: {batch.product.name}
+                            </Badge>
+                        )
+                    }
                     {getStatusBadge(batch.status)}
                 </div>
             </div>
@@ -867,8 +875,8 @@ export default function ProductionBatchDetailPage() {
                 )}
 
                 {/* Input Cutting Results - when ASSIGNED_TO_CUTTER */}
-                {batch.status === "ASSIGNED_TO_CUTTER" && (
-                    <Button onClick={() => { initializeCuttingResults(); setShowInputCuttingDialog(true); }} variant="outline">
+                {(batch.status === "ASSIGNED_TO_CUTTER" || batch.status === "IN_CUTTING") && (
+                    <Button onClick={() => { initializeCuttingResults(); setShowInputCuttingDialog(true); }} size={"sm"}>
                         <Scissors className="h-4 w-4 mr-2" />
                         Input Hasil Potongan
                     </Button>
@@ -876,7 +884,7 @@ export default function ProductionBatchDetailPage() {
 
                 {/* Verify Cutting - when cutting completed */}
                 {batch.status === "CUTTING_COMPLETED" && (
-                    <Button onClick={() => setShowVerifyDialog(true)} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={() => setShowVerifyDialog(true)} size='sm'>
                         <CheckCircle className="h-4 w-4 mr-2" />
                         Verifikasi Potongan
                     </Button>
@@ -2074,7 +2082,7 @@ export default function ProductionBatchDetailPage() {
                                     <CardTitle className="text-lg">Hasil Penjahitan</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-3">
-                                    <div className="grid grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <Label className="text-muted-foreground">Pieces Diterima</Label>
                                             <p className="text-2xl font-bold">{batch.sewingTask.piecesReceived}</p>
@@ -2082,10 +2090,6 @@ export default function ProductionBatchDetailPage() {
                                         <div>
                                             <Label className="text-muted-foreground">Pieces Completed</Label>
                                             <p className="text-2xl font-bold text-green-600">{batch.sewingTask.piecesCompleted}</p>
-                                        </div>
-                                        <div>
-                                            <Label className="text-muted-foreground">Reject Pieces</Label>
-                                            <p className="text-2xl font-bold text-red-600">{batch.sewingTask.rejectPieces}</p>
                                         </div>
                                     </div>
                                     {batch.sewingTask.notes && (

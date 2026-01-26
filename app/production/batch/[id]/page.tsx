@@ -284,6 +284,13 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
     const [completeNotes, setCompleteNotes] = useState("");
     const [completing, setCompleting] = useState(false);
 
+    const [showVerifyFinishingDialog, setShowVerifyFinishingDialog] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [verifyingSubBatch, setVerifyingSubBatch] = useState<any>(null);
+    const [verifyFinishingAction, setVerifyFinishingAction] = useState<"approve" | "reject">("approve");
+    const [verifyFinishingNotes, setVerifyFinishingNotes] = useState("");
+    const [verifyingFinishing, setVerifyingFinishing] = useState(false);
+
     // Workers list
     const [cutters, setCutters] = useState<Cutter[]>([]);
     const [sewers, setSewers] = useState<Sewer[]>([]);
@@ -536,6 +543,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             setSubmittingCutting(false);
         }
     };
+    console.log(batch)
 
     const handleAssignToSewer = async () => {
         if (!batch || !selectedSewerId) {
@@ -754,6 +762,54 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
         }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const openVerifyFinishingDialog = (subBatch: any) => {
+        setVerifyingSubBatch(subBatch);
+        setVerifyFinishingAction("approve");
+        setVerifyFinishingNotes("");
+        setShowVerifyFinishingDialog(true);
+    };
+
+    const handleVerifyFinishing = async () => {
+        if (!batch || !verifyingSubBatch) return;
+
+        setVerifyingFinishing(true);
+        try {
+            const response = await fetch(`/api/sub-batches/${verifyingSubBatch.id}/verify`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    action: verifyFinishingAction,
+                    notes: verifyFinishingNotes,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                if (verifyFinishingAction === "approve") {
+                    toast.success("Berhasil", "Hasil finishing disetujui dan siap dikirim ke gudang");
+                } else {
+                    toast.success("Berhasil", "Hasil finishing ditolak. Hasil jahitan telah dikembalikan untuk diisi ulang");
+                }
+                setShowVerifyFinishingDialog(false);
+                setVerifyingSubBatch(null);
+                setVerifyFinishingNotes("");
+                fetchBatchDetail();
+                fetchSubBatches();
+            } else {
+                toast.error("Error", result.error || "Gagal memverifikasi hasil finishing");
+            }
+        } catch (error) {
+            console.error("Error verifying finishing:", error);
+            toast.error("Error", "Terjadi kesalahan saat memverifikasi hasil finishing");
+        } finally {
+            setVerifyingFinishing(false);
+        }
+    };
+
     const getStatusBadge = (status: string) => {
         const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
             PENDING: { label: "Menunggu", variant: "secondary" },
@@ -855,6 +911,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
         });
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const formatDateOnly = (dateString: string) => {
         return new Date(dateString).toLocaleDateString("id-ID", {
             day: "numeric",
@@ -964,7 +1021,9 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
     // Get all items already in sub-batches
     const submittedItems = new Map<string, number>();
     for (const subBatch of subBatches) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (subBatch && (subBatch as any).items && Array.isArray((subBatch as any).items)) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             for (const item of (subBatch as any).items) {
                 const key = `${item.productSize}|${item.color}`;
                 const total = (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
@@ -983,7 +1042,9 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
     // Calculate total finishing input (dari semua sub-batches)
     let totalFinishingInput = 0;
     for (const subBatch of subBatches) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (subBatch && (subBatch as any).items && Array.isArray((subBatch as any).items)) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             for (const item of (subBatch as any).items) {
                 totalFinishingInput += (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
             }
@@ -1034,7 +1095,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                         </Button>
                     )}
 
-                    {batch.status === "ASSIGNED_TO_CUTTER" && (
+                    {(batch.status === "ASSIGNED_TO_CUTTER" || batch.status === "IN_CUTTING") && (
                         <Button
                             size="sm"
                             onClick={() => {
@@ -2005,6 +2066,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 <SubBatchList
                     batchId={batch.id}
                     onRefresh={fetchBatchDetail}
+                    onVerifyFinishing={openVerifyFinishingDialog}
                 />
             )}
 
@@ -2390,22 +2452,22 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                             <TableRow>
                                                 <TableHead>Size</TableHead>
                                                 <TableHead>Warna</TableHead>
-                                                <TableHead>Target</TableHead>
-                                                <TableHead className="text-right">Actual Pieces</TableHead>
+                                                {/* <TableHead>Target</TableHead> */}
+                                                <TableHead >Actual Pieces</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {cuttingResults.map((result, idx) => {
-                                                const request = batch.sizeColorRequests?.find(
-                                                    r => r.productSize === result.productSize && r.color === result.color
-                                                );
+                                                // const request = batch.sizeColorRequests?.find(
+                                                //     r => r.productSize === result.productSize && r.color === result.color
+                                                // );
                                                 return (
                                                     <TableRow key={idx}>
                                                         <TableCell className="font-medium">{result.productSize}</TableCell>
                                                         <TableCell>
                                                             <Badge variant="outline">{result.color}</Badge>
                                                         </TableCell>
-                                                        <TableCell>{request?.requestedPieces || 0} pcs</TableCell>
+                                                        {/* <TableCell>{request?.requestedPieces || 0} pcs</TableCell> */}
                                                         <TableCell className="text-right">
                                                             <Input
                                                                 type="number"
@@ -2757,7 +2819,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                     <CardTitle>Hasil Penjahitan</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-3">
-                                    <div className="grid grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <Label className="text-muted-foreground">Pieces Diterima</Label>
                                             <p className="text-2xl font-bold">{batch.sewingTask.piecesReceived}</p>
@@ -2765,10 +2827,6 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                         <div>
                                             <Label className="text-muted-foreground">Pieces Completed</Label>
                                             <p className="text-2xl font-bold text-green-600">{batch.sewingTask.piecesCompleted}</p>
-                                        </div>
-                                        <div>
-                                            <Label className="text-muted-foreground">Reject Pieces</Label>
-                                            <p className="text-2xl font-bold text-red-600">{batch.sewingTask.rejectPieces}</p>
                                         </div>
                                     </div>
                                     {batch.sewingTask.notes && (
@@ -2920,6 +2978,128 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                     }}
                 />
             )}
+
+            {/* Verify Finishing Dialog */}
+            <Dialog open={showVerifyFinishingDialog} onOpenChange={setShowVerifyFinishingDialog}>
+                <DialogContent className="max-w-[95vw] sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Verifikasi Hasil Finishing</DialogTitle>
+                        <DialogDescription>
+                            Verifikasi hasil finishing sebelum dapat diserahkan ke gudang
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {verifyingSubBatch && (
+                        <div className="space-y-4 py-4">
+                            {/* Sub-Batch Info */}
+                            <div className="rounded-lg border p-4 space-y-3">
+                                <div>
+                                    <Label className="text-muted-foreground text-xs">Sub-Batch SKU</Label>
+                                    <p className="font-medium font-mono">{verifyingSubBatch.subBatchSku}</p>
+                                </div>
+                                <Separator />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <Label className="text-muted-foreground text-xs">Hasil Bagus</Label>
+                                        <p className="font-medium">{verifyingSubBatch.finishingGoodOutput} pcs</p>
+                                    </div>
+                                    <div>
+                                        <Label className="text-muted-foreground text-xs">Total Reject</Label>
+                                        <p className="font-medium">
+                                            {verifyingSubBatch.rejectKotor + verifyingSubBatch.rejectSobek + verifyingSubBatch.rejectRusakJahit} pcs
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 text-sm">
+                                    <div className="bg-orange-50 p-2 rounded">
+                                        <p className="text-xs text-muted-foreground">Kotor</p>
+                                        <p className="font-medium">{verifyingSubBatch.rejectKotor}</p>
+                                    </div>
+                                    <div className="bg-red-50 p-2 rounded">
+                                        <p className="text-xs text-muted-foreground">Sobek</p>
+                                        <p className="font-medium">{verifyingSubBatch.rejectSobek}</p>
+                                    </div>
+                                    <div className="bg-red-50 p-2 rounded">
+                                        <p className="text-xs text-muted-foreground">Rusak Jahit</p>
+                                        <p className="font-medium">{verifyingSubBatch.rejectRusakJahit}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Action Selection */}
+                            <div className="space-y-3 pt-4 border-t">
+                                <Label>Aksi Verifikasi</Label>
+                                <div className="space-y-2">
+                                    <Button
+                                        variant={verifyFinishingAction === "approve" ? "default" : "outline"}
+                                        className="w-full justify-start"
+                                        onClick={() => setVerifyFinishingAction("approve")}
+                                    >
+                                        <CheckCircle className="mr-2 h-4 w-4" />
+                                        Setujui - Kirim ke Gudang
+                                    </Button>
+                                    <Button
+                                        variant={verifyFinishingAction === "reject" ? "destructive" : "outline"}
+                                        className="w-full justify-start"
+                                        onClick={() => setVerifyFinishingAction("reject")}
+                                    >
+                                        <AlertCircle className="mr-2 h-4 w-4" />
+                                        Tolak - Update Kembali
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Notes */}
+                            <div className="space-y-2">
+                                <Label htmlFor="verify-finishing-notes">Catatan (Opsional)</Label>
+                                <Textarea
+                                    id="verify-finishing-notes"
+                                    placeholder="Catatan untuk verifikasi..."
+                                    value={verifyFinishingNotes}
+                                    onChange={(e) => setVerifyFinishingNotes(e.target.value)}
+                                    rows={3}
+                                />
+                            </div>
+
+                            {verifyFinishingAction === "reject" && (
+                                <Alert>
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertDescription>
+                                        Hasil finishing akan ditolak, data hasil finishing akan di-reset, dan hasil jahitan akan dikembalikan sehingga dapat diisi ulang oleh kepala finishing.
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowVerifyFinishingDialog(false);
+                                setVerifyingSubBatch(null);
+                                setVerifyFinishingNotes("");
+                            }}
+                            disabled={verifyingFinishing}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            onClick={handleVerifyFinishing}
+                            disabled={verifyingFinishing}
+                            variant={verifyFinishingAction === "reject" ? "destructive" : "default"}
+                        >
+                            {verifyingFinishing
+                                ? verifyFinishingAction === "approve"
+                                    ? "Menyetujui..."
+                                    : "Menolak..."
+                                : verifyFinishingAction === "approve"
+                                    ? "Setujui & Kirim"
+                                    : "Tolak & Update"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Complete Batch Dialog */}
             <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>

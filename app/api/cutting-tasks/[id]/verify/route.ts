@@ -63,15 +63,15 @@ export async function POST(
       );
     }
 
-    if (task.verifiedAt) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Task sudah diverifikasi sebelumnya",
-        },
-        { status: 400 },
-      );
-    }
+    // if (task.verifiedAt) {
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       error: "Task sudah diverifikasi sebelumnya",
+    //     },
+    //     { status: 400 },
+    //   );
+    // }
 
     // Execute verification in transaction
     const result = await prisma.$transaction(async (tx) => {
