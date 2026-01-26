@@ -116,11 +116,50 @@ export function CreateSubBatchDialog({
             ...updated[index],
             [field]: Math.max(0, value),
         }
+
+        // Validate total doesn't exceed available
+        const available = getAvailableQuantity(updated[index].productSize, updated[index].color)
+        const total = getTotalForItem(updated[index])
+
+        if (total > available) {
+            toast.error(
+                "Validasi",
+                `Total (${total}) tidak boleh melebihi tersedia (${available}) untuk ${updated[index].productSize} ${updated[index].color}`
+            )
+            return
+        }
+
         setItems(updated)
     }
 
     const getTotalForItem = (item: FinishingOutputItem) => {
         return item.goodQuantity + item.rejectKotor + item.rejectSobek + item.rejectRusakJahit
+    }
+
+    const getAvailableQuantity = (productSize: string, color: string) => {
+        const found = sewingOutputs.find(
+            (output) => output.productSize === productSize && output.color === color
+        )
+        return found?.quantity || 0
+    }
+
+    const isItemValid = (item: FinishingOutputItem) => {
+        const total = getTotalForItem(item)
+        const available = getAvailableQuantity(item.productSize, item.color)
+        return total > 0 && total <= available
+    }
+
+    const getItemErrorMessage = (item: FinishingOutputItem) => {
+        const total = getTotalForItem(item)
+        const available = getAvailableQuantity(item.productSize, item.color)
+
+        if (total === 0) {
+            return "Total harus lebih dari 0"
+        }
+        if (total > available) {
+            return `Total (${total}) melebihi tersedia (${available})`
+        }
+        return null
     }
 
     const getTotals = () => {
@@ -142,9 +181,12 @@ export function CreateSubBatchDialog({
         }
 
         for (const item of items) {
-            const total = getTotalForItem(item)
-            if (total <= 0) {
-                toast.error("Error", `Item ${item.productSize} ${item.color} harus memiliki quantity > 0`)
+            const errorMessage = getItemErrorMessage(item)
+            if (errorMessage) {
+                toast.error(
+                    "Validasi Error",
+                    `${item.productSize} ${item.color}: ${errorMessage}`
+                )
                 return false
             }
         }
@@ -251,82 +293,99 @@ export function CreateSubBatchDialog({
                             </CardContent>
                         </Card>
                     ) : (
-                        items.map((item, index) => (
-                            <Card key={index} className="border-2">
-                                <CardHeader className="py-3 flex flex-row items-center justify-between">
-                                    <CardTitle className="text-sm flex items-center gap-2">
-                                        <Badge variant="outline">
-                                            {item.productSize} {item.color}
-                                        </Badge>
-                                        <span className="text-muted-foreground">
-                                            Total: {getTotalForItem(item)} pcs
-                                        </span>
-                                    </CardTitle>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => removeItem(index)}
-                                    >
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                        <div className="space-y-2">
-                                            <Label className="text-green-600">Barang Jadi</Label>
-                                            <Input
-                                                type="number"
-                                                value={item.goodQuantity || ""}
-                                                onChange={(e) =>
-                                                    updateItem(index, "goodQuantity", parseInt(e.target.value) || 0)
-                                                }
-                                                min={0}
-                                                placeholder="0"
-                                            />
+                        items.map((item, index) => {
+                            const available = getAvailableQuantity(item.productSize, item.color)
+                            const total = getTotalForItem(item)
+                            const isValid = isItemValid(item)
+                            const errorMsg = getItemErrorMessage(item)
+
+                            return (
+                                <Card key={index} className={`border-2 ${errorMsg ? 'border-red-300 bg-red-50' : isValid ? 'border-green-300' : 'border-yellow-300'
+                                    }`}>
+                                    <CardHeader className="py-3 flex flex-row items-center justify-between">
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                            <Badge variant="outline">
+                                                {item.productSize} {item.color}
+                                            </Badge>
+                                            <span className="text-muted-foreground">
+                                                Total: {total} / {available} pcs
+                                            </span>
+                                            {errorMsg && (
+                                                <Badge variant="destructive" className="ml-auto">
+                                                    {errorMsg}
+                                                </Badge>
+                                            )}
+                                        </CardTitle>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removeItem(index)}
+                                        >
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                            <div className="space-y-2">
+                                                <Label className="text-green-600">Barang Jadi</Label>
+                                                <Input
+                                                    type="number"
+                                                    value={item.goodQuantity || ""}
+                                                    onChange={(e) =>
+                                                        updateItem(index, "goodQuantity", parseInt(e.target.value) || 0)
+                                                    }
+                                                    min={0}
+                                                    max={available}
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-yellow-600">Kotor</Label>
+                                                <Input
+                                                    type="number"
+                                                    value={item.rejectKotor || ""}
+                                                    onChange={(e) =>
+                                                        updateItem(index, "rejectKotor", parseInt(e.target.value) || 0)
+                                                    }
+                                                    min={0}
+                                                    max={available}
+                                                    placeholder="0"
+                                                />
+                                                <p className="text-xs text-muted-foreground">Dicuci di gudang</p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-red-600">Sobek</Label>
+                                                <Input
+                                                    type="number"
+                                                    value={item.rejectSobek || ""}
+                                                    onChange={(e) =>
+                                                        updateItem(index, "rejectSobek", parseInt(e.target.value) || 0)
+                                                    }
+                                                    min={0}
+                                                    max={available}
+                                                    placeholder="0"
+                                                />
+                                                <p className="text-xs text-muted-foreground">Bad Stock</p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-red-600">Rusak Jahit</Label>
+                                                <Input
+                                                    type="number"
+                                                    value={item.rejectRusakJahit || ""}
+                                                    onChange={(e) =>
+                                                        updateItem(index, "rejectRusakJahit", parseInt(e.target.value) || 0)
+                                                    }
+                                                    min={0}
+                                                    max={available}
+                                                    placeholder="0"
+                                                />
+                                                <p className="text-xs text-muted-foreground">Bad Stock</p>
+                                            </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-yellow-600">Kotor</Label>
-                                            <Input
-                                                type="number"
-                                                value={item.rejectKotor || ""}
-                                                onChange={(e) =>
-                                                    updateItem(index, "rejectKotor", parseInt(e.target.value) || 0)
-                                                }
-                                                min={0}
-                                                placeholder="0"
-                                            />
-                                            <p className="text-xs text-muted-foreground">Dicuci di gudang</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-red-600">Sobek</Label>
-                                            <Input
-                                                type="number"
-                                                value={item.rejectSobek || ""}
-                                                onChange={(e) =>
-                                                    updateItem(index, "rejectSobek", parseInt(e.target.value) || 0)
-                                                }
-                                                min={0}
-                                                placeholder="0"
-                                            />
-                                            <p className="text-xs text-muted-foreground">Bad Stock</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-red-600">Rusak Jahit</Label>
-                                            <Input
-                                                type="number"
-                                                value={item.rejectRusakJahit || ""}
-                                                onChange={(e) =>
-                                                    updateItem(index, "rejectRusakJahit", parseInt(e.target.value) || 0)
-                                                }
-                                                min={0}
-                                                placeholder="0"
-                                            />
-                                            <p className="text-xs text-muted-foreground">Bad Stock</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))
+                                    </CardContent>
+                                </Card>
+                            )
+                        })
                     )}
                 </div>
 

@@ -273,7 +273,6 @@ export default function BatchManagementPage() {
     const [submittingSewing, setSubmittingSewing] = useState(false)
 
     // Form state - handled by CreateBatchDialog component
-
     useEffect(() => {
         fetchBatches()
         fetchProducts()
@@ -293,7 +292,7 @@ export default function BatchManagementPage() {
             setLoading(false)
         }
     }
-
+    console.log(batches);
     const fetchProducts = async () => {
         try {
             const response = await fetch("/api/products")
@@ -976,7 +975,7 @@ export default function BatchManagementPage() {
         },
         FINISHING: {
             label: "Finishing",
-            statuses: ["IN_FINISHING", "FINISHING_COMPLETED"],
+            statuses: ["ASSIGNED_TO_FINISHING", "IN_FINISHING", "FINISHING_COMPLETED"],
             icon: CheckCircle,
             color: "text-green-600"
         },
@@ -2857,8 +2856,7 @@ export default function BatchManagementPage() {
                                                                         className="w-full"
                                                                         onClick={() => openSubBatchDialog(batch)}
                                                                     >
-                                                                        <Plus className="h-4 w-4 mr-2" />
-                                                                        Buat Sub-Batch
+                                                                        <Package className="h-4 w-4 mr-2" />Input Hasil Finishing
                                                                     </Button>
                                                                 )}
                                                             </div>
