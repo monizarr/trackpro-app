@@ -1,6 +1,6 @@
 "use client"
 
-import { Plus, Search, Eye, CheckCircle, AlertCircle, Package, UserPlus, Scissors, Clock, Users, TrendingUp, ChevronDown, ChevronRight } from "lucide-react"
+import { Plus, Search, Eye, CheckCircle, AlertCircle, Package, UserPlus, Scissors, Clock, Users, TrendingUp, ChevronDown, ChevronRight, ExternalLink } from "lucide-react"
 import { Fragment } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -1005,7 +1005,20 @@ export default function BatchManagementPage() {
     }
 
     const getGroupStats = (groupStatuses: string[]) => {
-        const groupBatches = batches.filter(b => groupStatuses.includes(b.status))
+        const groupBatches = batches.filter(batch => {
+            const matchesStatus = groupStatuses.includes(batch.status)
+            const matchesSearch = search.trim() === "" ||
+                batch.batchSku.toLowerCase().includes(search.toLowerCase()) ||
+                batch.product.name.toLowerCase().includes(search.toLowerCase()) ||
+                batch.product.sku.toLowerCase().includes(search.toLowerCase())
+
+            // Filter by month
+            const batchDate = new Date(batch.createdAt)
+            const batchMonth = `${batchDate.getFullYear()}-${String(batchDate.getMonth() + 1).padStart(2, '0')}`
+            const matchesMonth = batchMonth === selectedMonth
+
+            return matchesStatus && matchesSearch && matchesMonth
+        })
         return {
             total: groupBatches.length,
             totalRolls: groupBatches.reduce((sum, b) => sum + b.totalRolls, 0),
@@ -2705,7 +2718,7 @@ export default function BatchManagementPage() {
                                             {/* Mobile Card View */}
                                             <div className="md:hidden space-y-4">
                                                 {filteredGroupBatches.map((batch) => (
-                                                    <Card key={batch.id} className="overflow-hidden">
+                                                    <Card key={batch.id} className="overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => router.push(`/production/batch/${batch.id}`)}>
                                                         <CardHeader className="pb-3">
                                                             <div className="flex items-start justify-between">
                                                                 <div className="flex items-start gap-2 flex-1">
@@ -2725,23 +2738,24 @@ export default function BatchManagementPage() {
                                                                     )}
                                                                     <div className="space-y-1 flex-1">
                                                                         <CardTitle
-                                                                            className="text-base font-mono cursor-pointer hover:text-primary"
-                                                                            onClick={() => router.push(`/production/batch/${batch.id}`)}
+                                                                            className="text-base font-mono cursor-pointer hover:text-primary flex gap-2 items-center"
+
                                                                         >
                                                                             {batch.batchSku}
+                                                                            <ExternalLink className="h-4 w-4 text-muted-foreground" />
                                                                         </CardTitle>
                                                                         <CardDescription className="text-sm">
                                                                             {batch.product.name}
                                                                         </CardDescription>
                                                                     </div>
                                                                 </div>
-                                                                <Button
+                                                                {/* <Button
                                                                     variant="ghost"
                                                                     size="sm"
                                                                     onClick={() => router.push(`/production/batch/${batch.id}`)}
                                                                 >
                                                                     <Eye className="h-4 w-4" />
-                                                                </Button>
+                                                                </Button> */}
                                                             </div>
                                                         </CardHeader>
                                                         <CardContent className="space-y-3">
