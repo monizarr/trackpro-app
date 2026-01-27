@@ -1,16 +1,16 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Plus, CheckCircle, Loader2, AlertCircle } from "lucide-react"
+import { Plus, CheckCircle, Loader2, AlertCircle, Clock, Play, Zap } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface CuttingTask {
     id: string
@@ -24,8 +24,11 @@ interface CuttingTask {
     startedAt: Date | null
     completedAt: Date | null
     batch: {
+        id: string
         batchSku: string
+        status: string
         targetQuantity: number
+        totalRolls: number | null
         product: {
             name: string
         }
@@ -41,7 +44,6 @@ interface CuttingTask {
             color: string
             actualPieces: number
         }>
-        totalRolls: number | null
     }
 }
 
@@ -60,6 +62,11 @@ export default function CuttingProcessPage() {
     const [loading, setLoading] = useState(true)
     const [loadingTimeline, setLoadingTimeline] = useState(false)
     const [submitting, setSubmitting] = useState(false)
+    const [activeTab, setActiveTab] = useState("MENUNGGU")
+    const [selectedMonth, setSelectedMonth] = useState(() => {
+        const now = new Date()
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    })
     const [cuttingResults, setCuttingResults] = useState<Array<{
         productSize: string
         color: string
@@ -67,6 +74,33 @@ export default function CuttingProcessPage() {
     }>>([])
     const [notes, setNotes] = useState("")
     const { toast } = useToast()
+    // Status groups untuk tabs
+    const STATUS_GROUPS = {
+        MENUNGGU: {
+            label: "Menunggu",
+            statuses: ["ASSIGNED_TO_CUTTER"],
+            icon: Clock,
+            color: "text-yellow-600"
+        },
+        PROSES: {
+            label: "Proses",
+            statuses: ["IN_CUTTING"],
+            icon: Play,
+            color: "text-blue-600"
+        },
+        SELESAI: {
+            label: "Selesai",
+            statuses: ["CUTTING_COMPLETED"],
+            icon: CheckCircle,
+            color: "text-orange-600"
+        },
+        TERVERIFIKASI: {
+            label: "Terverifikasi",
+            statuses: ["CUTTING_VERIFIED", "IN_SEWING", "SEWING_COMPLETED", "SEWING_VERIFIED", "FINISHING_COMPLETED", "COMPLETED", "ASSIGNED_TO_SEWER", "IN_FINISHING", "WAREHOUSE_VERIFIED", "ASSIGNED_TO_FINISHING"],
+            icon: Zap,
+            color: "text-green-600"
+        }
+    }
 
     const fetchTasks = async () => {
         try {
@@ -114,9 +148,9 @@ export default function CuttingProcessPage() {
                     }
                 }
 
-                // Auto-select first task in progress or pending, or just the first task
+                // Auto-select first task based on cutting status priority
                 const activeTask = data.find((t: CuttingTask) =>
-                    t.status === 'IN_PROGRESS' || t.status === 'PENDING'
+                    t.batch.status === 'IN_CUTTING' || t.batch.status === 'ASSIGNED_TO_CUTTER'
                 ) || data[0]
 
                 if (activeTask) {
@@ -187,7 +221,13 @@ export default function CuttingProcessPage() {
     }, [])
 
     const handleStart = async () => {
-        if (!selectedTask || selectedTask.status !== 'PENDING') return
+        if (!selectedTask || selectedTask.batch.status !== 'ASSIGNED_TO_CUTTER') {
+            toast({
+                variant: "destructive",
+                title: "Gagal",
+                description: "Task tidak dapat dimulai"
+            })
+        }
 
         setSubmitting(true)
         try {
@@ -309,6 +349,53 @@ export default function CuttingProcessPage() {
         }
     }
 
+    const filterTasks = (groupStatuses: string[]) => {
+        return tasks.filter(task => {
+            const matchesStatus = groupStatuses.includes(task.batch.status)
+
+            // Filter by month - if no date, include in current month
+            let taskDate: Date
+            if (task.startedAt) {
+                taskDate = new Date(task.startedAt)
+            } else if (task.completedAt) {
+                taskDate = new Date(task.completedAt)
+            } else {
+                // If no date available, always include (don't filter by month)
+                return matchesStatus
+            }
+
+            const taskMonth = `${taskDate.getFullYear()}-${String(taskDate.getMonth() + 1).padStart(2, '0')}`
+            const matchesMonth = taskMonth === selectedMonth
+
+            return matchesStatus && matchesMonth
+        })
+    }
+
+    const getGroupStats = (groupStatuses: string[]) => {
+        const groupTasks = tasks.filter(task => {
+            const matchesStatus = groupStatuses.includes(task.batch.status)
+
+            // Filter by month - if no date, include in current month
+            let taskDate: Date
+            if (task.startedAt) {
+                taskDate = new Date(task.startedAt)
+            } else if (task.completedAt) {
+                taskDate = new Date(task.completedAt)
+            } else {
+                // If no date available, always include (don't filter by month)
+                return matchesStatus
+            }
+
+            const taskMonth = `${taskDate.getFullYear()}-${String(taskDate.getMonth() + 1).padStart(2, '0')}`
+            const matchesMonth = taskMonth === selectedMonth
+
+            return matchesStatus && matchesMonth
+        })
+        return {
+            total: groupTasks.length,
+        }
+    }
+
     if (loading) {
         return (
             <div className="flex-1 flex items-center justify-center min-h-screen">
@@ -344,7 +431,7 @@ export default function CuttingProcessPage() {
         completed: cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0),
         materialReceived: selectedTask.materialReceived,
         totalRoll: selectedTask.batch.totalRolls,
-        status: selectedTask.status
+        status: selectedTask.batch.status
     } : null
 
     if (!currentBatch) {
@@ -429,9 +516,11 @@ export default function CuttingProcessPage() {
         })
     }
 
+    console.log("Cutting Tasks:", tasks)
+    console.log("Selected Task:", selectedTask)
     return (
         <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                     <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Proses Pemotongan</h2>
                     <p className="text-sm sm:text-base text-muted-foreground">
@@ -440,311 +529,324 @@ export default function CuttingProcessPage() {
                 </div>
             </div>
 
-            {/* Task Selection */}
-            {tasks.length >= 1 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Pilih Task</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid gap-2">
-                            {tasks.map((task) => (
-                                <Button
-                                    key={task.id}
-                                    variant={selectedTask?.id === task.id ? "default" : "outline"}
-                                    className="justify-start"
-                                    onClick={() => {
-                                        setSelectedTask(task)
+            {/* Filter by Month */}
+            <div className="flex gap-4 items-end flex-wrap">
+                <div className="flex-1 min-w-[200px]">
+                    <label className="text-sm text-muted-foreground mb-2 block">Filter Bulan</label>
+                    <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                    >
+                        {[...Array(12)].map((_, i) => {
+                            const date = new Date()
+                            date.setMonth(date.getMonth() - i)
+                            const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+                            const label = date.toLocaleDateString("id-ID", { month: "long", year: "numeric" })
+                            return (
+                                <option key={value} value={value}>
+                                    {label}
+                                </option>
+                            )
+                        })}
+                    </select>
+                </div>
+            </div>
 
-                                        // Initialize cutting results
-                                        if (task.batch.cuttingResults && task.batch.cuttingResults.length > 0) {
-                                            setCuttingResults(task.batch.cuttingResults.map(r => ({
-                                                productSize: r.productSize,
-                                                color: r.color,
-                                                actualPieces: r.actualPieces
-                                            })))
-                                        } else if (task.batch.sizeColorRequests) {
-                                            setCuttingResults(task.batch.sizeColorRequests.map(r => ({
-                                                productSize: r.productSize,
-                                                color: r.color,
-                                                actualPieces: r.requestedPieces
-                                            })))
-                                        }
+            {/* Tabs by Status Group */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                <TabsList className="grid w-full grid-cols-4">
+                    {Object.entries(STATUS_GROUPS).map(([key, group]) => {
+                        const stats = getGroupStats(group.statuses)
+                        const Icon = group.icon
+                        return (
+                            <TabsTrigger key={key} value={key} className="relative">
+                                <Icon className={`h-4 w-4 mr-2 ${group.color}`} />
+                                <span className="hidden sm:inline">{group.label}</span>
+                                {stats.total > 0 && (
+                                    <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                                        {stats.total}
+                                    </Badge>
+                                )}
+                            </TabsTrigger>
+                        )
+                    })}
+                </TabsList>
 
-                                        setNotes(task.notes || "")
-                                        fetchTimeline(task.batchId)
-                                    }}
-                                >
-                                    <div className="flex items-center justify-between w-full">
-                                        <span>{task.batch.batchSku} - {task.batch.product.name}</span>
-                                        {getStatusBadge(task.status)}
-                                    </div>
-                                </Button>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
+                {Object.entries(STATUS_GROUPS).map(([key, group]) => {
+                    const filteredTasks = filterTasks(group.statuses)
 
-            {/* Current Batch Info */}
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle className="font-mono">{currentBatch.code}</CardTitle>
-                            <CardDescription>{currentBatch.product}</CardDescription>
-                        </div>
-                        {getStatusBadge(currentBatch.status)}
-                    </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {/* <div>
-                        <div className="flex justify-between text-sm mb-2">
-                            <span className="text-muted-foreground">Progress</span>
-                            <span className="font-medium">{currentBatch.completed}/{currentBatch.target} pcs ({Math.round((currentBatch.completed / currentBatch.target) * 100)}%)</span>
-                        </div>
-                        <Progress value={(currentBatch.completed / currentBatch.target) * 100} />
-                    </div> */}
-
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                        <div className="space-y-1">
-                            <p className="text-xs sm:text-sm text-muted-foreground">Material Diterima</p>
-                            <p className="text-xl sm:text-2xl font-bold">{currentBatch.totalRoll || 0} ROLL</p>
-                        </div>
-                        {/* <div className="space-y-1">
-                            <p className="text-sm text-muted-foreground">Target</p>
-                            <p className="text-2xl font-bold">{currentBatch.target} pcs</p>
-                        </div> */}
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Start Task (if PENDING) */}
-            {currentBatch.status === 'PENDING' && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Mulai Pemotongan</CardTitle>
-                        <CardDescription>Klik tombol di bawah untuk memulai proses pemotongan</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button
-                            onClick={handleStart}
-                            disabled={submitting}
-                            className="w-full"
-                        >
-                            {submitting ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Memulai...
-                                </>
+                    return (
+                        <TabsContent key={key} value={key} className="space-y-4">
+                            {filteredTasks.length === 0 ? (
+                                <Alert>
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertDescription>
+                                        Tidak ada task dengan status {group.label.toLowerCase()}.
+                                    </AlertDescription>
+                                </Alert>
                             ) : (
                                 <>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Mulai Pemotongan
+                                    {/* Task Selection for this tab */}
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Pilih Task</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="grid gap-2">
+                                                {filteredTasks.map((task) => (
+                                                    <Button
+                                                        key={task.id}
+                                                        variant={selectedTask?.id === task.id ? "default" : "outline"}
+                                                        className="justify-start h-auto py-3"
+                                                        onClick={() => {
+                                                            setSelectedTask(task)
+
+                                                            // Initialize cutting results
+                                                            if (task.batch.cuttingResults && task.batch.cuttingResults.length > 0) {
+                                                                setCuttingResults(task.batch.cuttingResults.map(r => ({
+                                                                    productSize: r.productSize,
+                                                                    color: r.color,
+                                                                    actualPieces: r.actualPieces
+                                                                })))
+                                                            } else if (task.batch.sizeColorRequests) {
+                                                                setCuttingResults(task.batch.sizeColorRequests.map(r => ({
+                                                                    productSize: r.productSize,
+                                                                    color: r.color,
+                                                                    actualPieces: r.requestedPieces
+                                                                })))
+                                                            }
+
+                                                            setNotes(task.notes || "")
+                                                            fetchTimeline(task.batchId)
+                                                        }}
+                                                    >
+                                                        <div className="flex items-center justify-between w-full flex-col sm:flex-row gap-2">
+                                                            <div className="text-left">
+                                                                <p className="font-mono font-medium">{task.batch.batchSku}</p>
+                                                                <p className="text-sm text-muted-foreground">{task.batch.product.name}</p>
+                                                            </div>
+                                                            {getStatusBadge(task.status)}
+                                                        </div>
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Show current batch info only if a task from this tab is selected */}
+                                    {selectedTask && group.statuses.includes(selectedTask.batch.status) && currentBatch && (
+                                        <>
+                                            {/* Current Batch Info */}
+                                            <Card>
+                                                <CardHeader>
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <CardTitle className="font-mono">{currentBatch.code}</CardTitle>
+                                                            <CardDescription>{currentBatch.product}</CardDescription>
+                                                        </div>
+                                                        {getStatusBadge(currentBatch.status)}
+                                                    </div>
+                                                </CardHeader>
+                                                <CardContent className="space-y-4">
+                                                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                                                        <div className="space-y-1">
+                                                            <p className="text-xs sm:text-sm text-muted-foreground">Material Diterima</p>
+                                                            <p className="text-xl sm:text-2xl font-bold">{currentBatch.totalRoll || 0} ROLL</p>
+                                                        </div>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+
+                                            {/* Start Task (if ASSIGNED_TO_CUTTER) */}
+                                            {currentBatch.status === 'ASSIGNED_TO_CUTTER' && (
+                                                <Card>
+                                                    <CardHeader>
+                                                        <CardTitle>Mulai Pemotongan</CardTitle>
+                                                        <CardDescription>Klik tombol di bawah untuk memulai proses pemotongan</CardDescription>
+                                                    </CardHeader>
+                                                    <CardContent>
+                                                        <Button
+                                                            onClick={handleStart}
+                                                            disabled={submitting}
+                                                            className="w-full"
+                                                        >
+                                                            {submitting ? (
+                                                                <>
+                                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                                    Memulai...
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Plus className="h-4 w-4 mr-2" />
+                                                                    Mulai Pemotongan
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                    </CardContent>
+                                                </Card>
+                                            )}
+
+                                            {/* Update Progress (if IN_CUTTING) */}
+                                            {(currentBatch.status === 'IN_CUTTING') && (
+                                                <Card>
+                                                    <CardHeader>
+                                                        <CardTitle>Update Progress</CardTitle>
+                                                        <CardDescription>Input hasil potongan per ukuran dan warna</CardDescription>
+                                                    </CardHeader>
+                                                    <CardContent className="space-y-4">
+                                                        {/* Cutting Results Table */}
+                                                        <div className="border rounded-lg overflow-hidden">
+                                                            <Table>
+                                                                <TableHeader>
+                                                                    <TableRow>
+                                                                        <TableHead>Ukuran</TableHead>
+                                                                        <TableHead>Warna</TableHead>
+                                                                        <TableHead className="text-right">Qty</TableHead>
+                                                                    </TableRow>
+                                                                </TableHeader>
+                                                                <TableBody>
+                                                                    {cuttingResults.map((result, idx) => (
+                                                                        <TableRow key={idx}>
+                                                                            <TableCell className="font-medium">{result.productSize}</TableCell>
+                                                                            <TableCell>
+                                                                                <Badge variant="outline">{result.color}</Badge>
+                                                                            </TableCell>
+                                                                            <TableCell className="text-right">
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    value={result.actualPieces}
+                                                                                    onChange={(e) => {
+                                                                                        const updated = [...cuttingResults]
+                                                                                        updated[idx].actualPieces = parseInt(e.target.value) || 0
+                                                                                        setCuttingResults(updated)
+                                                                                    }}
+                                                                                    className="w-20 text-right"
+                                                                                    min="0"
+                                                                                />
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                    ))}
+                                                                    <TableRow className="font-bold bg-muted/50">
+                                                                        <TableCell colSpan={2}>Total</TableCell>
+                                                                        <TableCell className="text-right">
+                                                                            {cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0)}
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                </TableBody>
+                                                            </Table>
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="notes">Catatan</Label>
+                                                            <Input
+                                                                id="notes"
+                                                                value={notes}
+                                                                onChange={(e) => setNotes(e.target.value)}
+                                                                placeholder="Tambahkan catatan jika ada kendala atau informasi penting"
+                                                            />
+                                                        </div>
+
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                onClick={handleUpdateProgress}
+                                                                disabled={submitting}
+                                                                className="flex-1"
+                                                            >
+                                                                {submitting ? (
+                                                                    <>
+                                                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                                        Menyimpan...
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Plus className="h-4 w-4 mr-2" />
+                                                                        Simpan Progress
+                                                                    </>
+                                                                )}
+                                                            </Button>
+                                                            <Button
+                                                                variant="default"
+                                                                onClick={handleComplete}
+                                                                disabled={submitting}
+                                                                className="flex-1 bg-green-600 hover:bg-green-700"
+                                                            >
+                                                                {submitting ? (
+                                                                    <>
+                                                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                                        Submitting...
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <CheckCircle className="h-4 w-4 mr-2" />
+                                                                        Submit untuk Verifikasi
+                                                                    </>
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            )}
+
+                                            {/* Task Completed */}
+                                            {(currentBatch.status === 'CUTTING_COMPLETED' || currentBatch.status === 'CUTTING_VERIFIED') && (
+                                                <Alert>
+                                                    <CheckCircle className="h-4 w-4" />
+                                                    <AlertDescription>
+                                                        Task ini sudah {currentBatch.status === 'CUTTING_VERIFIED' ? 'terverifikasi' : 'selesai dan menunggu verifikasi'}.
+                                                    </AlertDescription>
+                                                </Alert>
+                                            )}
+
+                                            {/* Timeline History */}
+                                            <Card>
+                                                <CardHeader>
+                                                    <CardTitle>Riwayat Progress Pemotongan</CardTitle>
+                                                    <CardDescription>
+                                                        Timeline aktivitas untuk batch {selectedTask.batch.batchSku}
+                                                    </CardDescription>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    {loadingTimeline ? (
+                                                        <div className="flex items-center justify-center py-8">
+                                                            <Loader2 className="h-6 w-6 animate-spin" />
+                                                        </div>
+                                                    ) : timeline.length > 0 ? (
+                                                        <div className="space-y-4">
+                                                            {timeline.map((event, index) => (
+                                                                <div key={event.id} className="flex gap-4">
+                                                                    <div className="flex flex-col items-center">
+                                                                        <span className="text-2xl">{getEventIcon(event.event)}</span>
+                                                                        {index < timeline.length - 1 && (
+                                                                            <div className="h-12 w-0.5 bg-border my-2"></div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex-1 pb-6">
+                                                                        <p className="font-medium">{getEventLabel(event.event)}</p>
+                                                                        {event.details && (
+                                                                            <p className="text-sm text-muted-foreground">{event.details}</p>
+                                                                        )}
+                                                                        <p className="text-xs text-muted-foreground mt-1">{formatDateTime(event.createdAt)}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-center py-8 text-muted-foreground">
+                                                            <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                                                            <p className="text-sm">Belum ada riwayat untuk batch ini</p>
+                                                        </div>
+                                                    )}
+                                                </CardContent>
+                                            </Card>
+                                        </>
+                                    )}
                                 </>
                             )}
-                        </Button>
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* Update Progress (if IN_PROGRESS) */}
-            {(currentBatch.status === 'IN_PROGRESS' || currentBatch.status === 'REJECTED') && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Update Progress</CardTitle>
-                        <CardDescription>Input hasil potongan per ukuran dan warna</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {/* Cutting Results Table */}
-                        <div className="border rounded-lg overflow-hidden">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Ukuran</TableHead>
-                                        <TableHead>Warna</TableHead>
-                                        <TableHead>Target</TableHead>
-                                        <TableHead className="text-right">Actual Pieces</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {cuttingResults.map((result, idx) => {
-                                        const request = selectedTask?.batch.sizeColorRequests?.find(
-                                            r => r.productSize === result.productSize && r.color === result.color
-                                        )
-                                        return (
-                                            <TableRow key={idx}>
-                                                <TableCell className="font-medium">{result.productSize}</TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline">{result.color}</Badge>
-                                                </TableCell>
-                                                <TableCell>{request?.requestedPieces || 0} pcs</TableCell>
-                                                <TableCell className="text-right">
-                                                    <Input
-                                                        type="number"
-                                                        min="0"
-                                                        value={result.actualPieces}
-                                                        onChange={(e) => {
-                                                            const newResults = [...cuttingResults]
-                                                            newResults[idx].actualPieces = parseInt(e.target.value) || 0
-                                                            setCuttingResults(newResults)
-                                                        }}
-                                                        className="w-24 text-right"
-                                                    />
-                                                </TableCell>
-                                            </TableRow>
-                                        )
-                                    })}
-                                    <TableRow className="font-bold bg-muted/50">
-                                        <TableCell colSpan={2}>Total</TableCell>
-                                        <TableCell>
-                                            {selectedTask?.batch.sizeColorRequests?.reduce((sum, r) => sum + r.requestedPieces, 0) || 0} pcs
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            {cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0)} pcs
-                                        </TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="notes">Catatan</Label>
-                            <Input
-                                id="notes"
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                placeholder="Tambahkan catatan jika ada kendala atau informasi penting"
-                            />
-                        </div>
-
-                        <div className="flex gap-2">
-                            <Button
-                                onClick={handleUpdateProgress}
-                                disabled={submitting}
-                                className="flex-1"
-                            >
-                                {submitting ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Menyimpan...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Simpan Progress
-                                    </>
-                                )}
-                            </Button>
-                            <Button
-                                variant="default"
-                                onClick={handleComplete}
-                                disabled={submitting}
-                                className="flex-1 bg-green-600 hover:bg-green-700"
-                            >
-                                {submitting ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Submitting...
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle className="h-4 w-4 mr-2" />
-                                        Submit untuk Verifikasi
-                                    </>
-                                )}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* Task Completed */}
-            {(currentBatch.status === 'COMPLETED' || currentBatch.status === 'VERIFIED') && (
-                <Alert>
-                    <CheckCircle className="h-4 w-4" />
-                    <AlertDescription>
-                        Task ini sudah selesai dan {currentBatch.status === 'VERIFIED' ? 'telah diverifikasi' : 'menunggu verifikasi'}.
-                    </AlertDescription>
-                </Alert>
-            )}
-
-            {/* All Tasks List */}
-            {/* <Card>
-                <CardHeader>
-                    <CardTitle>Semua Task</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-3">
-                        {tasks.map((task) => (
-                            <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
-                                <div>
-                                    <p className="font-medium font-mono">{task.batch.batchSku}</p>
-                                    <p className="text-sm text-muted-foreground">{task.batch.product.name}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        {task.piecesCompleted}/{task.batch.targetQuantity} pcs • Reject: {task.rejectPieces} • Waste: {task.wasteQty || 0}m
-                                    </p>
-                                </div>
-                                {getStatusBadge(task.status)}
-                            </div>
-                        ))}
-                    </div>
-                </CardContent>
-            </Card> */}
-
-            {/* Timeline History */}
-            {selectedTask && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Riwayat Progress Pemotongan</CardTitle>
-                        <CardDescription>
-                            Timeline aktivitas untuk batch {selectedTask.batch.batchSku}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {loadingTimeline ? (
-                            <div className="flex items-center justify-center py-8">
-                                <Loader2 className="h-6 w-6 animate-spin" />
-                            </div>
-                        ) : timeline.length > 0 ? (
-                            <div className="space-y-4">
-                                {timeline.map((event, index) => (
-                                    <div key={event.id} className="flex gap-4">
-                                        <div className="flex flex-col items-center">
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-lg">
-                                                {getEventIcon(event.event)}
-                                            </div>
-                                            {index < timeline.length - 1 && (
-                                                <div className="w-px h-full bg-border mt-2" />
-                                            )}
-                                        </div>
-                                        <div className="flex-1 pb-6">
-                                            <div className="flex items-start justify-between">
-                                                <div>
-                                                    <p className="font-medium">{getEventLabel(event.event)}</p>
-                                                    {event.details && (
-                                                        <p className="text-sm text-muted-foreground mt-1">
-                                                            {event.details}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <p className="text-xs text-muted-foreground mt-2">
-                                                {formatDateTime(event.createdAt)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-8 text-muted-foreground">
-                                <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                                <p className="text-sm">Belum ada riwayat untuk batch ini</p>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
+                        </TabsContent>
+                    )
+                })}
+            </Tabs>
         </div>
     )
 }

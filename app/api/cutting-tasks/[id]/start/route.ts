@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 export async function PATCH(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const params = await context.params;
@@ -29,7 +29,7 @@ export async function PATCH(
     if (!user || user.role !== "PEMOTONG") {
       return NextResponse.json(
         { error: "Only PEMOTONG can start cutting tasks" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -39,6 +39,7 @@ export async function PATCH(
     const task = await prisma.cuttingTask.findUnique({
       where: { id: taskId },
     });
+    console.log("Found task:", task);
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
@@ -47,14 +48,14 @@ export async function PATCH(
     if (task.assignedToId !== user.id) {
       return NextResponse.json(
         { error: "Task not assigned to you" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     if (task.status !== "PENDING") {
       return NextResponse.json(
         { error: `Task already ${task.status}` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -80,7 +81,7 @@ export async function PATCH(
     console.error("Error starting cutting task:", error);
     return NextResponse.json(
       { error: "Failed to start cutting task" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

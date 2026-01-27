@@ -26,7 +26,7 @@ export async function GET() {
     if (!user || user.role !== "FINISHING") {
       return NextResponse.json(
         { error: "Only FINISHING can access this endpoint" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -37,7 +37,11 @@ export async function GET() {
       },
       include: {
         batch: {
-          include: {
+          select: {
+            id: true,
+            batchSku: true,
+            status: true,
+            targetQuantity: true,
             product: true,
           },
         },
@@ -52,7 +56,7 @@ export async function GET() {
     console.error("Error fetching finishing tasks:", error);
     return NextResponse.json(
       { error: "Failed to fetch finishing tasks" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

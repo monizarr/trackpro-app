@@ -712,6 +712,61 @@ async function main() {
   console.log("✅ BATCH 5: MATERIAL_ALLOCATED - ready for cutting");
 
   // ============================================================
+  // BATCH 5B: CUTTING_COMPLETED (cutting done, waiting for verification)
+  // ============================================================
+  const batch5bSku = `PROD-${today.getFullYear()}${String(
+    today.getMonth() + 1,
+  ).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}-005B`;
+
+  const batch5b = await prisma.productionBatch.create({
+    data: {
+      batchSku: batch5bSku,
+      productId: gamisPremium.id,
+      totalRolls: 2,
+      status: "CUTTING_COMPLETED",
+      createdById: kepalaProduksi.id,
+      sizeColorRequests: {
+        create: [
+          { productSize: "M", color: "Coklat", requestedPieces: 35 },
+          { productSize: "L", color: "Coklat", requestedPieces: 25 },
+        ],
+      },
+      cuttingResults: {
+        create: [
+          { productSize: "M", color: "Coklat", actualPieces: 35 },
+          { productSize: "L", color: "Coklat", actualPieces: 25 },
+        ],
+      },
+    },
+  });
+
+  await prisma.batchMaterialAllocation.create({
+    data: {
+      batchId: batch5b.id,
+      materialId: kainKatun.id,
+      color: "Coklat",
+      rollQuantity: 2,
+      requestedQty: 120,
+      status: "ALLOCATED",
+    },
+  });
+
+  await prisma.cuttingTask.create({
+    data: {
+      batchId: batch5b.id,
+      assignedToId: pemotong.id,
+      materialReceived: 120,
+      piecesCompleted: 60,
+      status: "COMPLETED",
+      notes: "Pemotongan selesai - 60 dari 60 pcs",
+      startedAt: new Date(today.getTime() - 24 * 60 * 60 * 1000),
+      completedAt: new Date(today.getTime() - 12 * 60 * 60 * 1000),
+    },
+  });
+
+  console.log("✅ BATCH 5B: CUTTING_COMPLETED - waiting for verification");
+
+  // ============================================================
   // BATCH 6: PENDING
   // ============================================================
   const batch6Sku = `PROD-${today.getFullYear()}${String(
@@ -744,6 +799,9 @@ async function main() {
   console.log("   • Batch 3: SEWING_VERIFIED (ready for finishing)");
   console.log("   • Batch 4: ASSIGNED_TO_CUTTER (cutting in progress)");
   console.log("   • Batch 5: MATERIAL_ALLOCATED (ready for cutting)");
+  console.log(
+    "   • Batch 5B: CUTTING_COMPLETED (cutting done, waiting for verification)",
+  );
   console.log("   • Batch 6: PENDING (new batch)");
   console.log("\n📝 Test credentials:");
   console.log("   owner:        owner@edelweis.web.id / password123");

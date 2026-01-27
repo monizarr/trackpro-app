@@ -26,7 +26,7 @@ export async function GET() {
     if (!user || user.role !== "PEMOTONG") {
       return NextResponse.json(
         { error: "Only PEMOTONG can access this endpoint" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -37,7 +37,11 @@ export async function GET() {
       },
       include: {
         batch: {
-          include: {
+          select: {
+            id: true,
+            batchSku: true,
+            status: true,
+            totalRolls: true,
             product: true,
             sizeColorRequests: {
               orderBy: {
@@ -62,7 +66,7 @@ export async function GET() {
     console.error("Error fetching cutting tasks:", error);
     return NextResponse.json(
       { error: "Failed to fetch cutting tasks" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
