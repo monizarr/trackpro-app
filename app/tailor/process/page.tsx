@@ -99,7 +99,6 @@ export default function SewingProcessPage() {
     useEffect(() => {
         fetchTasks()
     }, [])
-    console.log("tasks", tasks)
 
     const filterTasks = (groupStatuses: string[]) => {
         return tasks.filter(task => {

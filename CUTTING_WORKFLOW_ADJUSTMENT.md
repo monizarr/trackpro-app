@@ -329,6 +329,7 @@ onClick={() => setShowSubmitConfirm(true)}
 **Issue Found:** Form tidak tampil karena API route `[id]` tidak include `sizeColorRequests` dan `cuttingResults` dari batch.
 
 **Fix Applied:**
+
 ```typescript
 // File: app/api/cutting-tasks/[id]/route.ts
 // Updated include clause to match route /me
