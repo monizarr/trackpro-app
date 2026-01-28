@@ -1496,7 +1496,7 @@ export default function BatchManagementPage() {
 
             {/* Verify Cutting Dialog */}
             <Dialog open={showVerifyDialog} onOpenChange={setShowVerifyDialog}>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Verifikasi Potongan</DialogTitle>
                         <DialogDescription>

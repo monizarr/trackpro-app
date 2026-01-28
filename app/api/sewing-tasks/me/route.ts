@@ -41,8 +41,18 @@ export async function GET() {
             id: true,
             batchSku: true,
             status: true,
-            targetQuantity: true,
+            totalRolls: true,
             product: true,
+            sizeColorRequests: {
+              orderBy: {
+                productSize: "asc",
+              },
+            },
+            cuttingResults: {
+              orderBy: {
+                productSize: "asc",
+              },
+            },
           },
         },
       },

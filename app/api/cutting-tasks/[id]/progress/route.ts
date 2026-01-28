@@ -68,16 +68,18 @@ export async function PATCH(
       );
     }
 
-    if (task.status !== "IN_PROGRESS") {
+    if (task.batch.status !== "IN_CUTTING") {
       return NextResponse.json(
-        { error: `Cannot update progress for task with status ${task.status}` },
+        {
+          error: `Cannot update progress for task with status ${task.batch.status}`,
+        },
         { status: 400 },
       );
     }
 
     // Calculate total actual pieces
     const totalActualPieces = cuttingResults.reduce(
-      (sum: number, r: any) => sum + (r.actualPieces || 0),
+      (sum: number, r: { actualPieces: number }) => sum + (r.actualPieces || 0),
       0,
     );
 
