@@ -1186,28 +1186,47 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                         </Button>
                     )}
 
-                    {(batch.status === "ASSIGNED_TO_FINISHING" || batch.status === "IN_FINISHING") && (
+                    {batch.status === "ASSIGNED_TO_FINISHING" && (
                         <Button
                             size="sm"
-                            variant="outline"
                             onClick={handleStartFinishing}
                             disabled={startingFinishing}
                         >
                             {startingFinishing ? (
                                 <>
                                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Loading...
+                                    Memulai...
                                 </>
                             ) : (
                                 <>
-                                    <Package className="h-4 w-4 mr-2" />
-                                    Input Hasil Finishing
+                                    <Sparkles className="h-4 w-4 mr-2" />
+                                    Mulai Finishing
                                 </>
                             )}
                         </Button>
                     )}
 
-                    {batch.status === "WAREHOUSE_VERIFIED" && canCompleteBatch && (
+                    {batch.status === "IN_FINISHING" && (
+                        <>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setShowSubBatchDialog(true)}
+                            >
+                                <Package className="h-4 w-4 mr-2" />
+                                Input Hasil Finishing
+                            </Button>
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className="text-muted-foreground">Progress:</span>
+                                <span className="font-medium">{totalFinishingInput} / {totalSewingOutput} pcs</span>
+                                {canCompleteBatch && (
+                                    <Badge variant="default" className="bg-green-600">Siap Selesai</Badge>
+                                )}
+                            </div>
+                        </>
+                    )}
+
+                    {(batch.status === "IN_FINISHING" || batch.status === "WAREHOUSE_VERIFIED") && canCompleteBatch && (
                         <Button
                             size="sm"
                             onClick={() => setShowCompleteDialog(true)}
@@ -2077,6 +2096,65 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                     onRefresh={fetchBatchDetail}
                     onVerifyFinishing={openVerifyFinishingDialog}
                 />
+            )}
+
+            {/* Create Sub-Batch Dialog - untuk input hasil finishing ke gudang */}
+            {batch.status === "IN_FINISHING" && (
+                <CreateSubBatchDialog
+                    open={showSubBatchDialog}
+                    onOpenChange={setShowSubBatchDialog}
+                    batchId={batch.id}
+                    batchSku={batch.batchSku}
+                    sewingOutputs={remainingSewingOutputs}
+                    onSuccess={async () => {
+                        await fetchBatchDetail();
+                        await fetchSubBatches();
+                    }}
+                />
+            )}
+
+            {/* Finishing Progress Info */}
+            {batch.status === "IN_FINISHING" && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Status Finishing</CardTitle>
+                        <CardDescription>Progress hasil finishing vs hasil jahit</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Total Hasil Jahit (Input)</span>
+                                <span className="font-medium">{totalSewingOutput} pcs</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Total Sudah Diproses Finishing</span>
+                                <span className="font-medium">{totalFinishingInput} pcs</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Sisa Belum Diproses</span>
+                                <span className="font-medium text-orange-600">{Math.max(0, totalSewingOutput - totalFinishingInput)} pcs</span>
+                            </div>
+                            <Progress value={totalSewingOutput > 0 ? (totalFinishingInput / totalSewingOutput) * 100 : 0} className="h-2" />
+                        </div>
+
+                        {canCompleteBatch ? (
+                            <Alert>
+                                <CheckCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                    Semua hasil jahit sudah diproses finishing. Batch siap untuk diselesaikan.
+                                </AlertDescription>
+                            </Alert>
+                        ) : (
+                            <Alert>
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                    Masih ada {Math.max(0, totalSewingOutput - totalFinishingInput)} pcs hasil jahit yang belum diproses.
+                                    Batch baru dapat diselesaikan jika semua hasil jahit sudah diproses di finishing.
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                    </CardContent>
+                </Card>
             )}
 
             <Button
@@ -3116,7 +3194,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                     <DialogHeader>
                         <DialogTitle>Selesaikan Batch</DialogTitle>
                         <DialogDescription>
-                            Apakah Anda yakin ingin menyelesaikan batch ini? Semua sub-batch harus sudah terverifikasi.
+                            Apakah Anda yakin ingin menyelesaikan batch ini?
                         </DialogDescription>
                     </DialogHeader>
 
@@ -3137,6 +3215,27 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             </div>
                         </div>
 
+                        {/* Finishing Progress */}
+                        <div className="rounded-lg border p-4 space-y-2 bg-muted/50">
+                            <p className="text-sm font-medium">Progress Finishing</p>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Input dari Jahit:</span>
+                                <span className="font-medium">{totalSewingOutput} pcs</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Sudah Diproses:</span>
+                                <span className="font-medium">{totalFinishingInput} pcs</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Barang Jadi:</span>
+                                <span className="font-medium text-green-600">{finishingOutput} pcs</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Total Reject:</span>
+                                <span className="font-medium text-destructive">{finishingReject} pcs</span>
+                            </div>
+                        </div>
+
                         {/* Notes */}
                         <div className="space-y-2">
                             <Label htmlFor="complete-notes">Catatan (Opsional)</Label>
@@ -3149,13 +3248,24 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             />
                         </div>
 
-                        {/* Warning */}
-                        <Alert>
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertDescription>
-                                Pastikan semua sub-batch sudah diverifikasi oleh gudang sebelum menyelesaikan batch ini.
-                            </AlertDescription>
-                        </Alert>
+                        {/* Completion Criteria */}
+                        {canCompleteBatch ? (
+                            <Alert>
+                                <CheckCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                    Semua hasil jahit ({totalSewingOutput} pcs) sudah diproses di finishing.
+                                    Batch siap untuk diselesaikan.
+                                </AlertDescription>
+                            </Alert>
+                        ) : (
+                            <Alert variant="destructive">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                    Masih ada {Math.max(0, totalSewingOutput - totalFinishingInput)} pcs yang belum diproses di finishing.
+                                    Batch baru dapat diselesaikan jika jumlah pcs hasil jahit = barang jadi + kotor + sobek + rusak jahit.
+                                </AlertDescription>
+                            </Alert>
+                        )}
                     </div>
 
                     <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
@@ -3171,7 +3281,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                         </Button>
                         <Button
                             onClick={handleCompleteBatch}
-                            disabled={completing}
+                            disabled={completing || !canCompleteBatch}
                         >
                             {completing ? (
                                 <>

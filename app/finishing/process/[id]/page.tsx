@@ -1,25 +1,13 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { CheckCircle, Loader2, AlertCircle, Plus, ArrowLeft, AlertTriangle } from "lucide-react"
+import { CheckCircle, Loader2, AlertCircle, Plus, ArrowLeft, Play } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { toast } from "@/lib/toast";
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { CreateSubBatchDialog } from "@/components/create-sub-batch-dialog"
 
 interface FinishingTask {
@@ -131,25 +119,46 @@ export default function FinishingTaskDetailPage() {
             productSize: string
             color: string
             requestedPieces: number
-        }>
+        }>;
+        cuttingResults?: Array<{
+            id: string
+            productSize: string
+            color: string
+            actualPieces: number
+        }>;
+        sewingTask?: {
+            piecesCompleted: number;
+        };
     } | null>(null)
     const [task, setTask] = useState<FinishingTask | null>(null)
     const [timeline, setTimeline] = useState<TimelineEvent[]>([])
     const [loading, setLoading] = useState(true)
     const [loadingTimeline, setLoadingTimeline] = useState(false)
-    const [submitting, setSubmitting] = useState(false)
-    const [finishingResult, setFinishingResults] = useState<Array<{
-        productSize: string
-        color: string
-        actualPieces: number
-    }>>([])
-    const [notes, setNotes] = useState("")
-    const [showSubmitConfirm, setShowSubmitConfirm] = useState(false)
-    const firstInputRef = useRef<HTMLInputElement>(null)
     const [subBatches, setSubBatches] = useState<SubBatchSummary[]>([]);
     const [showSubBatchDialog, setShowSubBatchDialog] = useState(false);
     const [startingFinishing, setStartingFinishing] = useState(false);
 
+    const handleStartFinishing = async () => {
+        setStartingFinishing(true);
+        try {
+            const response = await fetch(`/api/finishing-tasks/${taskId}/start`, {
+                method: 'PATCH',
+            });
+            const result = await response.json();
+
+            if (result.success || response.ok) {
+                toast.success("Berhasil", "Proses finishing dimulai");
+                await fetchTask();
+            } else {
+                toast.error("Gagal", result.error || "Gagal memulai finishing");
+            }
+        } catch (error) {
+            console.error("Error starting finishing:", error);
+            toast.error("Gagal", "Terjadi kesalahan saat memulai finishing");
+        } finally {
+            setStartingFinishing(false);
+        }
+    };
 
     const fetchTask = async () => {
         try {
@@ -157,37 +166,6 @@ export default function FinishingTaskDetailPage() {
             if (response.ok) {
                 const data = await response.json()
                 setTask(data)
-
-                // Initialize cutting results from batch data
-                if (data.batch.finishingResult && data.batch.finishingResult.length > 0) {
-                    setFinishingResults(
-                        data.batch.finishingResult.map((r: {
-                            id: string
-                            productSize: string
-                            color: string
-                            actualPieces: number
-                        }) => ({
-                            productSize: r.productSize,
-                            color: r.color,
-                            actualPieces: r.actualPieces
-                        }))
-                    )
-                } else if (data.batch.sizeColorRequests) {
-                    setFinishingResults(
-                        data.batch.sizeColorRequests.map((r: {
-                            id: string
-                            productSize: string
-                            color: string
-                            requestedPieces: number
-                        }) => ({
-                            productSize: r.productSize,
-                            color: r.color,
-                            actualPieces: r.requestedPieces
-                        }))
-                    )
-                }
-
-                setNotes(data.notes || "")
                 fetchTimeline(data.batchId)
             } else {
                 toast.error("Gagal", "Task tidak ditemukan")
@@ -253,106 +231,23 @@ export default function FinishingTaskDetailPage() {
     }, [taskId])
 
     useEffect(() => {
-        // Auto-focus pada input pertama saat user membuka form input
-        if (task?.batch.status === 'IN_FINISHING' && finishingResult.length > 0) {
-            setTimeout(() => {
-                firstInputRef.current?.focus()
-            }, 100)
+        // Fetch sub-batches and batch detail when task is loaded
+        if (task?.batch?.id) {
+            fetchSubBatches();
+            fetchBatchDetail();
         }
-    }, [task, finishingResult.length])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [task?.batch?.id])
 
-    const handleStart = async () => {
-        if (!task || task.batch.status !== 'ASSIGNED_TO_CUTTER') {
-            toast.error("Gagal", "Task tidak dapat dimulai")
-            return
-        }
-
-        setSubmitting(true)
-        try {
-            const response = await fetch(`/api/cutting-tasks/${task.id}/start`, {
-                method: 'PATCH'
-            })
-
-            if (response.ok) {
-                toast.success("Berhasil", "Task pemotongan dimulai")
-                fetchTask()
-            } else {
-                throw new Error('Gagal memulai task')
+    // Calculate submitted items from sub-batches
+    const submittedItems = new Map<string, number>();
+    for (const subBatch of subBatches) {
+        if (subBatch && subBatch.items && Array.isArray(subBatch.items)) {
+            for (const item of subBatch.items) {
+                const key = `${item.productSize}|${item.color}`;
+                const total = (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
+                submittedItems.set(key, (submittedItems.get(key) || 0) + total);
             }
-        } catch {
-            toast.error("Gagal", "Gagal memulai task")
-        } finally {
-            setSubmitting(false)
-        }
-    }
-
-    const handleUpdateProgress = async () => {
-        if (!task || task.batch.status !== 'IN_CUTTING') return
-
-        // Validation
-        const totalActual = finishingResult.reduce((sum, r) => sum + r.actualPieces, 0)
-        if (totalActual === 0) {
-            toast.error("Gagal", "Total hasil finishing harus lebih dari 0")
-            return
-        }
-
-        setSubmitting(true)
-        try {
-            const response = await fetch(`/api/cutting-tasks/${task.id}/progress`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    finishingResult,
-                    notes
-                })
-            })
-
-            if (response.ok) {
-                toast.success("Berhasil", "Progress tersimpan. Anda bisa melanjutkan nanti.")
-                fetchTask()
-            } else {
-                throw new Error('Gagal update progress')
-            }
-        } catch {
-            toast.error("Gagal", "Gagal menyimpan progress")
-        } finally {
-            setSubmitting(false)
-        }
-    }
-
-    const handleComplete = async () => {
-        if (!task || task.batch.status !== 'IN_CUTTING') return
-
-        // Validation
-        const totalActual = finishingResult.reduce((sum, r) => sum + r.actualPieces, 0)
-        if (totalActual === 0) {
-            toast.error("Gagal", "Total hasil finishing harus lebih dari 0")
-            return
-        }
-
-        setSubmitting(true)
-        try {
-            const response = await fetch(`/api/cutting-tasks/${task.id}/complete`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    finishingResult,
-                    notes
-                })
-            })
-
-            if (response.ok) {
-                toast.success("Berhasil", "Task selesai dan menunggu verifikasi dari Ka. Produksi")
-                router.push("/cutter/process")
-            } else {
-                const error = await response.json()
-                throw new Error(error.error || 'Gagal menyelesaikan task')
-            }
-        } catch (error) {
-            toast.error("Gagal", error instanceof Error ? error.message : "Gagal menyelesaikan task")
-        } finally {
-            setSubmitting(false)
-            setShowSubmitConfirm(false)
         }
     }
 
@@ -365,15 +260,27 @@ export default function FinishingTaskDetailPage() {
 
     // Calculate total finishing input (dari semua sub-batches)
     let totalFinishingInput = 0;
+    let totalFinishingGood = 0;
+    let totalFinishingReject = 0;
     for (const subBatch of subBatches) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (subBatch && (subBatch as any).items && Array.isArray((subBatch as any).items)) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             for (const item of (subBatch as any).items) {
-                totalFinishingInput += (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
+                const good = item.goodQuantity || 0;
+                const reject = (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
+                totalFinishingGood += good;
+                totalFinishingReject += reject;
+                totalFinishingInput += good + reject;
             }
         }
     }
+
+    // Calculate total sewing output (jumlah pcs yang seharusnya masuk finishing)
+    const totalSewingOutput = batch?.sewingTask?.piecesCompleted || (batch?.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0) || 0);
+
+    // Check if all sewing output has been processed in finishing
+    const canCompleteBatch = totalFinishingInput > 0 && totalFinishingInput === totalSewingOutput;
 
     const getStatusBadge = (status: string) => {
         const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", label: string }> = {
@@ -469,13 +376,13 @@ export default function FinishingTaskDetailPage() {
         code: task.batch.batchSku,
         product: task.batch.product.name,
         target: task.batch.targetQuantity,
-        completed: finishingResult.reduce((sum, r) => sum + r.actualPieces, 0),
-        materialReceived: task.batch.materialColorAllocations.reduce((sum, alloc) => sum + alloc.allocatedQty, 0),
-        materialItems: task.batch.materialColorAllocations.map(alloc => alloc.materialColorVariant.unit).join(", "),
+        completed: totalFinishingGood,
+        materialReceived: task.batch.materialColorAllocations.reduce((sum: number, alloc: { allocatedQty: number }) => sum + alloc.allocatedQty, 0),
+        materialItems: task.batch.materialColorAllocations.map((alloc: { materialColorVariant: { unit: string } }) => alloc.materialColorVariant.unit).join(", "),
         totalRoll: task.batch.totalRolls,
         status: task.batch.status
     }
-
+    console.log("Current Batch:", currentBatch);
     return (
         <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6">
             {/* Header dengan tombol kembali */}
@@ -537,199 +444,115 @@ export default function FinishingTaskDetailPage() {
                 </CardContent>
             </Card>
 
-            {/* Start Task (if ASSIGNED_TO_CUTTER) */}
-            {currentBatch.status === 'ASSIGNED_TO_CUTTER' && (
+            {/* Finishing Actions - ASSIGNED_TO_FINISHING status */}
+            {currentBatch.status === 'ASSIGNED_TO_FINISHING' && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Mulai Pemotongan</CardTitle>
-                        <CardDescription>Klik tombol di bawah untuk memulai proses pemotongan</CardDescription>
+                        <CardTitle>Mulai Proses Finishing</CardTitle>
+                        <CardDescription>
+                            Batch ini sudah ditugaskan untuk finishing. Klik tombol di bawah untuk memulai proses.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Button
-                            onClick={handleStart}
-                            disabled={submitting}
+                            onClick={handleStartFinishing}
+                            disabled={startingFinishing}
                             className="w-full"
                             size="lg"
                         >
-                            {submitting ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Memulai...
-                                </>
+                            {startingFinishing ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                             ) : (
-                                <>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Mulai Pemotongan
-                                </>
+                                <Play className="h-4 w-4 mr-2" />
                             )}
+                            {startingFinishing ? "Memulai..." : "Mulai Finishing"}
                         </Button>
                     </CardContent>
                 </Card>
             )}
 
-            {/* Update Progress (if IN_CUTTING) */}
-            {currentBatch.status === 'IN_CUTTING' && (
+            {/* Finishing Actions - IN_FINISHING status */}
+            {currentBatch.status === 'IN_FINISHING' && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Input Hasil Pemotongan</CardTitle>
+                        <CardTitle>Proses Finishing</CardTitle>
                         <CardDescription>
-                            Masukkan jumlah finishingan yang berhasil untuk setiap ukuran dan warna
+                            Input hasil finishing untuk dikirim ke gudang
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {/* Info Message */}
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                            <div className="flex gap-2">
-                                <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                                <div className="text-sm text-blue-800">
-                                    <p className="font-medium">Cara input:</p>
-                                    <p className="text-xs mt-1">Isi kolom Qty untuk setiap kombinasi ukuran dan warna. Total akan dihitung otomatis.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Cutting Results Table */}
-                        <div className="border rounded-lg overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-muted/50">
-                                        <TableHead className="font-semibold">Ukuran</TableHead>
-                                        <TableHead className="font-semibold">Warna</TableHead>
-                                        <TableHead className="font-semibold">Qty finishing</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {finishingResult.map((result, idx) => (
-                                        <TableRow key={idx} className="hover:bg-muted/50">
-                                            <TableCell className="font-medium">{result.productSize}</TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline">{result.color}</Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Input
-                                                    ref={idx === 0 ? firstInputRef : null}
-                                                    type="number"
-                                                    value={result.actualPieces}
-                                                    onChange={(e) => {
-                                                        const updated = [...finishingResult]
-                                                        updated[idx].actualPieces = Math.max(0, parseInt(e.target.value) || 0)
-                                                        setFinishingResults(updated)
-                                                    }}
-                                                    className="w-24 text-right"
-                                                    min="0"
-                                                    placeholder="0"
-                                                />
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    <TableRow className="font-bold bg-muted/50 border-t-2">
-                                        <TableCell colSpan={2}>Total Hasil finishing</TableCell>
-                                        <TableCell className="text-lg">
-                                            <span className="text-green-600">
-                                                {finishingResult.reduce((sum, r) => sum + r.actualPieces, 0)} Pcs
-                                            </span>
-                                        </TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
-                        </div>
-
                         {/* Progress Info */}
-                        {/* <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                        <div className="space-y-3">
                             <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Progress:</span>
-                                <span className="font-semibold">
-                                    {Math.round((finishingResult.reduce((sum, r) => sum + r.actualPieces, 0) / currentBatch.target) * 100)}%
-                                </span>
+                                <span className="text-muted-foreground">Input dari Jahit</span>
+                                <span className="font-medium">{totalSewingOutput} pcs</span>
                             </div>
-                            <div className="w-full bg-gray-300 rounded-full h-2">
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Sudah Diproses</span>
+                                <span className="font-medium">{totalFinishingInput} pcs</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Barang Jadi</span>
+                                <span className="font-medium text-green-600">{totalFinishingGood} pcs</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Total Reject</span>
+                                <span className="font-medium text-destructive">{totalFinishingReject} pcs</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Sisa Belum Diproses</span>
+                                <span className="font-medium text-orange-600">{Math.max(0, totalSewingOutput - totalFinishingInput)} pcs</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
                                 <div
-                                    className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                                    style={{
-                                        width: `${Math.min(
-                                            (finishingResult.reduce((sum, r) => sum + r.actualPieces, 0) / currentBatch.target) * 100,
-                                            100
-                                        )}%`
-                                    }}
-                                />
-                            </div>
-                        </div> */}
-
-                        {/* Notes Section */}
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="notes" className="font-semibold">Catatan (Opsional)</Label>
-                                <span className="text-xs text-muted-foreground">{notes.length}/200</span>
-                            </div>
-                            <Input
-                                id="notes"
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value.slice(0, 200))}
-                                placeholder="Contoh: 'Material kusut di roll 2', 'Scrap 3 meter', dll"
-                                className="text-sm"
-                            />
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="border-t pt-4 space-y-3">
-                            <div className="space-y-2">
-                                <p className="text-sm font-medium text-muted-foreground">Pilih aksi:</p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {/* Save Progress Button */}
-                                    <Button
-                                        onClick={handleUpdateProgress}
-                                        disabled={submitting}
-                                        variant="outline"
-                                        className="w-full"
-                                    >
-                                        {submitting ? (
-                                            <>
-                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                Menyimpan...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Plus className="h-4 w-4 mr-2" />
-                                                Simpan Progress
-                                            </>
-                                        )}
-                                    </Button>
-
-                                    {/* Submit Button */}
-                                    <Button
-                                        onClick={() => setShowSubmitConfirm(true)}
-                                        disabled={submitting || finishingResult.reduce((sum, r) => sum + r.actualPieces, 0) === 0}
-                                        className="w-full bg-green-600 hover:bg-green-700"
-                                    >
-                                        {submitting ? (
-                                            <>
-                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                Mengirim...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <CheckCircle className="h-4 w-4 mr-2" />
-                                                Submit Verifikasi
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
-                            </div>
-
-                            {/* Help Text */}
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-                                <p className="font-medium flex items-center gap-2 mb-1">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    Perbedaan Dua Tombol:
-                                </p>
-                                <ul className="space-y-1 text-xs ml-6 list-disc">
-                                    <li><strong>Simpan Progress:</strong> Menyimpan draft, bisa dilanjutkan nanti</li>
-                                    <li><strong>Submit Verifikasi:</strong> Menyelesaikan task, tidak bisa diubah lagi</li>
-                                </ul>
+                                    className="bg-green-600 h-2 rounded-full transition-all"
+                                    style={{ width: `${totalSewingOutput > 0 ? (totalFinishingInput / totalSewingOutput) * 100 : 0}%` }}
+                                ></div>
                             </div>
                         </div>
+
+                        {/* Completion Status */}
+                        {canCompleteBatch ? (
+                            <Alert>
+                                <CheckCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                    Semua hasil jahit ({totalSewingOutput} pcs) sudah diproses di finishing.
+                                    Hasil: {totalFinishingGood} barang jadi, {totalFinishingReject} reject.
+                                </AlertDescription>
+                            </Alert>
+                        ) : remainingSewingOutputs.length > 0 ? (
+                            <Alert>
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                    Masih ada {Math.max(0, totalSewingOutput - totalFinishingInput)} pcs hasil jahit yang belum diproses.
+                                    Klik tombol di bawah untuk input hasil finishing.
+                                </AlertDescription>
+                            </Alert>
+                        ) : null}
+
+                        {/* Action Button */}
+                        {remainingSewingOutputs.length > 0 && (
+                            <Button
+                                onClick={() => setShowSubBatchDialog(true)}
+                                className="w-full"
+                                size="lg"
+                            >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Input Hasil Finishing
+                            </Button>
+                        )}
                     </CardContent>
                 </Card>
+            )}
+
+            {/* Finishing Completed */}
+            {(currentBatch.status === 'FINISHING_COMPLETED' || currentBatch.status === 'WAREHOUSE_VERIFIED') && (
+                <Alert>
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertDescription>
+                        Task finishing sudah {currentBatch.status === 'WAREHOUSE_VERIFIED' ? 'terverifikasi oleh gudang' : 'selesai dan menunggu verifikasi gudang'}.
+                    </AlertDescription>
+                </Alert>
             )}
 
             {/* Create Sub-Batch Dialog - untuk input hasil finishing ke gudang */}
@@ -745,60 +568,6 @@ export default function FinishingTaskDetailPage() {
                         await fetchSubBatches();
                     }}
                 />
-            )}
-
-            {/* Submit Confirmation Dialog */}
-            <AlertDialog open={showSubmitConfirm} onOpenChange={setShowSubmitConfirm}>
-                <AlertDialogContent className="max-w-sm">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Konfirmasi Submit untuk Verifikasi</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Anda yakin ingin mengirim hasil finishing ini untuk diverifikasi? Data tidak bisa diubah setelah submit.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <div className="bg-muted rounded-lg p-3 space-y-2 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Total Hasil finishing:</span>
-                            <span className="font-semibold">{finishingResult.reduce((sum, r) => sum + r.actualPieces, 0)} pcs</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Target:</span>
-                            <span className="font-semibold">{currentBatch.target} pcs</span>
-                        </div>
-                        {notes && (
-                            <div className="pt-2 border-t">
-                                <span className="text-muted-foreground text-xs">Catatan: {notes}</span>
-                            </div>
-                        )}
-                    </div>
-
-                    <AlertDialogCancel disabled={submitting}>Batal</AlertDialogCancel>
-                    <AlertDialogAction
-                        onClick={handleComplete}
-                        disabled={submitting}
-                        className="bg-green-600 hover:bg-green-700"
-                    >
-                        {submitting ? (
-                            <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Mengirim...
-                            </>
-                        ) : (
-                            <>Ya, Submit Verifikasi</>
-                        )}
-                    </AlertDialogAction>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            {/* Task Completed */}
-            {(currentBatch.status === 'CUTTING_COMPLETED' || currentBatch.status === 'CUTTING_VERIFIED') && (
-                <Alert>
-                    <CheckCircle className="h-4 w-4" />
-                    <AlertDescription>
-                        Task ini sudah {currentBatch.status === 'CUTTING_VERIFIED' ? 'terverifikasi' : 'selesai dan menunggu verifikasi'}.
-                    </AlertDescription>
-                </Alert>
             )}
 
             {/* Timeline History */}
