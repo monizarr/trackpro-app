@@ -24,6 +24,11 @@ export async function GET(
                 productSize: "asc",
               },
             },
+            materialColorAllocations: {
+              include: {
+                materialColorVariant : {}
+              },
+            },
           },
         },
         assignedTo: {

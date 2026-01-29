@@ -53,6 +53,25 @@ interface CuttingTask {
             color: string
             actualPieces: number
         }>
+        materialColorAllocations: Array<{
+            id: string
+            allocatedQty: number
+            allocatedItem: string
+            batch: {
+                id: string
+                batchSku: string
+                sizeColorRequests: Array<{
+                    id: string
+                    productSize: string
+                    color: string
+                    requestedPieces: number
+                }>
+            }
+            materialColorVariant: {
+                id: string
+                unit: string
+            }
+        }>
     }
 }
 
@@ -346,17 +365,18 @@ export default function CuttingTaskDetailPage() {
             </div>
         )
     }
-
+    console.log("Task Data:", task)
     const currentBatch = {
         code: task.batch.batchSku,
         product: task.batch.product.name,
         target: task.batch.targetQuantity,
         completed: cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0),
-        materialReceived: task.materialReceived,
+        materialReceived: task.batch.materialColorAllocations.reduce((sum, alloc) => sum + alloc.allocatedQty, 0),
+        materialItems: task.batch.materialColorAllocations.map(alloc => alloc.materialColorVariant.unit).join(", "),
         totalRoll: task.batch.totalRolls,
         status: task.batch.status
     }
-
+    console.log("Current Batch:", currentBatch)
     return (
         <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6">
             {/* Header dengan tombol kembali */}
@@ -401,7 +421,7 @@ export default function CuttingTaskDetailPage() {
                         </div>
                         <div className="space-y-1">
                             <p className="text-xs sm:text-sm text-muted-foreground">Roll Diterima</p>
-                            <p className="text-lg sm:text-2xl font-bold">{currentBatch.totalRoll || 0}</p>
+                            <p className="text-lg sm:text-2xl font-bold">{Number(currentBatch.materialReceived) || 0} {currentBatch.materialItems} - {currentBatch.totalRoll || 0} Roll</p>
                         </div>
                     </div>
                     {/* <div className="pt-2 border-t">
