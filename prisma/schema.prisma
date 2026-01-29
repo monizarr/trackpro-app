@@ -459,6 +459,7 @@ model SewingTask {
 model FinishingTask {
   id              String     @id @default(cuid())
   batchId         String     @unique
+  subBatchId      String? // Optional - linked to sub-batch for new flow
   assignedToId    String // Ka. Finishing yang bertanggung jawab
   piecesReceived  Int // Pieces dari sewing
   piecesCompleted Int        @default(0) // Total hasil finishing (good + reject)
@@ -478,6 +479,7 @@ model FinishingTask {
   updatedAt       DateTime   @updatedAt
 
   batch      ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  subBatch   SubBatch?       @relation(fields: [subBatchId], references: [id])
   assignedTo User            @relation("FinishingTaskAssigned", fields: [assignedToId], references: [id])
   verifiedBy User?           @relation("FinishingTaskVerified", fields: [verifiedById], references: [id])
 
@@ -509,6 +511,7 @@ model SubBatch {
   id          String @id @default(cuid())
   subBatchSku String @unique // Format: BATCH-SKU-SUB-001
   batchId     String
+  finishingTaskId String? // Optional - linked to finishing task
 
   // Warehouse verification (diisi saat verifikasi gudang)
   warehouseVerifiedById String?
@@ -538,7 +541,7 @@ model SubBatch {
   items               SubBatchItem[] // Detail per size/color
   timeline            SubBatchTimeline[]
   finishedGoods       FinishedGood[] // Barang jadi yang dihasilkan
-
+  finishingTask       FinishingTask[] // Relasi ke finishing task
   @@index([batchId])
   @@index([status])
   @@map("sub_batches")
