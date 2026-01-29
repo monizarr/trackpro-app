@@ -53,6 +53,12 @@ interface SewingTask {
             productSize: string
             color: string
             actualPieces: number
+
+        }>
+        materialColorAllocations: Array<{
+            materialColorVariant: {
+                unit: string
+            }
         }>
     }
 }
@@ -124,7 +130,7 @@ export default function SewingTaskDetailPage() {
                 fetchTimeline(data.batchId)
             } else {
                 toast.error("Gagal", "Task tidak ditemukan")
-                router.push("/cutter/process")
+                router.push("/tailor/process")
             }
         } catch (err) {
             toast.error("Gagal", "Gagal memuat data task: " + err)
@@ -217,8 +223,8 @@ export default function SewingTaskDetailPage() {
             } else {
                 throw new Error('Gagal update progress')
             }
-        } catch {
-            toast.error("Gagal", "Gagal menyimpan progress")
+        } catch (error) {
+            toast.error("Gagal", "Gagal menyimpan progress" + (error instanceof Error ? `: ${error.message}` : ''))
         } finally {
             setSubmitting(false)
         }
@@ -353,12 +359,10 @@ export default function SewingTaskDetailPage() {
         product: task.batch.product.name,
         target: task.batch.targetQuantity,
         completed: sewingResults.reduce((sum, r) => sum + r.actualPieces, 0),
-        materialReceived: task.materialReceived,
+        materialReceived: task.batch.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0),
         totalRoll: task.batch.totalRolls,
         status: task.batch.status
     }
-
-    console.log("Sewing Results:", sewingResults)
 
     return (
         <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6">
@@ -393,7 +397,7 @@ export default function SewingTaskDetailPage() {
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
                         {/* <div className="space-y-1">
                             <p className="text-xs sm:text-sm text-muted-foreground">Target Qty</p>
                             <p className="text-lg sm:text-2xl font-bold">{currentBatch.target}</p>
@@ -403,8 +407,8 @@ export default function SewingTaskDetailPage() {
                             <p className="text-lg sm:text-2xl font-bold text-green-600">{currentBatch.completed}</p>
                         </div>
                         <div className="space-y-1">
-                            <p className="text-xs sm:text-sm text-muted-foreground">Roll Diterima</p>
-                            <p className="text-lg sm:text-2xl font-bold">{currentBatch.totalRoll || 0}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">Roll Diterima</p> {/* dari penjahit */}
+                            <p className="text-lg sm:text-2xl font-bold">{Number(currentBatch.materialReceived) || 0} Pcs </p>
                         </div>
                     </div>
                     {/* <div className="pt-2 border-t">
@@ -631,10 +635,7 @@ export default function SewingTaskDetailPage() {
                             <span className="text-muted-foreground">Total Hasil Jahit:</span>
                             <span className="font-semibold">{sewingResults.reduce((sum, r) => sum + r.actualPieces, 0)} pcs</span>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Target:</span>
-                            <span className="font-semibold">{currentBatch.target} pcs</span>
-                        </div>
+
                         {notes && (
                             <div className="pt-2 border-t">
                                 <span className="text-muted-foreground text-xs">Catatan: {notes}</span>

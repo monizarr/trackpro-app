@@ -365,7 +365,7 @@ export default function CuttingTaskDetailPage() {
             </div>
         )
     }
-    console.log("Task Data:", task)
+
     const currentBatch = {
         code: task.batch.batchSku,
         product: task.batch.product.name,
@@ -376,7 +376,7 @@ export default function CuttingTaskDetailPage() {
         totalRoll: task.batch.totalRolls,
         status: task.batch.status
     }
-    console.log("Current Batch:", currentBatch)
+
     return (
         <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6">
             {/* Header dengan tombol kembali */}
@@ -410,7 +410,7 @@ export default function CuttingTaskDetailPage() {
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
                         {/* <div className="space-y-1">
                             <p className="text-xs sm:text-sm text-muted-foreground">Target Qty</p>
                             <p className="text-lg sm:text-2xl font-bold">{currentBatch.target}</p>
