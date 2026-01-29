@@ -45,6 +45,7 @@ model User {
   verifiedSewingTasks     SewingTask[]          @relation("SewingTaskVerified")
   verifiedFinishingTasks  FinishingTask[]       @relation("FinishingTaskVerified")
   confirmedCuttingResults CuttingResult[]       @relation("CuttingResultConfirmed")
+  confirmedSewingResults  SewingResult[]        @relation("SewingResultConfirmed")
   verifiedFinishedGoods   FinishedGood[]
   notifications           Notification[]
   auditLogs               AuditLog[]
@@ -321,6 +322,7 @@ model ProductionBatch {
   materialTransactions     MaterialTransaction[]
   sizeColorRequests        BatchSizeColorRequest[] // Request ukuran dan warna
   cuttingResults           CuttingResult[] // Hasil pemotongan aktual
+  sewingResults            SewingResult[]
   cuttingTask              CuttingTask?
   sewingTask               SewingTask? // Legacy - untuk backward compatibility
   finishingTask            FinishingTask? // Legacy - untuk backward compatibility
@@ -620,6 +622,30 @@ model CuttingResult {
   @@index([batchId])
   @@index([isConfirmed])
   @@map("cutting_results")
+}
+
+// ============================================
+// SEWING RESULTS (Hasil Jahitan Aktual)
+// ============================================
+
+model SewingResult {
+  id            String    @id @default(cuid())
+  batchId       String
+  productSize   String // Ukuran produk (S, M, L, XL, XXL, dll)
+  color         String // Warna hasil jahitan
+  actualPieces  Int // Jumlah potongan yang terealisasi
+  isConfirmed   Boolean   @default(false) // Dikonfirmasi oleh kepala produksi
+  confirmedById String? // ID user yang konfirmasi (Kepala Produksi atau Penjahit)
+  confirmedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  batch       ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  confirmedBy User?           @relation("SewingResultConfirmed", fields: [confirmedById], references: [id])
+
+  @@index([batchId])
+  @@index([isConfirmed])
+  @@map("sewing_results")
 }
 
 // ============================================

@@ -206,7 +206,7 @@ export default function CuttingProcessPage() {
                             const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
                             const label = date.toLocaleDateString("id-ID", { month: "long", year: "numeric" })
                             return (
-                                <option key={value} value={value}>
+                                <option key={i} value={value}>
                                     {label}
                                 </option>
                             )

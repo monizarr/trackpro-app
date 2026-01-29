@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth-helpers";
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireRole(["OWNER", "KEPALA_GUDANG"]);
@@ -46,7 +46,7 @@ export async function GET(
           success: false,
           error: "Material not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -61,14 +61,14 @@ export async function GET(
         success: false,
         error: "Failed to fetch material",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireRole(["OWNER", "KEPALA_GUDANG"]);
@@ -79,27 +79,12 @@ export async function PATCH(
       code,
       name,
       description,
-      unit,
-      minimumStock,
-      price,
       rollQuantity,
-      meterPerRoll,
       purchaseOrderNumber,
       supplier,
       purchaseDate,
       purchaseNotes,
     } = body;
-
-    // Validate required fields
-    if (!code || !name || !minimumStock || !price) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Code, name, minimum stock, and price are required",
-        },
-        { status: 400 }
-      );
-    }
 
     // Check if material exists
     const existingMaterial = await prisma.material.findUnique({
@@ -112,7 +97,7 @@ export async function PATCH(
           success: false,
           error: "Material not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -133,7 +118,7 @@ export async function PATCH(
             success: false,
             error: "Material code already exists",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -165,14 +150,14 @@ export async function PATCH(
         success: false,
         error: "Failed to update material",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireRole(["OWNER", "KEPALA_GUDANG"]);
@@ -195,7 +180,7 @@ export async function DELETE(
           success: false,
           error: "Material not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -206,7 +191,7 @@ export async function DELETE(
           success: false,
           error: "Cannot delete material that is being used in products",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -216,7 +201,7 @@ export async function DELETE(
           success: false,
           error: "Cannot delete material that has production batch allocations",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -241,7 +226,7 @@ export async function DELETE(
         success: false,
         error: "Failed to delete material",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

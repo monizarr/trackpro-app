@@ -358,6 +358,8 @@ export default function SewingTaskDetailPage() {
         status: task.batch.status
     }
 
+    console.log("Sewing Results:", sewingResults)
+
     return (
         <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6">
             {/* Header dengan tombol kembali */}
@@ -371,7 +373,7 @@ export default function SewingTaskDetailPage() {
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <div>
-                        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Detail Task Pemotongan</h2>
+                        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Detail Task Penjahitan</h2>
                         <p className="text-sm sm:text-base text-muted-foreground">
                             {currentBatch.code}
                         </p>

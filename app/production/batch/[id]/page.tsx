@@ -1555,16 +1555,24 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                         <Separator />
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-muted-foreground">Material Diterima</span>
-                                            <span className="text-sm font-medium">{batch.cuttingTask.materialReceived} m</span>
+                                            <div className="flex gap-2 items-center">
+                                                <span className="text-sm font-medium">
+                                                    {batch.materialColorAllocations?.reduce((total, allocation) => total + Number(allocation.allocatedQty), 0)} {batch.materialColorAllocations?.reduce((total, allocation) => allocation.materialColorVariant?.unit || "", "")}
+                                                </span>
+                                                -
+                                                <span className="text-sm font-medium">
+                                                    {batch.materialColorAllocations?.reduce((total, allocation) => total + Number(allocation.rollQuantity), 0)} Roll
+                                                </span>
+                                            </div>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-muted-foreground">Selesai</span>
                                             <span className="text-sm font-medium text-green-600">{batch.cuttingTask.piecesCompleted} pcs</span>
                                         </div>
-                                        <div className="flex justify-between items-center">
+                                        {/* <div className="flex justify-between items-center">
                                             <span className="text-sm text-muted-foreground">Reject</span>
                                             <span className="text-sm font-medium text-destructive">{batch.cuttingTask.rejectPieces} pcs</span>
-                                        </div>
+                                        </div> */}
                                         {batch.cuttingTask.wasteQty && (
                                             <div className="flex justify-between items-center">
                                                 <span className="text-sm text-muted-foreground">Waste</span>
@@ -1601,7 +1609,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                         </Card>
 
                         {/* Cutting Progress */}
-                        <Card>
+                        {/* <Card>
                             <CardHeader>
                                 <CardTitle>Progress Pemotongan</CardTitle>
                                 <CardDescription>Kemajuan proses pemotongan</CardDescription>
@@ -1615,7 +1623,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                     <Progress value={totalTarget > 0 ? (cuttingOutput / totalTarget) * 100 : 0} className="h-2" />
                                 </div>
                             </CardContent>
-                        </Card>
+                        </Card> */}
                     </div>
 
                     {/* Cutting Results */}
