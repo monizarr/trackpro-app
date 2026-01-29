@@ -404,7 +404,7 @@ export default function SewingTaskDetailPage() {
                         </div> */}
                         <div className="space-y-1">
                             <p className="text-xs sm:text-sm text-muted-foreground">Selesai</p>
-                            <p className="text-lg sm:text-2xl font-bold text-green-600">{currentBatch.completed}</p>
+                            <p className="text-lg sm:text-2xl font-bold text-green-600">{currentBatch.completed > 0 ? currentBatch.completed + " pcs" : 0}</p>
                         </div>
                         <div className="space-y-1">
                             <p className="text-xs sm:text-sm text-muted-foreground">Roll Diterima</p> {/* dari penjahit */}
