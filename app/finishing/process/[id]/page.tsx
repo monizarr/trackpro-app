@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { toast } from "@/lib/toast";
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CreateSubBatchDialog } from "@/components/create-sub-batch-dialog"
+import { SubBatchList } from "@/components/sub-batch-list"
 
 interface FinishingTask {
     id: string
@@ -251,6 +252,7 @@ export default function FinishingTaskDetailPage() {
         }
     }
 
+    console.log("batch cuttingResults:", batch);
     // Calculate remaining sewingOutputs for dialog
     const remainingSewingOutputs = (batch?.cuttingResults?.map(cr => ({
         productSize: cr.productSize,
@@ -275,6 +277,8 @@ export default function FinishingTaskDetailPage() {
             }
         }
     }
+
+    console.log("Remaining Sewing Outputs:", remainingSewingOutputs);
 
     // Calculate total sewing output (jumlah pcs yang seharusnya masuk finishing)
     const totalSewingOutput = batch?.sewingTask?.piecesCompleted || (batch?.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0) || 0);
@@ -470,7 +474,6 @@ export default function FinishingTaskDetailPage() {
                     </CardContent>
                 </Card>
             )}
-
             {/* Finishing Actions - IN_FINISHING status */}
             {currentBatch.status === 'IN_FINISHING' && (
                 <Card>
@@ -520,7 +523,7 @@ export default function FinishingTaskDetailPage() {
                                     Hasil: {totalFinishingGood} barang jadi, {totalFinishingReject} reject.
                                 </AlertDescription>
                             </Alert>
-                        ) : remainingSewingOutputs.length > 0 ? (
+                        ) : (
                             <Alert>
                                 <AlertCircle className="h-4 w-4" />
                                 <AlertDescription>
@@ -528,19 +531,20 @@ export default function FinishingTaskDetailPage() {
                                     Klik tombol di bawah untuk input hasil finishing.
                                 </AlertDescription>
                             </Alert>
-                        ) : null}
-
-                        {/* Action Button */}
-                        {remainingSewingOutputs.length > 0 && (
-                            <Button
-                                onClick={() => setShowSubBatchDialog(true)}
-                                className="w-full"
-                                size="lg"
-                            >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Input Hasil Finishing
-                            </Button>
                         )}
+
+                        {/* Action Button - Always visible when IN_FINISHING */}
+                        <Button
+                            onClick={() => setShowSubBatchDialog(true)}
+                            disabled={remainingSewingOutputs.length === 0}
+                            className="w-full"
+                            size="lg"
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            {remainingSewingOutputs.length === 0
+                                ? "Semua Hasil Jahit Sudah Diproses"
+                                : "Input Hasil Finishing"}
+                        </Button>
                     </CardContent>
                 </Card>
             )}
@@ -553,6 +557,17 @@ export default function FinishingTaskDetailPage() {
                         Task finishing sudah {currentBatch.status === 'WAREHOUSE_VERIFIED' ? 'terverifikasi oleh gudang' : 'selesai dan menunggu verifikasi gudang'}.
                     </AlertDescription>
                 </Alert>
+            )}
+
+            {/* Sub-Batches List - daftar sub-batch hasil finishing */}
+            {['IN_FINISHING', 'FINISHING_COMPLETED', 'WAREHOUSE_VERIFIED', 'COMPLETED'].includes(currentBatch.status) && (
+                <SubBatchList
+                    batchId={currentBatch.id}
+                    onRefresh={async () => {
+                        await fetchBatchDetail();
+                        await fetchSubBatches();
+                    }}
+                />
             )}
 
             {/* Create Sub-Batch Dialog - untuk input hasil finishing ke gudang */}

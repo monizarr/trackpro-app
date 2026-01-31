@@ -5,10 +5,10 @@ import { requireRole } from "@/lib/auth-helpers";
 // GET single production batch
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireRole(["OWNER", "KEPALA_PRODUKSI"]);
+    await requireRole(["OWNER", "KEPALA_PRODUKSI", "FINISHING"]);
     const { id } = await params;
 
     const batch = await prisma.productionBatch.findUnique({
@@ -118,7 +118,7 @@ export async function GET(
           success: false,
           error: "Production batch not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -142,7 +142,7 @@ export async function GET(
         success: false,
         error: "Failed to fetch production batch",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -150,7 +150,7 @@ export async function GET(
 // PATCH update production batch
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireRole(["OWNER", "KEPALA_PRODUKSI"]);
@@ -204,7 +204,7 @@ export async function PATCH(
         success: false,
         error: "Failed to update production batch",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -212,7 +212,7 @@ export async function PATCH(
 // DELETE production batch
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireRole(["OWNER"]);
@@ -229,7 +229,7 @@ export async function DELETE(
           success: false,
           error: "Production batch not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -240,7 +240,7 @@ export async function DELETE(
           success: false,
           error: "Cannot delete batch that is in progress or completed",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -259,7 +259,7 @@ export async function DELETE(
         success: false,
         error: "Failed to delete production batch",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
