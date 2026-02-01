@@ -1,6 +1,9 @@
 # Build stage
 FROM node:20-alpine AS builder
 
+# Update npm ke versi terbaru
+RUN npm install -g npm@11.8.0
+
 WORKDIR /app
 
 # Install pnpm
