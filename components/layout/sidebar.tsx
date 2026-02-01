@@ -21,17 +21,17 @@ const navigation: NavGroup[] = [
                 icon: LayoutDashboard,
             },
             {
-                title: "Produk",
-                href: "/owner/products",
-                icon: ShoppingBag,
-            },
-            {
                 title: "Stok Bahan Baku",
                 href: "/owner/stocks",
                 icon: Package,
             },
             {
-                title: "Production Monitoring",
+                title: "Produk",
+                href: "/owner/products",
+                icon: ShoppingBag,
+            },
+            {
+                title: "Monitoring Produksi",
                 href: "/owner/production-batches",
                 icon: Factory,
             },

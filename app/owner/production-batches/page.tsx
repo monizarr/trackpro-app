@@ -14,6 +14,7 @@ import { SpinnerCustom } from "@/components/ui/spinner"
 import { Separator } from "@/components/ui/separator"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import { Select } from "@/components/ui/select"
 
 // Types
 type ProductionStatus =
@@ -191,10 +192,16 @@ export default function OwnerBatchMonitoring() {
     const [showDetailDialog, setShowDetailDialog] = useState(false)
     const [loadingSubBatches, setLoadingSubBatches] = useState<Set<string>>(new Set())
 
-    // Month filter state
+    // Year and Month filter state
     const currentYear = new Date().getFullYear()
     const currentMonth = new Date().getMonth()
+    const [selectedYear, setSelectedYear] = useState<number>(currentYear)
     const [selectedMonth, setSelectedMonth] = useState<number | null>(null) // null means all months
+
+    // Get available years from batches
+    const availableYears = Array.from(
+        new Set(batches.map(b => new Date(b.createdAt).getFullYear()))
+    ).sort((a, b) => b - a) // Sort descending (newest first)
 
     useEffect(() => {
         fetchBatches()
@@ -343,26 +350,30 @@ export default function OwnerBatchMonitoring() {
                 batch.product.name.toLowerCase().includes(search.toLowerCase()) ||
                 batch.product.sku.toLowerCase().includes(search.toLowerCase())
 
-            // Month filter
+            // Year and Month filter
+            const batchDate = new Date(batch.createdAt)
+            const matchesYear = batchDate.getFullYear() === selectedYear
+
             let matchesMonth = true
             if (selectedMonth !== null) {
-                const batchDate = new Date(batch.createdAt)
-                matchesMonth = batchDate.getMonth() === selectedMonth && batchDate.getFullYear() === currentYear
+                matchesMonth = batchDate.getMonth() === selectedMonth
             }
 
-            return matchesStatus && matchesSearch && matchesMonth
+            return matchesStatus && matchesSearch && matchesYear && matchesMonth
         })
     }
 
     const getGroupStats = (groupStatuses: ProductionStatus[]) => {
         const groupBatches = batches.filter(b => {
             const matchesStatus = groupStatuses.includes(b.status)
+            const batchDate = new Date(b.createdAt)
+            const matchesYear = batchDate.getFullYear() === selectedYear
+
             let matchesMonth = true
             if (selectedMonth !== null) {
-                const batchDate = new Date(b.createdAt)
-                matchesMonth = batchDate.getMonth() === selectedMonth && batchDate.getFullYear() === currentYear
+                matchesMonth = batchDate.getMonth() === selectedMonth
             }
-            return matchesStatus && matchesMonth
+            return matchesStatus && matchesYear && matchesMonth
         })
         return {
             total: groupBatches.length,
@@ -372,12 +383,14 @@ export default function OwnerBatchMonitoring() {
         }
     }
 
-    // Get overall stats for the selected month
+    // Get overall stats for the selected year and month
     const getOverallStats = () => {
         const filteredBatches = batches.filter(b => {
-            if (selectedMonth === null) return true
             const batchDate = new Date(b.createdAt)
-            return batchDate.getMonth() === selectedMonth && batchDate.getFullYear() === currentYear
+            const matchesYear = batchDate.getFullYear() === selectedYear
+
+            if (selectedMonth === null) return matchesYear
+            return matchesYear && batchDate.getMonth() === selectedMonth
         })
 
         return {
@@ -422,41 +435,58 @@ export default function OwnerBatchMonitoring() {
                 </Button>
             </div>
 
-            {/* Month Filter */}
+            {/* Year and Month Filter */}
             <Card>
                 <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <Calendar className="h-5 w-5 text-muted-foreground" />
-                            <CardTitle className="text-base">Filter Bulan - {currentYear}</CardTitle>
-                        </div>
-                        {selectedMonth !== null && (
-                            <Button variant="ghost" size="sm" onClick={() => setSelectedMonth(null)}>
-                                Reset Filter
-                            </Button>
-                        )}
+                    <div className="flex items-center gap-2">
+                        <Calendar className="h-5 w-5 text-muted-foreground" />
+                        <CardTitle className="text-base">Filter Periode</CardTitle>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                        <Button
-                            variant={selectedMonth === null ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setSelectedMonth(null)}
-                        >
-                            Semua
-                        </Button>
-                        {MONTHS.map((month) => (
-                            <Button
-                                key={month.value}
-                                variant={selectedMonth === month.value ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setSelectedMonth(month.value)}
-                                className={month.value === currentMonth ? "ring-2 ring-primary ring-offset-2" : ""}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Year Filter */}
+                        <div className="space-y-2">
+                            <Label htmlFor="year-select" className="text-sm font-medium">Tahun</Label>
+                            <Select
+                                id="year-select"
+                                value={selectedYear.toString()}
+                                onChange={(e) => {
+                                    setSelectedYear(parseInt(e.target.value))
+                                    setSelectedMonth(null) // Reset month when year changes
+                                }}
                             >
-                                {month.label}
-                            </Button>
-                        ))}
+                                {availableYears.length > 0 ? (
+                                    availableYears.map((year) => (
+                                        <option key={year} value={year}>
+                                            {year}{year === currentYear ? " (Sekarang)" : ""}
+                                        </option>
+                                    ))
+                                ) : (
+                                    <option value={currentYear}>{currentYear}</option>
+                                )}
+                            </Select>
+                        </div>
+
+                        {/* Month Filter */}
+                        <div className="space-y-2">
+                            <Label htmlFor="month-select" className="text-sm font-medium">Bulan</Label>
+                            <Select
+                                id="month-select"
+                                value={selectedMonth !== null ? selectedMonth.toString() : "all"}
+                                onChange={(e) => {
+                                    const value = e.target.value
+                                    setSelectedMonth(value === "all" ? null : parseInt(value))
+                                }}
+                            >
+                                <option value="all">Semua Bulan</option>
+                                {MONTHS.map((month) => (
+                                    <option key={month.value} value={month.value}>
+                                        {month.label}{month.value === currentMonth && selectedYear === currentYear ? " (Sekarang)" : ""}
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -476,7 +506,7 @@ export default function OwnerBatchMonitoring() {
                             <CardContent>
                                 <div className="text-2xl font-bold">{stats.total}</div>
                                 <p className="text-xs text-muted-foreground">
-                                    {selectedMonth !== null ? MONTHS[selectedMonth].label : "Semua bulan"} {currentYear}
+                                    {selectedMonth !== null ? MONTHS[selectedMonth].label + " " : "Semua bulan "}{selectedYear}
                                 </p>
                             </CardContent>
                         </Card>

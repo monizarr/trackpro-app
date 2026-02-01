@@ -42,6 +42,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { formatDateTime } from "@/lib/utils";
 
 type ProductionStatus = "PENDING" | "MATERIAL_REQUESTED" | "MATERIAL_ALLOCATED" | "ASSIGNED_TO_CUTTER" | "IN_CUTTING" | "CUTTING_COMPLETED" | "CUTTING_VERIFIED" | "ASSIGNED_TO_SEWER" | "IN_SEWING" | "SEWING_COMPLETED" | "SEWING_VERIFIED" | "IN_FINISHING" | "FINISHING_COMPLETED" | "WAREHOUSE_VERIFIED" | "COMPLETED" | "CANCELLED";
 
@@ -77,6 +78,7 @@ interface MaterialColorAllocation {
     stockAtAllocation: number | null; // Stok saat alokasi dikonfirmasi
     rollQuantityAtAllocation: number | null; // Jumlah roll saat alokasi dikonfirmasi
     materialColorVariant: MaterialColorVariant;
+    materialColorAllocations?: MaterialColorAllocation[];
 }
 
 interface SizeColorRequest {
@@ -691,23 +693,6 @@ export default function ProductionBatchDetailPage() {
         );
     };
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString("id-ID", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-        });
-    };
-
-    const formatDateTime = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString("id-ID", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    };
 
     // Determine current phase based on status
     const getCurrentPhase = (status: ProductionStatus): string => {
@@ -823,7 +808,7 @@ export default function ProductionBatchDetailPage() {
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
             {/* Breadcrumb */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="hidden lg:flex items-center gap-2 text-sm text-muted-foreground ">
                 <Link href="/owner/products" className="hover:text-foreground">
                     Products
                 </Link>
@@ -931,7 +916,7 @@ export default function ProductionBatchDetailPage() {
             </div>
 
             {/* Progress Overview */}
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Roll</CardTitle>
@@ -954,12 +939,12 @@ export default function ProductionBatchDetailPage() {
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Reject</CardTitle>
+                        <CardTitle className="text-sm font-medium">BS</CardTitle>
                         <AlertCircle className="h-4 w-4 text-destructive" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-destructive">{batch.rejectQuantity}</div>
-                        <p className="text-xs text-muted-foreground">Pieces ditolak</p>
+                        <p className="text-xs text-muted-foreground">Pieces Gagal Produksi</p>
                     </CardContent>
                 </Card>
             </div>
@@ -1049,7 +1034,6 @@ export default function ProductionBatchDetailPage() {
                                                 <TableRow>
                                                     <TableHead>Ukuran</TableHead>
                                                     <TableHead>Warna</TableHead>
-                                                    <TableHead className="text-right">Target</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
@@ -1059,7 +1043,6 @@ export default function ProductionBatchDetailPage() {
                                                         <TableCell>
                                                             <Badge variant="outline">{request.color}</Badge>
                                                         </TableCell>
-                                                        <TableCell className="text-right">{request.requestedPieces} pcs</TableCell>
                                                     </TableRow>
                                                 ))}
                                                 <TableRow className="font-bold bg-muted/50">
@@ -1197,15 +1180,20 @@ export default function ProductionBatchDetailPage() {
                                         <Separator />
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-muted-foreground">Material Diterima</span>
-                                            <span className="text-sm font-medium">{batch.cuttingTask.materialReceived} m</span>
+                                            <div className="text-sm font-medium space-y-1 flex gap-4">
+                                                <div>
+                                                    {batch.materialColorAllocations?.reduce((sum, allocation) => sum + allocation.rollQuantity, 0)} Roll
+                                                </div>
+                                                <span>-</span>
+                                                <div>
+                                                    {Number(batch.materialColorAllocations?.reduce((sum, allocation) => sum + allocation.allocatedQty, 0))}{' '}
+                                                    {batch.materialColorAllocations?.[0]?.materialColorVariant.unit}
+                                                </div>
+                                            </div>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-muted-foreground">Selesai</span>
                                             <span className="text-sm font-medium text-green-600">{batch.cuttingTask.piecesCompleted} pcs</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Reject</span>
-                                            <span className="text-sm font-medium text-destructive">{batch.cuttingTask.rejectPieces} pcs</span>
                                         </div>
                                         {batch.cuttingTask.wasteQty && (
                                             <div className="flex justify-between items-center">
@@ -1241,86 +1229,63 @@ export default function ProductionBatchDetailPage() {
                                 )}
                             </CardContent>
                         </Card>
-
-                        {/* Cutting Progress */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Progress Pemotongan</CardTitle>
-                                <CardDescription>Kemajuan proses pemotongan</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Selesai</span>
-                                        <span className="font-medium">{cuttingOutput} / {totalTarget} pcs</span>
+                        {/* Cutting Results */}
+                        {batch.cuttingResults && batch.cuttingResults.length > 0 && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Hasil Pemotongan</CardTitle>
+                                    <CardDescription>Detail hasil pemotongan per ukuran dan warna</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="rounded-md border">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Ukuran</TableHead>
+                                                    <TableHead>Warna</TableHead>
+                                                    <TableHead className="text-right">Actual</TableHead>
+                                                    <TableHead className="text-right">Status</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {batch.cuttingResults.map((result) => {
+                                                    return (
+                                                        <TableRow key={result.id}>
+                                                            <TableCell className="font-medium">{result.productSize}</TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="outline">{result.color}</Badge>
+                                                            </TableCell>
+                                                            <TableCell className="text-right font-medium">{result.actualPieces} pcs</TableCell>
+                                                            <TableCell className="text-right">
+                                                                {result.isConfirmed ? (
+                                                                    <Badge className="bg-green-500">
+                                                                        <CheckCircle className="h-3 w-3 mr-1" />
+                                                                        Dikonfirmasi
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <Badge variant="secondary">Pending</Badge>
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                                <TableRow className="font-bold bg-muted/50">
+                                                    <TableCell colSpan={2}>Total</TableCell>
+                                                    <TableCell className="text-right">
+                                                        {cuttingOutput} pcs
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                    </TableCell>
+                                                    <TableCell></TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
                                     </div>
-                                    <Progress value={(cuttingOutput / totalTarget) * 100} className="h-2" />
-                                </div>
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
 
-                    {/* Cutting Results */}
-                    {batch.cuttingResults && batch.cuttingResults.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Hasil Pemotongan</CardTitle>
-                                <CardDescription>Detail hasil pemotongan per ukuran dan warna</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="rounded-md border">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Ukuran</TableHead>
-                                                <TableHead>Warna</TableHead>
-                                                <TableHead className="text-right">Target</TableHead>
-                                                <TableHead className="text-right">Actual</TableHead>
-                                                <TableHead>Status</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {batch.cuttingResults.map((result) => {
-                                                const request = batch.sizeColorRequests?.find(
-                                                    r => r.productSize === result.productSize && r.color === result.color
-                                                );
-                                                return (
-                                                    <TableRow key={result.id}>
-                                                        <TableCell className="font-medium">{result.productSize}</TableCell>
-                                                        <TableCell>
-                                                            <Badge variant="outline">{result.color}</Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-right">{request?.requestedPieces || 0} pcs</TableCell>
-                                                        <TableCell className="text-right font-medium">{result.actualPieces} pcs</TableCell>
-                                                        <TableCell>
-                                                            {result.isConfirmed ? (
-                                                                <Badge className="bg-green-500">
-                                                                    <CheckCircle className="h-3 w-3 mr-1" />
-                                                                    Dikonfirmasi
-                                                                </Badge>
-                                                            ) : (
-                                                                <Badge variant="secondary">Pending</Badge>
-                                                            )}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })}
-                                            <TableRow className="font-bold bg-muted/50">
-                                                <TableCell colSpan={2}>Total</TableCell>
-                                                <TableCell className="text-right">
-                                                    {batch.sizeColorRequests?.reduce((sum, r) => sum + r.requestedPieces, 0) || 0} pcs
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {cuttingOutput} pcs
-                                                </TableCell>
-                                                <TableCell></TableCell>
-                                            </TableRow>
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
                 </TabsContent>
 
                 {/* Sewing Tab */}
@@ -1331,53 +1296,14 @@ export default function ProductionBatchDetailPage() {
                             <CardHeader>
                                 <CardTitle>Task Penjahitan</CardTitle>
                                 <CardDescription>
-                                    {subBatches.length > 0
-                                        ? `${subBatches.length} sub-batch dengan total ${sewingOutput} pcs dari potongan`
-                                        : "Informasi tugas penjahitan"
-                                    }
+                                    Informasi tugas penjahitan
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                {subBatches.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {subBatches.map((sb) => {
-                                            const sbSewingTotal = sb.items?.reduce((sum, item) => sum + (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0), 0) || 0;
-                                            return (
-                                                <div key={sb.id} className="border rounded-lg p-3 space-y-2">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="font-mono text-sm font-medium">{sb.subBatchSku}</span>
-                                                        {getStatusBadge(sb.status)}
-                                                    </div>
-                                                    <Separator />
-                                                    <div className="grid grid-cols-2 gap-2 text-sm">
-                                                        <div className="flex justify-between">
-                                                            <span className="text-muted-foreground">Dari Potongan</span>
-                                                            <span className="font-medium">{sbSewingTotal} pcs</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-muted-foreground">Baik</span>
-                                                            <span className="font-medium text-green-600">{sb.items?.reduce((sum, item) => sum + (item.goodQuantity || 0), 0) || 0} pcs</span>
-                                                        </div>
-                                                        {(sb.items?.some(item => (item.rejectKotor || 0) > 0) || (sb.rejectKotor || 0) > 0) && (
-                                                            <div className="flex justify-between">
-                                                                <span className="text-muted-foreground">Reject</span>
-                                                                <span className="font-medium text-destructive">{sb.items?.reduce((sum, item) => sum + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0), 0) || 0} pcs</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    {sb.items && sb.items.length > 0 && (
-                                                        <div className="text-xs text-muted-foreground space-y-1 pt-2">
-                                                            <p>Item: {sb.items.map(item => `${item.color} ${item.productSize}`).join(", ")}</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : batch.sewingTask ? (
+                                {batch.sewingTask ? (
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Penjahit</span>
+                                            <span className="text-sm text-muted-foreground">Penanggung Jawab</span>
                                             <span className="text-sm font-medium">{batch.sewingTask.assignedTo.name}</span>
                                         </div>
                                         <div className="flex justify-between items-center">
@@ -1386,16 +1312,12 @@ export default function ProductionBatchDetailPage() {
                                         </div>
                                         <Separator />
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Diterima</span>
+                                            <span className="text-sm text-muted-foreground">Menerima Potongan</span>
                                             <span className="text-sm font-medium">{batch.sewingTask.piecesReceived} pcs</span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-muted-foreground">Selesai</span>
                                             <span className="text-sm font-medium text-green-600">{batch.sewingTask.piecesCompleted} pcs</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Reject</span>
-                                            <span className="text-sm font-medium text-destructive">{batch.sewingTask.rejectPieces} pcs</span>
                                         </div>
                                         <Separator />
                                         {batch.sewingTask.startedAt && (
@@ -1442,12 +1364,6 @@ export default function ProductionBatchDetailPage() {
                                         <span className="text-muted-foreground">Output Jahit</span>
                                         <span className="font-medium text-green-600">{sewingOutput} pcs</span>
                                     </div>
-                                    {sewingReject > 0 && (
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Reject</span>
-                                            <span className="font-medium text-destructive">{sewingReject} pcs</span>
-                                        </div>
-                                    )}
                                     <Progress value={cuttingOutput > 0 ? (sewingOutput / cuttingOutput) * 100 : 0} className="h-2" />
                                 </div>
                             </CardContent>
@@ -1486,18 +1402,18 @@ export default function ProductionBatchDetailPage() {
                                                     </div>
                                                     <Separator />
                                                     <div className="grid grid-cols-2 gap-2 text-sm">
-                                                        <div className="flex justify-between">
-                                                            <span className="text-muted-foreground">Input dari Jahit</span>
+                                                        <div className="flex gap-2">
+                                                            <span className="text-muted-foreground">Menerima Jahitan</span>
                                                             <span className="font-medium">{sbInputTotal} pcs</span>
                                                         </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-muted-foreground">Baik</span>
+                                                        <div className="flex gap-2">
+                                                            <span className="text-muted-foreground">Lolos Finishing</span>
                                                             <span className="font-medium text-green-600">{sbGoodOutput} pcs</span>
                                                         </div>
                                                     </div>
                                                     {(sbRejectKotor > 0 || sbRejectSobek > 0 || sbRejectRusakJahit > 0) && (
                                                         <div className="space-y-1 pt-2 text-xs text-destructive">
-                                                            <div className="font-medium">Reject:</div>
+                                                            <div className="font-medium">BS:</div>
                                                             {sbRejectKotor > 0 && <div className="ml-2">• Kotor (cuci): {sbRejectKotor} pcs</div>}
                                                             {sbRejectSobek > 0 && <div className="ml-2">• Sobek: {sbRejectSobek} pcs</div>}
                                                             {sbRejectRusakJahit > 0 && <div className="ml-2">• Rusak Jahit: {sbRejectRusakJahit} pcs</div>}
@@ -1511,49 +1427,6 @@ export default function ProductionBatchDetailPage() {
                                                 </div>
                                             );
                                         })}
-                                    </div>
-                                ) : batch.finishingTask ? (
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Pekerja</span>
-                                            <span className="text-sm font-medium">{batch.finishingTask.assignedTo.name}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Status</span>
-                                            {getStatusBadge(batch.finishingTask.status)}
-                                        </div>
-                                        <Separator />
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Diterima</span>
-                                            <span className="text-sm font-medium">{batch.finishingTask.piecesReceived} pcs</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Selesai</span>
-                                            <span className="text-sm font-medium text-green-600">{batch.finishingTask.piecesCompleted} pcs</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Reject</span>
-                                            <span className="text-sm font-medium text-destructive">{batch.finishingTask.rejectPieces} pcs</span>
-                                        </div>
-                                        <Separator />
-                                        {batch.finishingTask.startedAt && (
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm text-muted-foreground">Mulai</span>
-                                                <span className="text-xs">{formatDateTime(batch.finishingTask.startedAt)}</span>
-                                            </div>
-                                        )}
-                                        {batch.finishingTask.completedAt && (
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm text-muted-foreground">Selesai</span>
-                                                <span className="text-xs">{formatDateTime(batch.finishingTask.completedAt)}</span>
-                                            </div>
-                                        )}
-                                        {batch.finishingTask.notes && (
-                                            <div className="space-y-1 pt-2">
-                                                <span className="text-sm text-muted-foreground">Catatan</span>
-                                                <p className="text-sm p-2 bg-muted rounded">{batch.finishingTask.notes}</p>
-                                            </div>
-                                        )}
                                     </div>
                                 ) : (
                                     <div className="text-center py-8 text-muted-foreground">
@@ -1573,7 +1446,7 @@ export default function ProductionBatchDetailPage() {
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
                                     <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Input dari Jahit</span>
+                                        <span className="text-muted-foreground">Menerima Jahitan</span>
                                         <span className="font-medium">{sewingOutput} pcs</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
@@ -1582,7 +1455,7 @@ export default function ProductionBatchDetailPage() {
                                     </div>
                                     {finishingReject > 0 && (
                                         <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Reject</span>
+                                            <span className="text-muted-foreground">BS</span>
                                             <span className="font-medium text-destructive">{finishingReject} pcs</span>
                                         </div>
                                     )}
@@ -1605,23 +1478,12 @@ export default function ProductionBatchDetailPage() {
                             <CardContent className="space-y-4">
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-sm text-muted-foreground">Target</span>
-                                        <span className="text-lg font-bold">{totalTarget} pcs</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
                                         <span className="text-sm text-muted-foreground">Output Akhir</span>
                                         <span className="text-lg font-bold text-green-600">{batch.actualQuantity} pcs</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-muted-foreground">Total Reject</span>
                                         <span className="text-lg font-bold text-destructive">{batch.rejectQuantity} pcs</span>
-                                    </div>
-                                    <Separator />
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm text-muted-foreground">Efisiensi</span>
-                                        <span className="text-lg font-bold">
-                                            {totalTarget > 0 ? ((batch.actualQuantity / totalTarget) * 100).toFixed(1) : 0}%
-                                        </span>
                                     </div>
                                 </div>
                                 {batch.completedDate && (
@@ -2125,7 +1987,7 @@ export default function ProductionBatchDetailPage() {
                                             onChange={(e) => setVerifySewingAction(e.target.value as "approve" | "reject")}
                                             className="w-4 h-4"
                                         />
-                                        <span className="text-red-600 font-medium">Reject</span>
+                                        <span className="text-red-600 font-medium">BS</span>
                                     </label>
                                 </div>
                             </div>
