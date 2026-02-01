@@ -646,285 +646,6 @@ export default function StocksPage() {
                         Kelola bahan baku dan varian warna
                     </p>
                 </div>
-                <div className="flex gap-2 flex-wrap">
-                    <Dialog open={isCreateMaterialOpen} onOpenChange={setIsCreateMaterialOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Bahan Baku Baru
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
-                            <DialogHeader>
-                                <DialogTitle>Bahan Baku Baru</DialogTitle>
-                                <DialogDescription>
-                                    Tambahkan bahan baku baru. Setelah ditambahkan, Anda dapat menambahkan varian warna.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <form onSubmit={handleCreateMaterial} className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="code">Kode *</Label>
-                                        <Input
-                                            id="code"
-                                            value={createMaterialForm.code}
-                                            onChange={(e) =>
-                                                setCreateMaterialForm({ ...createMaterialForm, code: e.target.value })
-                                            }
-                                            placeholder="Contoh: MAT-KAIN-001"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="name">Nama *</Label>
-                                        <Input
-                                            id="name"
-                                            value={createMaterialForm.name}
-                                            onChange={(e) =>
-                                                setCreateMaterialForm({ ...createMaterialForm, name: e.target.value })
-                                            }
-                                            placeholder="Contoh: Kain Katun Premium"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="description">Deskripsi</Label>
-                                    <Textarea
-                                        id="description"
-                                        value={createMaterialForm.description}
-                                        onChange={(e) =>
-                                            setCreateMaterialForm({ ...createMaterialForm, description: e.target.value })
-                                        }
-                                        placeholder="Deskripsi..."
-                                        rows={3}
-                                    />
-                                </div>
-                                <div className="bg-muted/50 p-3 rounded-md">
-                                    <p className="text-sm text-muted-foreground">
-                                        <strong>Catatan:</strong> Supplier dikelola per varian bahan baku.
-                                    </p>
-                                </div>
-                                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => setIsCreateMaterialOpen(false)}
-                                        disabled={isSaving}
-                                    >
-                                        Batal
-                                    </Button>
-                                    <Button type="submit" disabled={isSaving}>
-                                        {isSaving ? "Menyimpan..." : "Simpan"}
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
-
-                    <Dialog open={isAddVariantOpen} onOpenChange={setIsAddVariantOpen}>
-                        <DialogTrigger asChild>
-                            <Button variant="outline">
-                                <PackagePlus className="mr-2 h-4 w-4" />
-                                Tambah Varian
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                            <DialogHeader>
-                                <DialogTitle>Varian Warna Baru</DialogTitle>
-                                <DialogDescription>
-                                    Tambahkan varian warna untuk bahan baku yang sudah ada
-                                </DialogDescription>
-                            </DialogHeader>
-                            <form onSubmit={handleAddVariant} className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-2 sm:col-span-2">
-                                        <Label htmlFor="materialId">Bahan *</Label>
-                                        <select
-                                            id="materialId"
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                            value={variantForm.materialId}
-                                            onChange={(e) =>
-                                                setVariantForm({ ...variantForm, materialId: e.target.value })
-                                            }
-                                            required
-                                        >
-                                            <option value="">Pilih Bahan</option>
-                                            {materials.map((material) => (
-                                                <option key={material.id} value={material.id}>
-                                                    {material.code} - {material.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="colorName">Warna *</Label>
-                                        <Input
-                                            id="colorName"
-                                            value={variantForm.colorName}
-                                            onChange={(e) =>
-                                                setVariantForm({ ...variantForm, colorName: e.target.value })
-                                            }
-                                            placeholder="Contoh: Putih"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="colorCode">Kode Bahan Pabrik</Label>
-                                        <Input
-                                            id="colorCode"
-                                            value={variantForm.colorCode}
-                                            onChange={(e) =>
-                                                setVariantForm({ ...variantForm, colorCode: e.target.value })
-                                            }
-                                            placeholder="Contoh: KTN-001-WHT"
-                                        />
-                                    </div>
-                                    <div className="space-y-2 sm:col-span-2">
-                                        <Label htmlFor="unit">Satuan *</Label>
-                                        <select
-                                            id="unit"
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                            value={variantForm.unit}
-                                            onChange={(e) =>
-                                                setVariantForm({ ...variantForm, unit: e.target.value as "YARD" | "KILOGRAM" })
-                                            }
-                                            required
-                                        >
-                                            <option value="YARD">Yard</option>
-                                            <option value="KILOGRAM">Kilogram</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="stock">{getUnitLabels(variantForm.unit).stock} *</Label>
-                                        <Input
-                                            id="stock"
-                                            type="number"
-                                            step="0.01"
-                                            value={variantForm.stock}
-                                            onChange={(e) =>
-                                                setVariantForm({ ...variantForm, stock: e.target.value })
-                                            }
-                                            placeholder="0"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="minimumStock">{getUnitLabels(variantForm.unit).minStock} *</Label>
-                                        <Input
-                                            id="minimumStock"
-                                            type="number"
-                                            step="0.01"
-                                            value={variantForm.minimumStock}
-                                            onChange={(e) =>
-                                                setVariantForm({ ...variantForm, minimumStock: e.target.value })
-                                            }
-                                            placeholder="0"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="price">{getUnitLabels(variantForm.unit).price} *</Label>
-                                        <Input
-                                            id="price"
-                                            type="number"
-                                            step="0.01"
-                                            value={variantForm.price}
-                                            onChange={(e) =>
-                                                setVariantForm({ ...variantForm, price: e.target.value })
-                                            }
-                                            placeholder="0"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="rollQuantity">Jml Roll</Label>
-                                        <Input
-                                            id="rollQuantity"
-                                            type="number"
-                                            value={variantForm.rollQuantity}
-                                            onChange={(e) =>
-                                                setVariantForm({ ...variantForm, rollQuantity: e.target.value })
-                                            }
-                                            placeholder="Jml roll"
-                                        />
-                                    </div>
-                                    {/* <div className="space-y-2">
-                                        <Label htmlFor="meterPerRoll">{getUnitLabels(variantForm.unit).perRoll}</Label>
-                                        <Input
-                                            id="meterPerRoll"
-                                            type="number"
-                                            step="0.01"
-                                            value={variantForm.meterPerRoll}
-                                            onChange={(e) =>
-                                                setVariantForm({ ...variantForm, meterPerRoll: e.target.value })
-                                            }
-                                            placeholder={getUnitLabels(variantForm.unit).perRoll}
-                                        />
-                                    </div> */}
-                                    <div className="space-y-2">
-                                        <Label htmlFor="supplier">Supplier</Label>
-                                        <Input
-                                            id="supplier"
-                                            value={variantForm.supplier}
-                                            onChange={(e) =>
-                                                setVariantForm({ ...variantForm, supplier: e.target.value })
-                                            }
-                                            placeholder="Supplier"
-                                        />
-                                    </div>
-                                    {/* <div className="space-y-2">
-                                        <Label htmlFor="purchaseOrderNumber">No. PO</Label>
-                                        <Input
-                                            id="purchaseOrderNumber"
-                                            value={variantForm.purchaseOrderNumber}
-                                            onChange={(e) =>
-                                                setVariantForm({ ...variantForm, purchaseOrderNumber: e.target.value })
-                                            }
-                                            placeholder="Contoh: PO-2024-001"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="purchaseDate">Tgl Beli</Label>
-                                        <Input
-                                            id="purchaseDate"
-                                            type="date"
-                                            value={variantForm.purchaseDate}
-                                            onChange={(e) =>
-                                                setVariantForm({ ...variantForm, purchaseDate: e.target.value })
-                                            }
-                                        />
-                                    </div>
-                                    <div className="space-y-2 sm:col-span-2">
-                                        <Label htmlFor="purchaseNotes">Catatan Pembelian</Label>
-                                        <Textarea
-                                            id="purchaseNotes"
-                                            value={variantForm.purchaseNotes}
-                                            onChange={(e) =>
-                                                setVariantForm({ ...variantForm, purchaseNotes: e.target.value })
-                                            }
-                                            placeholder="Catatan..."
-                                            rows={2}
-                                        />
-                                    </div> */}
-                                </div>
-                                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => setIsAddVariantOpen(false)}
-                                        disabled={isSaving}
-                                    >
-                                        Batal
-                                    </Button>
-                                    <Button type="submit" disabled={isSaving}>
-                                        {isSaving ? "Menyimpan..." : "Simpan"}
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
-                </div>
             </div>
 
             {/* Statistics Cards */}
@@ -988,17 +709,174 @@ export default function StocksPage() {
 
                 {/* Variants Tab */}
                 <TabsContent value="variants" className="space-y-4">
-                    {/* Search */}
-                    <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Cari bahan baku atau warna..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-8"
-                            />
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        {/* Search */}
+                        <div className="flex items-center gap-2 w-full">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Cari bahan baku atau warna..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-8"
+                                />
+                            </div>
                         </div>
+                        <Dialog open={isAddVariantOpen} onOpenChange={setIsAddVariantOpen}>
+                            <DialogTrigger asChild>
+                                <Button>
+                                    <PackagePlus className="mr-2 h-4 w-4" />
+                                    Tambah Varian
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                                <DialogHeader>
+                                    <DialogTitle>Varian Warna Baru</DialogTitle>
+                                    <DialogDescription>
+                                        Tambahkan varian warna untuk bahan baku yang sudah ada
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <form onSubmit={handleAddVariant} className="space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-2 sm:col-span-2">
+                                            <Label htmlFor="materialId">Bahan *</Label>
+                                            <select
+                                                id="materialId"
+                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                value={variantForm.materialId}
+                                                onChange={(e) =>
+                                                    setVariantForm({ ...variantForm, materialId: e.target.value })
+                                                }
+                                                required
+                                            >
+                                                <option value="">Pilih Bahan</option>
+                                                {materials.map((material) => (
+                                                    <option key={material.id} value={material.id}>
+                                                        {material.code} - {material.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="colorName">Warna *</Label>
+                                            <Input
+                                                id="colorName"
+                                                value={variantForm.colorName}
+                                                onChange={(e) =>
+                                                    setVariantForm({ ...variantForm, colorName: e.target.value })
+                                                }
+                                                placeholder="Contoh: Putih"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="colorCode">Kode Bahan Pabrik</Label>
+                                            <Input
+                                                id="colorCode"
+                                                value={variantForm.colorCode}
+                                                onChange={(e) =>
+                                                    setVariantForm({ ...variantForm, colorCode: e.target.value })
+                                                }
+                                                placeholder="Contoh: KTN-001-WHT"
+                                            />
+                                        </div>
+                                        <div className="space-y-2 sm:col-span-2">
+                                            <Label htmlFor="unit">Satuan *</Label>
+                                            <select
+                                                id="unit"
+                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                value={variantForm.unit}
+                                                onChange={(e) =>
+                                                    setVariantForm({ ...variantForm, unit: e.target.value as "YARD" | "KILOGRAM" })
+                                                }
+                                                required
+                                            >
+                                                <option value="YARD">Yard</option>
+                                                <option value="KILOGRAM">Kilogram</option>
+                                            </select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="stock">{getUnitLabels(variantForm.unit).stock} *</Label>
+                                            <Input
+                                                id="stock"
+                                                type="number"
+                                                step="0.01"
+                                                value={variantForm.stock}
+                                                onChange={(e) =>
+                                                    setVariantForm({ ...variantForm, stock: e.target.value })
+                                                }
+                                                placeholder="0"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="minimumStock">{getUnitLabels(variantForm.unit).minStock} *</Label>
+                                            <Input
+                                                id="minimumStock"
+                                                type="number"
+                                                step="0.01"
+                                                value={variantForm.minimumStock}
+                                                onChange={(e) =>
+                                                    setVariantForm({ ...variantForm, minimumStock: e.target.value })
+                                                }
+                                                placeholder="0"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="price">{getUnitLabels(variantForm.unit).price} *</Label>
+                                            <Input
+                                                id="price"
+                                                type="number"
+                                                step="0.01"
+                                                value={variantForm.price}
+                                                onChange={(e) =>
+                                                    setVariantForm({ ...variantForm, price: e.target.value })
+                                                }
+                                                placeholder="0"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="rollQuantity">Jml Roll</Label>
+                                            <Input
+                                                id="rollQuantity"
+                                                type="number"
+                                                value={variantForm.rollQuantity}
+                                                onChange={(e) =>
+                                                    setVariantForm({ ...variantForm, rollQuantity: e.target.value })
+                                                }
+                                                placeholder="Jml roll"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="supplier">Supplier</Label>
+                                            <Input
+                                                id="supplier"
+                                                value={variantForm.supplier}
+                                                onChange={(e) =>
+                                                    setVariantForm({ ...variantForm, supplier: e.target.value })
+                                                }
+                                                placeholder="Supplier"
+                                            />
+                                        </div>
+                                    </div>
+                                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setIsAddVariantOpen(false)}
+                                            disabled={isSaving}
+                                        >
+                                            Batal
+                                        </Button>
+                                        <Button type="submit" disabled={isSaving}>
+                                            {isSaving ? "Menyimpan..." : "Simpan"}
+                                        </Button>
+                                    </DialogFooter>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
                     </div>
 
                     {/* Table - Desktop */}
@@ -1217,17 +1095,93 @@ export default function StocksPage() {
 
                 {/* Materials Tab */}
                 <TabsContent value="materials" className="space-y-4">
-                    {/* Search */}
-                    <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Cari bahan baku..."
-                                value={materialSearchQuery}
-                                onChange={(e) => setMaterialSearchQuery(e.target.value)}
-                                className="pl-8"
-                            />
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        {/* Search */}
+                        <div className="flex items-center gap-2 w-full">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Cari bahan baku..."
+                                    value={materialSearchQuery}
+                                    onChange={(e) => setMaterialSearchQuery(e.target.value)}
+                                    className="pl-8"
+                                />
+                            </div>
                         </div>
+                        <Dialog open={isCreateMaterialOpen} onOpenChange={setIsCreateMaterialOpen}>
+                            <DialogTrigger asChild>
+                                <Button>
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Bahan Baku Baru
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                                <DialogHeader>
+                                    <DialogTitle>Bahan Baku Baru</DialogTitle>
+                                    <DialogDescription>
+                                        Tambahkan bahan baku baru. Setelah ditambahkan, Anda dapat menambahkan varian warna.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <form onSubmit={handleCreateMaterial} className="space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="code">Kode *</Label>
+                                            <Input
+                                                id="code"
+                                                value={createMaterialForm.code}
+                                                onChange={(e) =>
+                                                    setCreateMaterialForm({ ...createMaterialForm, code: e.target.value })
+                                                }
+                                                placeholder="Contoh: MAT-KAIN-001"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="name">Nama *</Label>
+                                            <Input
+                                                id="name"
+                                                value={createMaterialForm.name}
+                                                onChange={(e) =>
+                                                    setCreateMaterialForm({ ...createMaterialForm, name: e.target.value })
+                                                }
+                                                placeholder="Contoh: Kain Katun Premium"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="description">Deskripsi</Label>
+                                        <Textarea
+                                            id="description"
+                                            value={createMaterialForm.description}
+                                            onChange={(e) =>
+                                                setCreateMaterialForm({ ...createMaterialForm, description: e.target.value })
+                                            }
+                                            placeholder="Deskripsi..."
+                                            rows={3}
+                                        />
+                                    </div>
+                                    <div className="bg-muted/50 p-3 rounded-md">
+                                        <p className="text-sm text-muted-foreground">
+                                            <strong>Catatan:</strong> Supplier dikelola per varian bahan baku.
+                                        </p>
+                                    </div>
+                                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setIsCreateMaterialOpen(false)}
+                                            disabled={isSaving}
+                                        >
+                                            Batal
+                                        </Button>
+                                        <Button type="submit" disabled={isSaving}>
+                                            {isSaving ? "Menyimpan..." : "Simpan"}
+                                        </Button>
+                                    </DialogFooter>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
                     </div>
 
                     {/* Table - Desktop */}
