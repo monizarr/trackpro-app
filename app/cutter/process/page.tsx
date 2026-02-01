@@ -193,7 +193,7 @@ export default function CuttingProcessPage() {
 
             {/* Filter by Month */}
             <div className="flex gap-4 items-end flex-wrap">
-                <div className="flex-1 min-w-[200px]">
+                <div className="flex-1 min-w-50">
                     <label className="text-sm text-muted-foreground mb-2 block">Filter Bulan</label>
                     <select
                         value={selectedMonth}

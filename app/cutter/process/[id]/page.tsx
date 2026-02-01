@@ -481,7 +481,7 @@ export default function CuttingTaskDetailPage() {
                         {/* Info Message */}
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                             <div className="flex gap-2">
-                                <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
                                 <div className="text-sm text-blue-800">
                                     <p className="font-medium">Cara input:</p>
                                     <p className="text-xs mt-1">Isi kolom Qty untuk setiap kombinasi ukuran dan warna. Total akan dihitung otomatis.</p>
