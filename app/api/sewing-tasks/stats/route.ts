@@ -25,9 +25,16 @@ export async function GET() {
     if (!user || user.role !== "PENJAHIT") {
       return NextResponse.json(
         { error: "Only PENJAHIT can access this endpoint" },
-        { status: 403 }
+        { status: 403 },
       );
     }
+
+    const pendingTask = await prisma.sewingTask.count({
+      where: {
+        assignedToId: user.id,
+        status: "PENDING",
+      },
+    });
 
     // Get active tasks (IN_PROGRESS)
     const activeTasks = await prisma.sewingTask.count({
@@ -71,7 +78,7 @@ export async function GET() {
       where: {
         assignedToId: user.id,
         status: {
-          in: ["IN_PROGRESS", "COMPLETED", "VERIFIED"],
+          in: ["PENDING", "IN_PROGRESS", "COMPLETED", "VERIFIED"],
         },
       },
       select: {
@@ -82,11 +89,11 @@ export async function GET() {
 
     const totalReceived = allTasks.reduce(
       (sum, task) => sum + task.piecesReceived,
-      0
+      0,
     );
     const totalCompleted = allTasks.reduce(
       (sum, task) => sum + task.piecesCompleted,
-      0
+      0,
     );
     const progressPercentage =
       totalReceived > 0
@@ -94,6 +101,7 @@ export async function GET() {
         : 0;
 
     return NextResponse.json({
+      pendingTask,
       activeTasks,
       completedToday,
       completedYesterday,
@@ -103,7 +111,7 @@ export async function GET() {
     console.error("Error fetching sewing task stats:", error);
     return NextResponse.json(
       { error: "Failed to fetch stats" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

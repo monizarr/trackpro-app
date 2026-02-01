@@ -20,6 +20,7 @@ interface FinishingTask {
     notes: string | null
     startedAt: Date | null
     completedAt: Date | null
+    createdAt: string
     batch: {
         id: string
         batchSku: string
@@ -75,7 +76,7 @@ export default function FinishingProcessPage() {
         },
         TERVERIFIKASI: {
             label: "Terverifikasi",
-            statuses: ["FINISHING_VERIFIED", "WAREHOUSE_VERIFIED"],
+            statuses: ["FINISHING_VERIFIED", "WAREHOUSE_VERIFIED","COMPLETED"],
             icon: Zap,
             color: "text-green-600"
         }
@@ -103,15 +104,8 @@ export default function FinishingProcessPage() {
         return tasks.filter(task => {
             const matchesStatus = groupStatuses.includes(task.batch.status)
 
-            let taskDate: Date
-            if (task.startedAt) {
-                taskDate = new Date(task.startedAt)
-            } else if (task.completedAt) {
-                taskDate = new Date(task.completedAt)
-            } else {
-                return matchesStatus
-            }
-
+            // Gunakan createdAt untuk filter bulan
+            const taskDate = new Date(task.createdAt)
             const taskMonth = `${taskDate.getFullYear()}-${String(taskDate.getMonth() + 1).padStart(2, '0')}`
             const matchesMonth = taskMonth === selectedMonth
 
@@ -123,15 +117,8 @@ export default function FinishingProcessPage() {
         const groupTasks = tasks.filter(task => {
             const matchesStatus = groupStatuses.includes(task.batch.status)
 
-            let taskDate: Date
-            if (task.startedAt) {
-                taskDate = new Date(task.startedAt)
-            } else if (task.completedAt) {
-                taskDate = new Date(task.completedAt)
-            } else {
-                return matchesStatus
-            }
-
+            // Gunakan createdAt untuk filter bulan
+            const taskDate = new Date(task.createdAt)
             const taskMonth = `${taskDate.getFullYear()}-${String(taskDate.getMonth() + 1).padStart(2, '0')}`
             const matchesMonth = taskMonth === selectedMonth
 

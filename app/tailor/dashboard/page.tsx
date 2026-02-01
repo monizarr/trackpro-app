@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Scissors, CheckCircle, Clock, Loader2, AlertCircle } from "lucide-react"
+import { Scissors, CheckCircle, Clock, Loader2, AlertCircle, Clock2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface Stats {
+    pendingTask: number
     activeTasks: number
     completedToday: number
     completedYesterday: number
@@ -63,7 +64,7 @@ export default function TailorDashboard() {
 
         fetchData()
     }, [])
-
+    console.log(stats)
     if (loading) {
         return (
             <div className="flex-1 flex items-center justify-center min-h-screen">
@@ -85,7 +86,13 @@ export default function TailorDashboard() {
 
     const statsCards = stats ? [
         {
-            title: "Batch Aktif",
+            title: "Tugas Menunggu",
+            value: stats.pendingTask.toString(),
+            subtitle: "Menunggu dikerjakan",
+            icon: Clock2
+        },
+        {
+            title: "Tugas Aktif",
             value: stats.activeTasks.toString(),
             subtitle: "Sedang dikerjakan",
             icon: Scissors
@@ -120,7 +127,7 @@ export default function TailorDashboard() {
             </div>
 
             {/* Stats */}
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {statsCards.map((stat) => {
                     const Icon = stat.icon
                     return (

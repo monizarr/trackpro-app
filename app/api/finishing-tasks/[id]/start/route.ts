@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -28,11 +28,31 @@ export async function PATCH(
     if (!user || user.role !== "FINISHING") {
       return NextResponse.json(
         { error: "Only FINISHING can start finishing tasks" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     const { id: taskId } = await params;
+
+    const existBatch = await prisma.productionBatch.findFirst({
+      where: {
+        id: (
+          await prisma.finishingTask.findUnique({
+            where: { id: taskId },
+          })
+        )?.batchId,
+        status: "ASSIGNED_TO_FINISHING",
+      },
+    });
+
+    if (existBatch){
+      await prisma.productionBatch.update({
+        where: { id: existBatch.id },
+        data: {
+          status: "IN_FINISHING",
+        },
+      });
+    }
 
     // Check if task exists and belongs to this user
     const task = await prisma.finishingTask.findUnique({
@@ -46,14 +66,14 @@ export async function PATCH(
     if (task.assignedToId !== user.id) {
       return NextResponse.json(
         { error: "Task not assigned to you" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     if (task.status !== "PENDING") {
       return NextResponse.json(
         { error: `Task already ${task.status}` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -73,7 +93,7 @@ export async function PATCH(
     console.error("Error starting finishing task:", error);
     return NextResponse.json(
       { error: "Failed to start finishing task" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

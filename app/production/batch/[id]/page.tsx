@@ -543,7 +543,6 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             setSubmittingCutting(false);
         }
     };
-    console.log(batch)
 
     const handleAssignToSewer = async () => {
         if (!batch || !selectedSewerId) {
@@ -792,7 +791,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 if (verifyFinishingAction === "approve") {
                     toast.success("Berhasil", "Hasil finishing disetujui dan siap dikirim ke gudang");
                 } else {
-                    toast.success("Berhasil", "Hasil finishing ditolak. Hasil jahitan telah dikembalikan untuk diisi ulang");
+                    toast.success("Berhasil", "Hasil finishing ditolak dan sub-batch dihapus. Hasil jahit dapat diinput ulang di sub-batch baru");
                 }
                 setShowVerifyFinishingDialog(false);
                 setVerifyingSubBatch(null);
@@ -965,7 +964,6 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
     const currentPhase = getCurrentPhase(batch.status);
 
     // Calculate progress
-    const totalTarget = batch.targetQuantity;
     const cuttingOutput = batch.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0) || 0;
 
     // Calculate sewing output from sub-batches items (preferred) or batch task (fallback)
@@ -1206,8 +1204,12 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                         </Button>
                     )}
 
-                    {batch.status === "IN_FINISHING" && (
+                    {batch.status === "IN_FINISHING" && !canCompleteBatch && (
                         <>
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className="text-muted-foreground">Progress:</span>
+                                <span className="font-medium">{totalFinishingInput} / {totalSewingOutput} pcs</span>
+                            </div>
                             <Button
                                 size="sm"
                                 variant="outline"
@@ -1216,13 +1218,6 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                 <Package className="h-4 w-4 mr-2" />
                                 Input Hasil Finishing
                             </Button>
-                            <div className="flex items-center gap-2 text-sm">
-                                <span className="text-muted-foreground">Progress:</span>
-                                <span className="font-medium">{totalFinishingInput} / {totalSewingOutput} pcs</span>
-                                {canCompleteBatch && (
-                                    <Badge variant="default" className="bg-green-600">Siap Selesai</Badge>
-                                )}
-                            </div>
                         </>
                     )}
 
@@ -1240,61 +1235,45 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             </div>
 
             {/* Batch Overview */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {/* <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Target Quantity</CardTitle>
-                        <Package className="h-4 w-4 text-muted-foreground" />
+                <Card className="">
+                    <CardHeader className="py-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                            <Package className="h-5 w-5" />
+                            Ringkasan Hasil Produksi   
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{batch.targetQuantity} pcs</div>
-                        <p className="text-xs text-muted-foreground">Target produksi</p>
-                    </CardContent>
-                </Card> */}
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Jumlah Produk Jadi</CardTitle>
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-600">{batch.actualQuantity} pcs</div>
-                        <p className="text-xs text-muted-foreground">Berhasil diproduksi</p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Jumlah Produk Reject</CardTitle>
-                        <AlertCircle className="h-4 w-4 text-red-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-red-600">{batch.rejectQuantity} pcs</div>
-                        <p className="text-xs text-muted-foreground">Produk reject</p>
-                    </CardContent>
-                </Card>
-
-                {/* <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {batch.targetQuantity > 0
-                                ? Math.round((batch.actualQuantity / batch.targetQuantity) * 100)
-                                : 0}
-                            %
+                    <CardContent className="py-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center pb-4">
+                            <div>
+                                <p className="text-2xl font-bold text-green-600">{finishingOutput}</p>
+                                <p className="text-xs text-muted-foreground">Barang Jadi</p>
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-yellow-600">{subBatches.reduce((sum, sb) => sum + sb.rejectKotor, 0)}</p>
+                                <p className="text-xs text-muted-foreground">Kotor</p>
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-red-600">{subBatches.reduce((sum, sb) => sum + sb.rejectSobek, 0)}</p>
+                                <p className="text-xs text-muted-foreground">Sobek</p>
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-red-600">{subBatches.reduce((sum, sb) => sum + sb.rejectRusakJahit, 0)}</p>
+                                <p className="text-xs text-muted-foreground">Rusak Jahit</p>
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold">
+                                    {subBatches.reduce((sum, sb) => sum + sb.rejectKotor + sb.rejectSobek + sb.rejectRusakJahit, 0) + finishingOutput}
+                                </p>
+                                <p className="text-xs text-muted-foreground">Total</p>
+                            </div>
                         </div>
-                        <p className="text-xs text-muted-foreground">Progress completion</p>
                     </CardContent>
-                </Card> */}
-            </div>
+                </Card>
 
             {/* Batch Information */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Informasi Batch</CardTitle>
+                    <CardTitle>Informasi Produksi</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -1973,77 +1952,56 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             </CardContent>
                         </Card>
 
-                        {/* Finishing Progress */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Progress Finishing</CardTitle>
-                                <CardDescription>Kemajuan proses finishing</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Input dari Jahit</span>
-                                        <span className="font-medium">{sewingOutput} pcs</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Output Finishing</span>
-                                        <span className="font-medium text-green-600">{finishingOutput} pcs</span>
-                                    </div>
-                                    {finishingReject > 0 && (
+                        {/* Finishing Progress Info */}
+                        {batch.status === "IN_FINISHING" && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Status Finishing</CardTitle>
+                                    <CardDescription>Progress hasil finishing vs hasil jahit</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="space-y-2">
                                         <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Reject</span>
-                                            <span className="font-medium text-destructive">{finishingReject} pcs</span>
+                                            <span className="text-muted-foreground">Total Hasil Jahit (Input)</span>
+                                            <span className="font-medium">{totalSewingOutput} pcs</span>
                                         </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Total Sudah Diproses Finishing</span>
+                                            <span className="font-medium">{totalFinishingInput} pcs</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Sisa Belum Diproses</span>
+                                            <span className="font-medium text-orange-600">{Math.max(0, totalSewingOutput - totalFinishingInput)} pcs</span>
+                                        </div>
+                                        <Progress value={totalSewingOutput > 0 ? (totalFinishingInput / totalSewingOutput) * 100 : 0} className="h-2" />
+                                    </div>
+
+                                    {canCompleteBatch ? (
+                                        <Alert>
+                                            <CheckCircle className="h-4 w-4" />
+                                            <AlertDescription>
+                                                Semua hasil jahit sudah diproses finishing. Batch siap untuk diselesaikan.
+                                            </AlertDescription>
+                                        </Alert>
+                                    ) : (
+                                        <Alert>
+                                            <AlertCircle className="h-4 w-4" />
+                                            <AlertDescription>
+                                                Masih ada {Math.max(0, totalSewingOutput - totalFinishingInput)} pcs hasil jahit yang belum diproses.
+                                                Batch baru dapat diselesaikan jika semua hasil jahit sudah diproses di finishing.
+                                            </AlertDescription>
+                                        </Alert>
                                     )}
-                                    <Progress value={sewingOutput > 0 ? (finishingOutput / sewingOutput) * 100 : 0} className="h-2" />
-                                </div>
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        )}
+
                     </div>
                 </TabsContent>
 
                 {/* Completed Tab */}
                 <TabsContent value="completed" className="space-y-4">
                     <div className="grid gap-4 lg:grid-cols-2">
-                        {/* Summary Card */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Ringkasan Produksi</CardTitle>
-                                <CardDescription>Hasil akhir produksi batch ini</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm text-muted-foreground">Target</span>
-                                        <span className="text-lg font-bold">{totalTarget} pcs</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm text-muted-foreground">Output Akhir</span>
-                                        <span className="text-lg font-bold text-green-600">{batch.actualQuantity} pcs</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm text-muted-foreground">Total Reject</span>
-                                        <span className="text-lg font-bold text-destructive">{batch.rejectQuantity} pcs</span>
-                                    </div>
-                                    <Separator />
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm text-muted-foreground">Efisiensi</span>
-                                        <span className="text-lg font-bold">
-                                            {totalTarget > 0 ? ((batch.actualQuantity / totalTarget) * 100).toFixed(1) : 0}%
-                                        </span>
-                                    </div>
-                                </div>
-                                {batch.completedDate && (
-                                    <div className="pt-2 border-t">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Tanggal Selesai</span>
-                                            <span className="text-sm">{formatDate(batch.completedDate)}</span>
-                                        </div>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
                         {/* Timeline */}
                         <Card>
                             <CardHeader>
@@ -2092,6 +2050,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             {/* Sub-Batches (shown when status is after CUTTING_VERIFIED) */}
             {["CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED", "SEWING_VERIFIED", "IN_FINISHING", "FINISHING_COMPLETED", "WAREHOUSE_VERIFIED", "COMPLETED"].includes(batch.status) && (
                 <SubBatchList
+                    role="PRODUCTION_HEAD"
                     batchId={batch.id}
                     onRefresh={fetchBatchDetail}
                     onVerifyFinishing={openVerifyFinishingDialog}
@@ -2113,56 +2072,13 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 />
             )}
 
-            {/* Finishing Progress Info */}
-            {batch.status === "IN_FINISHING" && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Status Finishing</CardTitle>
-                        <CardDescription>Progress hasil finishing vs hasil jahit</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Total Hasil Jahit (Input)</span>
-                                <span className="font-medium">{totalSewingOutput} pcs</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Total Sudah Diproses Finishing</span>
-                                <span className="font-medium">{totalFinishingInput} pcs</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Sisa Belum Diproses</span>
-                                <span className="font-medium text-orange-600">{Math.max(0, totalSewingOutput - totalFinishingInput)} pcs</span>
-                            </div>
-                            <Progress value={totalSewingOutput > 0 ? (totalFinishingInput / totalSewingOutput) * 100 : 0} className="h-2" />
-                        </div>
-
-                        {canCompleteBatch ? (
-                            <Alert>
-                                <CheckCircle className="h-4 w-4" />
-                                <AlertDescription>
-                                    Semua hasil jahit sudah diproses finishing. Batch siap untuk diselesaikan.
-                                </AlertDescription>
-                            </Alert>
-                        ) : (
-                            <Alert>
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertDescription>
-                                    Masih ada {Math.max(0, totalSewingOutput - totalFinishingInput)} pcs hasil jahit yang belum diproses.
-                                    Batch baru dapat diselesaikan jika semua hasil jahit sudah diproses di finishing.
-                                </AlertDescription>
-                            </Alert>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
 
             <Button
                 variant="destructive"
                 size="sm"
                 onClick={() => setIsDeleteDialogOpen(true)}
-                disabled={batch.status !== 'PENDING'}
-                title={batch.status !== 'PENDING' ? 'Only PENDING batches can be deleted' : 'Delete batch'}
+                disabled={batch.status !== 'PENDING' && batch.status !== 'MATERIAL_REQUESTED'}
+                title={batch.status !== 'PENDING' && batch.status !== 'MATERIAL_REQUESTED' ? 'Tidak dapat menghapus batch dengan status ini' : 'Hapus batch'}
             >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete Batch
@@ -2192,22 +2108,22 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Production Batch?</AlertDialogTitle>
+                        <AlertDialogTitle>Hapus Batch Produksi?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure you want to delete batch <strong>{batch?.batchSku}</strong>?
+                            Apakah Anda yakin ingin menghapus batch <strong>{batch?.batchSku}</strong>?
                             <span className="block mt-2 text-muted-foreground">
-                                This action cannot be undone. Only batches with PENDING status can be deleted.
+                                Aksi ini tidak dapat dibatalkan dan semua data terkait batch ini akan hilang.
                             </span>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleDeleteBatch}
                             disabled={isDeleting}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                            {isDeleting ? "Deleting..." : "Delete Batch"}
+                            {isDeleting ? "Menghapus..." : "Hapus Batch"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -3131,7 +3047,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                         onClick={() => setVerifyFinishingAction("reject")}
                                     >
                                         <AlertCircle className="mr-2 h-4 w-4" />
-                                        Tolak - Update Kembali
+                                        Tolak - Hapus Sub-Batch
                                     </Button>
                                 </div>
                             </div>
@@ -3149,10 +3065,10 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             </div>
 
                             {verifyFinishingAction === "reject" && (
-                                <Alert>
+                                <Alert variant="destructive">
                                     <AlertCircle className="h-4 w-4" />
                                     <AlertDescription>
-                                        Hasil finishing akan ditolak, data hasil finishing akan di-reset, dan hasil jahitan akan dikembalikan sehingga dapat diisi ulang oleh kepala finishing.
+                                        <strong>Peringatan:</strong> Sub-batch ini akan dihapus secara permanen. Hasil jahit yang sudah di-submit akan kembali tersedia untuk diinput ulang di sub-batch baru.
                                     </AlertDescription>
                                 </Alert>
                             )}
@@ -3179,10 +3095,10 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             {verifyingFinishing
                                 ? verifyFinishingAction === "approve"
                                     ? "Menyetujui..."
-                                    : "Menolak..."
+                                    : "Menghapus..."
                                 : verifyFinishingAction === "approve"
                                     ? "Setujui & Kirim"
-                                    : "Tolak & Update"}
+                                    : "Tolak & Hapus"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

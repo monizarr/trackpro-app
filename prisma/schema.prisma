@@ -449,6 +449,7 @@ model SewingTask {
   batch      ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
   assignedTo User            @relation("SewingTaskAssigned", fields: [assignedToId], references: [id])
   verifiedBy User?           @relation("SewingTaskVerified", fields: [verifiedById], references: [id])
+  sewingResults SewingResult[]
 
   @@index([status])
   @@index([assignedToId])
@@ -634,6 +635,7 @@ model CuttingResult {
 model SewingResult {
   id            String    @id @default(cuid())
   batchId       String
+  sewingTaskId   String? // Optional - linked to sewing task
   productSize   String // Ukuran produk (S, M, L, XL, XXL, dll)
   color         String // Warna hasil jahitan
   actualPieces  Int // Jumlah potongan yang terealisasi
@@ -643,6 +645,7 @@ model SewingResult {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  sewingTask  SewingTask?     @relation(fields: [sewingTaskId], references: [id], onDelete: Cascade)
   batch       ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
   confirmedBy User?           @relation("SewingResultConfirmed", fields: [confirmedById], references: [id])
 
@@ -745,6 +748,8 @@ enum TimelineEvent {
   FINISHING_COMPLETED
   // Sub-batch events (untuk partial delivery ke warehouse)
   SUB_BATCH_CREATED
+  SUB_BATCH_APPROVED
+  SUB_BATCH_REJECTED
   SUB_BATCH_SUBMITTED_TO_WAREHOUSE
   SUB_BATCH_WAREHOUSE_VERIFIED
   // Warehouse & completion events

@@ -21,6 +21,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { SpinnerCustom } from "@/components/ui/spinner"
+import { formatDateTime } from "@/lib/utils"
 
 interface SewingTask {
     id: string
@@ -31,11 +32,13 @@ interface SewingTask {
     wasteQty: number | null
     status: string
     notes: string | null
+    createdAt: Date
     startedAt: Date | null
     completedAt: Date | null
     batch: {
         id: string
         batchSku: string
+        startDate: string
         status: string
         targetQuantity: number
         totalRolls: number | null
@@ -138,7 +141,7 @@ export default function SewingTaskDetailPage() {
             setLoading(false)
         }
     }
-
+    
     const fetchTimeline = async (batchId: string) => {
         try {
             setLoadingTimeline(true)
@@ -319,16 +322,6 @@ export default function SewingTaskDetailPage() {
         return '📌'
     }
 
-    const formatDateTime = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString("id-ID", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        })
-    }
-
     if (loading) {
         return (
             <div className="flex-1 flex items-center justify-center min-h-screen">
@@ -356,6 +349,8 @@ export default function SewingTaskDetailPage() {
 
     const currentBatch = {
         code: task.batch.batchSku,
+        startDate: formatDateTime(task.createdAt.toString()),
+        finishDate: task.completedAt ? formatDateTime(task.completedAt.toString()) : null,
         product: task.batch.product.name,
         target: task.batch.targetQuantity,
         completed: sewingResults.reduce((sum, r) => sum + r.actualPieces, 0),
@@ -398,10 +393,6 @@ export default function SewingTaskDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                        {/* <div className="space-y-1">
-                            <p className="text-xs sm:text-sm text-muted-foreground">Target Qty</p>
-                            <p className="text-lg sm:text-2xl font-bold">{currentBatch.target}</p>
-                        </div> */}
                         <div className="space-y-1">
                             <p className="text-xs sm:text-sm text-muted-foreground">Selesai</p>
                             <p className="text-lg sm:text-2xl font-bold text-green-600">{currentBatch.completed > 0 ? currentBatch.completed + " pcs" : 0}</p>
@@ -411,19 +402,68 @@ export default function SewingTaskDetailPage() {
                             <p className="text-lg sm:text-2xl font-bold">{Number(currentBatch.materialReceived) || 0} Pcs </p>
                         </div>
                     </div>
-                    {/* <div className="pt-2 border-t">
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                                className="bg-green-600 h-2 rounded-full transition-all"
-                                style={{ width: `${(currentBatch.completed / currentBatch.target) * 100}%` }}
-                            ></div>
+                    <div className="pt-2 border-t">
+                        <div className="text-xs text-muted-foreground mt-2 flex justify-between">
+                            Ditugaskan pada : <Badge variant="outline">{currentBatch.startDate}</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-2">
-                            Progres: {Math.round((currentBatch.completed / currentBatch.target) * 100)}%
-                        </p>
-                    </div> */}
+                        {currentBatch.finishDate && (
+                            <div className="text-xs text-muted-foreground mt-2 flex justify-between">
+                                Selesai pada : <Badge variant="outline">{currentBatch.finishDate}</Badge>
+                            </div>
+                        )}
+                    </div>
                 </CardContent>
             </Card>
+
+            {/* Hasil jahitan yang sudah diinput */}
+            {currentBatch.status !== 'IN_SEWING' && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Hasil Jahitan Terakhir</CardTitle>
+                        <CardDescription>
+                            Data hasil jahitan yang sudah tersimpan
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="border rounded-lg overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-muted/50">
+                                        <TableHead className="font-semibold">Ukuran</TableHead>
+                                        <TableHead className="font-semibold">Warna</TableHead>
+                                        <TableHead className="font-semibold text-right">Qty Jahit</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {sewingResults.map((result: {
+                                        productSize: string
+                                        color: string
+                                        actualPieces: number
+                                    }, idx: number) => (
+                                        <TableRow key={idx} className="hover:bg-muted/50">
+                                            <TableCell className="font-medium">{result.productSize}</TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline">{result.color}</Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right font-semibold">
+                                                {result.actualPieces} pcs
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow className="font-bold bg-muted/50 border-t-2">
+                                        <TableCell colSpan={2}>Total Hasil Jahit</TableCell>
+                                        <TableCell className="text-right text-lg">
+                                            <span className="text-green-600">
+                                                {sewingResults.reduce((sum: number, r: { actualPieces: number }) => sum + r.actualPieces, 0)} pcs
+                                            </span>
+                                        </TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Start Task (if ASSIGNED_TO_SEWER) */}
             {currentBatch.status === 'ASSIGNED_TO_SEWER' && (
@@ -672,7 +712,7 @@ export default function SewingTaskDetailPage() {
             )}
 
             {/* Timeline History */}
-            <Card>
+            {/* <Card>
                 <CardHeader>
                     <CardTitle>Riwayat Progress</CardTitle>
                     <CardDescription>
@@ -711,7 +751,7 @@ export default function SewingTaskDetailPage() {
                         </div>
                     )}
                 </CardContent>
-            </Card>
+            </Card> */}
         </div>
     )
 }

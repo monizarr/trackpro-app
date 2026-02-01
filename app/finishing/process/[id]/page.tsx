@@ -10,6 +10,7 @@ import { toast } from "@/lib/toast";
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CreateSubBatchDialog } from "@/components/create-sub-batch-dialog"
 import { SubBatchList } from "@/components/sub-batch-list"
+import { formatDateTime } from "@/lib/utils"
 
 interface FinishingTask {
     id: string
@@ -17,11 +18,12 @@ interface FinishingTask {
     materialReceived: number
     piecesCompleted: number
     rejectPieces: number
+    piecesReceived: number
     wasteQty: number | null
     status: string
     notes: string | null
-    startedAt: Date | null
-    completedAt: Date | null
+    startedAt: string | null
+    completedAt: string | null
     batch: {
         id: string
         batchSku: string
@@ -178,7 +180,7 @@ export default function FinishingTaskDetailPage() {
             setLoading(false)
         }
     }
-
+    console.log(task)
     const fetchSubBatches = async () => {
         try {
             const response = await fetch(`/api/production-batches/${task?.batch.id}/sub-batches`);
@@ -252,7 +254,6 @@ export default function FinishingTaskDetailPage() {
         }
     }
 
-    console.log("batch cuttingResults:", batch);
     // Calculate remaining sewingOutputs for dialog
     const remainingSewingOutputs = (batch?.cuttingResults?.map(cr => ({
         productSize: cr.productSize,
@@ -277,8 +278,6 @@ export default function FinishingTaskDetailPage() {
             }
         }
     }
-
-    console.log("Remaining Sewing Outputs:", remainingSewingOutputs);
 
     // Calculate total sewing output (jumlah pcs yang seharusnya masuk finishing)
     const totalSewingOutput = batch?.sewingTask?.piecesCompleted || (batch?.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0) || 0);
@@ -339,16 +338,6 @@ export default function FinishingTaskDetailPage() {
         return '📌'
     }
 
-    const formatDateTime = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString("id-ID", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        })
-    }
-
     if (loading) {
         return (
             <div className="flex-1 flex items-center justify-center min-h-screen">
@@ -360,7 +349,7 @@ export default function FinishingTaskDetailPage() {
     if (!task) {
         return (
             <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6">
-                <Button variant="outline" onClick={() => router.push("/cutter/process")}>
+                <Button variant="outline" onClick={() => router.push("/finishing/process")}>
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Kembali
                 </Button>
@@ -378,9 +367,11 @@ export default function FinishingTaskDetailPage() {
         id: task.batch.id,
         batchSku: task.batch.batchSku,
         code: task.batch.batchSku,
+        startedAt: task.startedAt ? formatDateTime(task.startedAt) : "N/A",
+        completedAt: task.completedAt ? formatDateTime(task.completedAt) : "N/A",
         product: task.batch.product.name,
         target: task.batch.targetQuantity,
-        completed: totalFinishingGood,
+        completed: totalFinishingInput,
         materialReceived: task.batch.materialColorAllocations.reduce((sum: number, alloc: { allocatedQty: number }) => sum + alloc.allocatedQty, 0),
         materialItems: task.batch.materialColorAllocations.map((alloc: { materialColorVariant: { unit: string } }) => alloc.materialColorVariant.unit).join(", "),
         totalRoll: task.batch.totalRolls,
@@ -421,30 +412,28 @@ export default function FinishingTaskDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                        {/* <div className="space-y-1">
-                            <p className="text-xs sm:text-sm text-muted-foreground">Target Qty</p>
-                            <p className="text-lg sm:text-2xl font-bold">{currentBatch.target}</p>
-                        </div> */}
                         <div className="space-y-1">
                             <p className="text-xs sm:text-sm text-muted-foreground">Selesai</p>
                             <p className="text-lg sm:text-2xl font-bold text-green-600">{currentBatch.completed > 0 ? currentBatch.completed + " pcs" : 0}</p>
                         </div>
                         <div className="space-y-1">
-                            <p className="text-xs sm:text-sm text-muted-foreground">Roll Diterima</p>
-                            <p className="text-lg sm:text-2xl font-bold">{Number(currentBatch.materialReceived) || 0} {currentBatch.materialItems} - {currentBatch.totalRoll || 0} Roll</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">Pcs Diterima</p>
+                            <p className="text-lg sm:text-2xl font-bold">{Number(task.piecesReceived) || 0} Pcs</p>
                         </div>
                     </div>
-                    {/* <div className="pt-2 border-t">
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                                className="bg-green-600 h-2 rounded-full transition-all"
-                                style={{ width: `${(currentBatch.completed / currentBatch.target) * 100}%` }}
-                            ></div>
+                    <div className="pt-2 border-t">
+
+                        <div className="text-xs text-muted-foreground mt-2 flex justify-between">
+                            {task.startedAt && (
+                                <> Ditugaskan pada <Badge variant="outline">{formatDateTime(task.startedAt)}</Badge></>
+                            )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-2">
-                            Progres: {Math.round((currentBatch.completed / currentBatch.target) * 100)}%
-                        </p>
-                    </div> */}
+                        <div className="text-xs text-muted-foreground mt-2 flex justify-between">
+                            {task.completedAt && (
+                                <> Selesai pada <Badge variant="outline">{formatDateTime(task.completedAt)}</Badge></>
+                            )}
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 
@@ -562,6 +551,7 @@ export default function FinishingTaskDetailPage() {
             {/* Sub-Batches List - daftar sub-batch hasil finishing */}
             {['IN_FINISHING', 'FINISHING_COMPLETED', 'WAREHOUSE_VERIFIED', 'COMPLETED'].includes(currentBatch.status) && (
                 <SubBatchList
+                    role="FINISHING"
                     batchId={currentBatch.id}
                     onRefresh={async () => {
                         await fetchBatchDetail();
@@ -585,47 +575,6 @@ export default function FinishingTaskDetailPage() {
                 />
             )}
 
-            {/* Timeline History */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Riwayat Progress</CardTitle>
-                    <CardDescription>
-                        Timeline aktivitas untuk batch {task.batch.batchSku}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {loadingTimeline ? (
-                        <div className="flex items-center justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin" />
-                        </div>
-                    ) : timeline.length > 0 ? (
-                        <div className="space-y-4">
-                            {timeline.map((event, index) => (
-                                <div key={event.id} className="flex gap-4">
-                                    <div className="flex flex-col items-center">
-                                        <span className="text-2xl">{getEventIcon(event.event)}</span>
-                                        {index < timeline.length - 1 && (
-                                            <div className="h-12 w-0.5 bg-border my-2"></div>
-                                        )}
-                                    </div>
-                                    <div className="flex-1 pb-6">
-                                        <p className="font-medium">{getEventLabel(event.event)}</p>
-                                        {event.details && (
-                                            <p className="text-sm text-muted-foreground">{event.details}</p>
-                                        )}
-                                        <p className="text-xs text-muted-foreground mt-1">{formatDateTime(event.createdAt)}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                            <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                            <p className="text-sm">Belum ada riwayat untuk batch ini</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
         </div>
     )
 }

@@ -47,6 +47,7 @@ interface SubBatch {
 }
 
 interface SubBatchListProps {
+    role: "FINISHING" | "WAREHOUSE" | "PRODUCTION_HEAD"
     batchId: string
     onRefresh: () => void
     onVerifyFinishing?: (subBatch: SubBatch) => void
@@ -84,7 +85,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
  * 3. WAREHOUSE_VERIFIED - Ka. Gudang memverifikasi
  * 4. COMPLETED - Selesai
  */
-export function SubBatchList({ batchId, onRefresh, onVerifyFinishing }: SubBatchListProps) {
+export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: SubBatchListProps) {
     const [subBatches, setSubBatches] = useState<SubBatch[]>([])
     const [loading, setLoading] = useState(true)
     const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -301,7 +302,7 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing }: SubBatch
 
                                 {/* Actions */}
                                 <div className="flex flex-wrap gap-2">
-                                    {subBatch.status === "CREATED" && (
+                                    {role !== "FINISHING" && subBatch.status === "CREATED" && (
                                         <>
                                             <Button
                                                 size="sm"
@@ -314,7 +315,7 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing }: SubBatch
                                         </>
                                     )}
 
-                                    {subBatch.status === "CREATED" && (
+                                    {/* {role !== "FINISHING" && subBatch.status === "CREATED" && (
                                         <Button
                                             size="sm"
                                             onClick={() => handleAction(subBatch, "SUBMIT_TO_WAREHOUSE")}
@@ -323,9 +324,9 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing }: SubBatch
                                             <Package className="h-4 w-4 mr-1" />
                                             Serahkan ke Gudang
                                         </Button>
-                                    )}
+                                    )} */}
 
-                                    {subBatch.status === "SUBMITTED_TO_WAREHOUSE" && (
+                                    {role !== "FINISHING" && subBatch.status === "SUBMITTED_TO_WAREHOUSE" && (
                                         <Button
                                             size="sm"
                                             onClick={() => handleAction(subBatch, "VERIFY_WAREHOUSE")}

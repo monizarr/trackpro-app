@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Sparkles, CheckCircle, Clock, Loader2 } from "lucide-react"
+import { Sparkles, CheckCircle, Clock, Loader2, Clock2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -54,8 +54,8 @@ export default function FinishingDashboard() {
             </div>
         )
     }
-
-    const activeTasks = tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'PENDING')
+    const pendingTasks = tasks.filter(t => t.status === 'PENDING')
+    const activeTasks = tasks.filter(t => t.status === 'IN_PROGRESS')
     const completedToday = tasks.filter(t => {
         if (t.status !== 'COMPLETED' || !t.completedAt) return false
         const today = new Date()
@@ -70,7 +70,8 @@ export default function FinishingDashboard() {
         : 0
 
     const stats = [
-        { title: "Batch Aktif", value: activeTasks.length.toString(), subtitle: "Sedang dikerjakan", icon: Sparkles },
+        { title: "Tugas Menunggu", value: pendingTasks.length.toString(), subtitle: "Menunggu dikerjakan", icon: Clock2 },
+        { title: "Tugas Aktif", value: activeTasks.length.toString(), subtitle: "Sedang dikerjakan", icon: Sparkles },
         { title: "Selesai Hari Ini", value: completedToday.length.toString(), subtitle: `${completedToday.reduce((acc, t) => acc + t.piecesCompleted, 0)} pcs total`, icon: CheckCircle },
         { title: "Total Progress", value: `${totalProgress}%`, subtitle: "Rata-rata progress", icon: Clock },
     ]

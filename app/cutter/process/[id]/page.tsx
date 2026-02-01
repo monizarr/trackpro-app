@@ -648,10 +648,6 @@ export default function CuttingTaskDetailPage() {
                             <span className="text-muted-foreground">Total Hasil Potong:</span>
                             <span className="font-semibold">{cuttingResults.reduce((sum, r) => sum + r.actualPieces, 0)} pcs</span>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Target:</span>
-                            <span className="font-semibold">{currentBatch.target} pcs</span>
-                        </div>
                         {notes && (
                             <div className="pt-2 border-t">
                                 <span className="text-muted-foreground text-xs">Catatan: {notes}</span>

@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers";
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireAuth();
@@ -30,7 +30,7 @@ export async function GET(
         success: false,
         error: "Failed to fetch batch timeline",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

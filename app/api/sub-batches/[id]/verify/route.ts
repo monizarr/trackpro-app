@@ -49,6 +49,16 @@ export async function POST(
         },
       });
 
+      // insert data di timeline
+      await prisma.batchTimeline.create({
+        data: {
+          batchId: subBatch.batchId,
+          event: "SUB_BATCH_APPROVED",
+          details: `Sub-batch ${subBatch.subBatchSku} disetujui dan siap dikirim ke gudang`,
+          createdAt: new Date(),
+        },
+      });
+
       // Create audit log
       await prisma.auditLog.create({
         data: {
@@ -65,42 +75,46 @@ export async function POST(
         message: "Hasil finishing disetujui dan siap dikirim ke gudang",
       });
     } else {
-      // REJECT: Delete sub-batch items untuk kembalikan sewing output
-      // Kemudian reset status sub-batch ke CREATED untuk bisa diedit ulang
+      // REJECT: Hapus sub-batch secara permanen
+      // Ini akan mengembalikan hasil jahit yang sudah di-submit agar bisa diinput ulang di sub-batch baru
 
-      // Delete all items in this sub-batch
-      await prisma.subBatchItem.deleteMany({
-        where: { subBatchId: resolvedParams.id },
-      });
-
-      // Reset sub-batch data
-      const updated = await prisma.subBatch.update({
-        where: { id: resolvedParams.id },
-        data: {
-          status: "CREATED",
-          finishingGoodOutput: 0,
-          rejectKotor: 0,
-          rejectSobek: 0,
-          rejectRusakJahit: 0,
-          notes: null,
-        },
-      });
-
-      // Create audit log
+      // Create audit log sebelum dihapus
       await prisma.auditLog.create({
         data: {
           userId: session.user.id,
           action: "REJECT",
           entity: "SubBatch",
-          entityId: updated.id,
+          entityId: resolvedParams.id,
+          oldValues: JSON.stringify(subBatch),
+          newValues: undefined,
         },
+      });
+
+      // insert data di timeline
+      await prisma.batchTimeline.create({
+        data: {
+          batchId: subBatch.batchId,
+          event: "SUB_BATCH_REJECTED",
+          details: `Sub-batch ${subBatch.subBatchSku} ditolak dan dihapus`,
+          createdAt: new Date(),
+        },
+      });
+
+      // Delete sub-batch items first (cascade should handle this, but explicit is better)
+      await prisma.subBatchItem.deleteMany({
+        where: { subBatchId: resolvedParams.id },
+      });
+
+      // Delete the sub-batch
+      await prisma.subBatch.delete({
+        where: { id: resolvedParams.id },
       });
 
       return NextResponse.json({
         success: true,
-        data: updated,
+        data: null,
         message:
-          "Hasil finishing ditolak dan di-reset. Hasil jahitan telah dikembalikan untuk bisa diisi ulang oleh kepala finishing",
+          "Hasil finishing ditolak dan sub-batch dihapus. Hasil jahit dapat diinput ulang di sub-batch baru",
       });
     }
   } catch (error) {

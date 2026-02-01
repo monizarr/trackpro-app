@@ -211,6 +211,7 @@ export async function POST(
         await tx.finishingTask.update({
           where: { id: batch.finishingTask.id },
           data: {
+            completedAt: new Date(),
             piecesCompleted:
               currentCompleted +
               totalGoodOutput +
