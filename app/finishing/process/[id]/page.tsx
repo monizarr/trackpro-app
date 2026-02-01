@@ -67,14 +67,6 @@ interface FinishingTask {
     }
 }
 
-interface TimelineEvent {
-    id: string
-    batchId: string
-    event: string
-    details: string | null
-    createdAt: string
-}
-
 interface SubBatchItem {
     id: string;
     productSize: string;
