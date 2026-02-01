@@ -66,23 +66,13 @@ interface SewingTask {
     }
 }
 
-interface TimelineEvent {
-    id: string
-    batchId: string
-    event: string
-    details: string | null
-    createdAt: string
-}
-
 export default function SewingTaskDetailPage() {
     const router = useRouter()
     const params = useParams()
     const taskId = params.id as string
 
     const [task, setTask] = useState<SewingTask | null>(null)
-    const [timeline, setTimeline] = useState<TimelineEvent[]>([])
     const [loading, setLoading] = useState(true)
-    const [loadingTimeline, setLoadingTimeline] = useState(false)
     const [submitting, setSubmitting] = useState(false)
     const [sewingResults, setSewingResults] = useState<Array<{
         productSize: string
@@ -130,7 +120,6 @@ export default function SewingTaskDetailPage() {
                 }
 
                 setNotes(data.notes || "")
-                fetchTimeline(data.batchId)
             } else {
                 toast.error("Gagal", "Task tidak ditemukan")
                 router.push("/tailor/process")
@@ -142,24 +131,6 @@ export default function SewingTaskDetailPage() {
         }
     }
     
-    const fetchTimeline = async (batchId: string) => {
-        try {
-            setLoadingTimeline(true)
-            const response = await fetch(`/api/production-batches/${batchId}/timeline`)
-
-            if (response.ok) {
-                const data = await response.json()
-                if (data.success) {
-                    setTimeline(data.data || [])
-                }
-            }
-        } catch (err) {
-            console.error("Error fetching timeline:", err)
-        } finally {
-            setLoadingTimeline(false)
-        }
-    }
-
     useEffect(() => {
         fetchTask()
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -278,48 +249,6 @@ export default function SewingTaskDetailPage() {
         }
         const config = variants[status] || { variant: 'outline', label: status }
         return <Badge variant={config.variant}>{config.label}</Badge>
-    }
-
-    const getEventLabel = (event: string) => {
-        const labels: Record<string, string> = {
-            'BATCH_CREATED': 'Batch Dibuat',
-            'MATERIAL_REQUESTED': 'Material Diminta',
-            'MATERIAL_ALLOCATED': 'Material Dialokasikan',
-            'ASSIGNED_TO_CUTTER': 'Ditugaskan ke Pemotong',
-            'CUTTING_STARTED': 'Pemotongan Dimulai',
-            'CUTTING_COMPLETED': 'Pemotongan Selesai',
-            'CUTTING_VERIFIED': 'Pemotongan Diverifikasi',
-            'ASSIGNED_TO_SEWER': 'Ditugaskan ke Penjahit',
-            'SEWING_STARTED': 'Penjahitan Dimulai',
-            'SEWING_COMPLETED': 'Penjahitan Selesai',
-            'SEWING_VERIFIED': 'Penjahitan Diverifikasi',
-            'ASSIGNED_TO_FINISHING': 'Ditugaskan ke Finishing',
-            'FINISHING_STARTED': 'Finishing Dimulai',
-            'FINISHING_COMPLETED': 'Finishing Selesai',
-            'WAREHOUSE_VERIFIED': 'Diverifikasi Gudang',
-            'BATCH_COMPLETED': 'Batch Selesai',
-            'BATCH_CANCELLED': 'Batch Dibatalkan',
-        }
-        return labels[event] || event
-    }
-
-    const getEventIcon = (event: string) => {
-        if (event.includes('CUTTING')) {
-            return '✂️'
-        } else if (event.includes('SEWING')) {
-            return '🧵'
-        } else if (event.includes('FINISHING')) {
-            return '✨'
-        } else if (event.includes('MATERIAL')) {
-            return '📦'
-        } else if (event.includes('VERIFIED')) {
-            return '✅'
-        } else if (event.includes('COMPLETED')) {
-            return '🎉'
-        } else if (event.includes('CANCELLED')) {
-            return '❌'
-        }
-        return '📌'
     }
 
     if (loading) {
