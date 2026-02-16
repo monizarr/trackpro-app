@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Search, Plus, ArrowUpDown, Package, X, Edit, Trash2, Palette, Ruler, ExternalLink } from "lucide-react"
+import { Search, Plus, ArrowUpDown, Package, X, Edit, Palette, Ruler, ExternalLink } from "lucide-react"
 import { toast } from "@/lib/toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -311,11 +311,6 @@ export default function ProductsPage() {
         setIsDialogOpen(true)
     }
 
-    const handleDeleteClick = (product: Product) => {
-        setDeletingProduct(product)
-        setIsDeleteDialogOpen(true)
-    }
-
     const handleDelete = async () => {
         if (!deletingProduct) return
 
@@ -351,14 +346,6 @@ export default function ProductsPage() {
 
     const removeMaterial = (materialId: string) => {
         setSelectedMaterials(selectedMaterials.filter((m) => m.materialId !== materialId))
-    }
-
-    const updateMaterialQuantity = (materialId: string, quantity: number) => {
-        setSelectedMaterials(
-            selectedMaterials.map((m) =>
-                m.materialId === materialId ? { ...m, quantity } : m
-            )
-        )
     }
 
     const handleSort = (key: keyof Product) => {

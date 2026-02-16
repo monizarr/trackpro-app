@@ -1,12 +1,12 @@
 
 ## Revisi Ke 3
-[] update produk varian warna dan ukuran
-[] assign ke penjahit by owner
-[] detail ukuran progress potong, penjahitan, finishing
-[] kelola kepala staff
-[] kategori bs: bs & permanen
-[] link batch produksi dashboard owner
-[] Jahit ke finishing dipecah lagi
-[] cetak laporan pdf barang masuk keluar tiap staff produksi : potong - finishing
-[] upload excel setup bahan baku
-[] management stok barang jadi gudang (barang masuk keluar perhari)
+1. [✓] update produk varian warna dan ukuran
+2. [] assign ke penjahit by owner
+3. [] detail ukuran progress potong, penjahitan, finishing
+4. [] kelola kepala staff
+5. [] kategori bs: bs & permanen
+6. [] link batch produksi dashboard owner
+7. [] Jahit ke finishing dipecah lagi
+8. [] cetak laporan pdf barang masuk keluar tiap staff produksi : potong - finishing
+9. [] upload excel setup bahan baku
+10. [] management stok barang jadi gudang (barang masuk keluar perhari)

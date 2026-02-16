@@ -382,15 +382,6 @@ export default function ProductDetailPage() {
         setSelectedMaterials(selectedMaterials.filter((m) => m.materialId !== materialId));
     };
 
-    const updateMaterialQuantity = (materialId: string, quantity: number) => {
-        setSelectedMaterials(
-            selectedMaterials.map((m) =>
-                m.materialId === materialId ? { ...m, quantity } : m
-            )
-        );
-    };
-
-
     const handleDeleteBatchClick = (batch: ProductionBatch) => {
         setBatchToDelete(batch);
         setIsDeleteBatchDialogOpen(true);
