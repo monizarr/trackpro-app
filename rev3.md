@@ -5,7 +5,7 @@
 3. [] detail ukuran progress potong, penjahitan, finishing
 4. [✓] kelola kepala staff
 5. [] kategori bs: bs & permanen
-6. [] link batch produksi dashboard owner
+6. [✓] link batch produksi dashboard owner
 7. [] Jahit ke finishing dipecah lagi
 8. [] cetak laporan pdf barang masuk keluar tiap staff produksi : potong - finishing
 9. [] upload excel setup bahan baku

@@ -240,9 +240,11 @@ export default function DashboardPage() {
                             </CardHeader>
                             <CardContent>
                                 {recentBatches.length > 0 ? (
-                                    <div className="space-y-6">
+                                    <div className="space-y-2">
                                         {recentBatches.map((batch) => (
-                                            <div key={batch.id} className="flex items-center">
+                                            <div key={batch.id} className="flex items-center cursor-pointer rounded-lg border p-3 hover:bg-gray-50 dark:hover:bg-primary/10" 
+                                                onClick={() => window.location.href = `/owner/production-batches/${batch.id}`}
+                                            >
                                                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100">
                                                     <Package className="h-4 w-4 text-blue-600" />
                                                 </div>
