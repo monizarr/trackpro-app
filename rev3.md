@@ -1,9 +1,9 @@
-
 ## Revisi Ke 3
+
 1. [✓] update produk varian warna dan ukuran
 2. [] assign ke penjahit by owner
 3. [] detail ukuran progress potong, penjahitan, finishing
-4. [] kelola kepala staff
+4. [✓] kelola kepala staff
 5. [] kategori bs: bs & permanen
 6. [] link batch produksi dashboard owner
 7. [] Jahit ke finishing dipecah lagi
