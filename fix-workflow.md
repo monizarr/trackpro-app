@@ -19,20 +19,21 @@ __di tahap pemotongan tidak ada barang reject__
 
 
 ## 3. Penjahitan
-_Bahan hasil potong dibawa ke tempat jahit dan kepala penjahit __**memulai penjahitan**__ bahan baku_
+_Bahan hasil potong dibawa ke tempat jahit dan kepala penjahit __**memulai penjahitan**__ bahan baku menjadi sub batch. Karena berapapun jumlahnya barang yang sudah dijahit akan langsung dikirim ke finishing_
 
     a) Ka. Penjahit / Ka. Prod **mengisi hasil jahitan**
     b) Owner / Ka. Prod **verifikasi hasil jahitan**
     c) Owner / Ka. Prod **menugaskan bahan ke kepala finishing**
+    d) **Jika masih ada pcs dari pemotongan yang belum dijahit maka masih bisa menginputkan hasil jahit dan verifikasi hasil jahitan, sampai bahan hasil potong habis**
 
 __di tahap penjahitan tidak ada barang reject__ 
 
 
 
 ## 4. Finishing
-_Hasil jahit dibawa ke tempat finishing dan kepala penjahit __**memulai finishing (kancing, rimbas, setrika, dll)**_
+_Hasil jahit dibawa ke tempat finishing dan kepala penjahit __**memulai finishing (kancing, rimbas, setrika, dll). Sub Batch finishing sudah berbeda dengan sub batch yang dikirim dari penjahitan**_
 
-    a) Ka. Finishing **mengisi hasil finishing dalam jumlah tertentu (menyesuaikan barang yang sudah selesai finishing)**
+    a) Ka. Finishing **mengisi hasil finishing dalam jumlah tertentu (menyesuaikan barang yang diterima dari penjahitan dan yang sudah selesai finishing)**
     b) Ka. Prod **verifikasi hasil finishing **yang sudah selesai diproses di finishing  
     c) Ka. Prod **menyerahkan ke Ka. Gudang** (membawa sebagian hasil finishing yang sudah selesai ke gudang ) 
 
@@ -54,5 +55,3 @@ __di tahap penyimpanan di gudang barang jadi akan disimpan oleh kepala gudang di
 
 
 ### _**Untuk sub batch berada di Finishing (tidak di Penjahitan), yaitu untuk menyimpan data hasil finishing yang siap diteruskan ke gudang. Dan cukup inputkan hasilnya saja tidak perlu assign ke finisher. Karena aplikasi ini fokus untuk koordinasi antar kepala, (kepala produksi, kepala pemotong, kepala penjahit, kepala finishing, kepala gudang) tidak sampai ke penugasan dari kepala ke karyawan**_
-
-
