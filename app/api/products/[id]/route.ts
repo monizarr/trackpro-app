@@ -84,7 +84,16 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { sku, name, price, description, status, materials } = body;
+    const {
+      sku,
+      name,
+      price,
+      description,
+      status,
+      materials,
+      colorVariants,
+      sizeVariants,
+    } = body;
 
     // Validate required fields
     if (!sku || !name || !price) {
@@ -141,6 +150,45 @@ export async function PATCH(
         where: { productId: id },
       });
 
+      if (colorVariants !== undefined) {
+        await tx.productColorVariant.deleteMany({
+          where: { productId: id },
+        });
+
+        if (colorVariants.length > 0) {
+          await tx.productColorVariant.createMany({
+            data: colorVariants.map(
+              (variant: { colorName: string; colorCode?: string }) => ({
+                productId: id,
+                colorName: variant.colorName,
+                colorCode: variant.colorCode,
+              }),
+            ),
+          });
+        }
+      }
+
+      if (sizeVariants !== undefined) {
+        await tx.productSizeVariant.deleteMany({
+          where: { productId: id },
+        });
+
+        if (sizeVariants.length > 0) {
+          await tx.productSizeVariant.createMany({
+            data: sizeVariants.map(
+              (
+                variant: { sizeName: string; sizeOrder?: number },
+                index: number,
+              ) => ({
+                productId: id,
+                sizeName: variant.sizeName,
+                sizeOrder: variant.sizeOrder ?? index,
+              }),
+            ),
+          });
+        }
+      }
+
       // Update product
       const product = await tx.product.update({
         where: { id },
@@ -152,11 +200,17 @@ export async function PATCH(
           status: status?.toUpperCase() || "ACTIVE",
           materials: materials
             ? {
-                create: materials.map((m: { materialId: string; quantity: number; unit?: string }) => ({
-                  materialId: m.materialId,
-                  quantity: m.quantity,
-                  unit: m.unit || "PCS",
-                })),
+                create: materials.map(
+                  (m: {
+                    materialId: string;
+                    quantity: number;
+                    unit?: string;
+                  }) => ({
+                    materialId: m.materialId,
+                    quantity: m.quantity,
+                    unit: m.unit || "PCS",
+                  }),
+                ),
               }
             : undefined,
         },
@@ -173,6 +227,14 @@ export async function PATCH(
                 },
               },
             },
+          },
+          colorVariants: {
+            where: { isActive: true },
+            orderBy: { colorName: "asc" },
+          },
+          sizeVariants: {
+            where: { isActive: true },
+            orderBy: { sizeOrder: "asc" },
           },
         },
       });

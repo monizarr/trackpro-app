@@ -737,16 +737,6 @@ export default function ProductDetailPage() {
                         </Badge>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={handleEdit}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Produk
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleDeleteClick}>
-                        <Trash2 className="h-4 w-4 mr-2 text-destructive" />
-                        Hapus
-                    </Button>
-                </div>
             </div>
 
             {/* Overview Stats */}
@@ -1420,6 +1410,18 @@ export default function ProductDetailPage() {
                         )}
                     </CardContent>
                 </Card>
+                <div className="lg:hidden">
+                    <Separator className="my-4" />
+                </div>
+                <div className="flex gap-2 ">
+                    <div className="ml-2">
+                        <p className="text-xs mb-2 text-muted-foreground">Ingin menghapus produk ini?</p>
+                        <Button variant="outline" size="sm" onClick={handleDeleteClick}>
+                            <Trash2 className="h-4 w-4 mr-2 text-destructive" />
+                            Hapus
+                        </Button>
+                    </div>
+                </div>
             </div>
 
             {/* Edit Product Dialog */}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Search, Plus, ArrowUpDown, Package, X, Edit, Trash2, Palette, Ruler } from "lucide-react"
+import { Search, Plus, ArrowUpDown, Package, X, Edit, Trash2, Palette, Ruler, ExternalLink } from "lucide-react"
 import { toast } from "@/lib/toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -778,11 +778,11 @@ export default function ProductsPage() {
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        onClick={() => handleDeleteClick(product)}
+                                                        onClick={() => window.location.href = `/owner/products/${product.id}`}
                                                         className="flex-1"
                                                     >
-                                                        <Trash2 className="h-3 w-3 mr-1 text-destructive" />
-                                                        Hapus
+                                                        <ExternalLink className="h-3 w-3 mr-1" />
+                                                        Lihat
                                                     </Button>
                                                 </div>
                                             </div>
@@ -911,18 +911,20 @@ export default function ProductsPage() {
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
                                                     <Button
-                                                        variant="ghost"
+                                                        variant="outline"
                                                         size="sm"
                                                         onClick={() => handleEdit(product)}
                                                     >
-                                                        <Edit className="h-4 w-4" />
+                                                        <Edit className="h-4 w-4 mr-1" />
+                                                        Edit
                                                     </Button>
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        onClick={() => handleDeleteClick(product)}
+                                                        onClick={() => window.location.href = `/owner/products/${product.id}`}
                                                     >
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                        <ExternalLink className="h-4 w-4 mr-1" />
+                                                        Lihat
                                                     </Button>
                                                 </div>
                                             </TableCell>
