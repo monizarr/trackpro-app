@@ -128,7 +128,10 @@ export async function POST(
 
         // Only transition batch status if sewing task is completed/verified
         // (don't change batch status while sewing is still in progress)
-        if (sewingTask && ["COMPLETED", "VERIFIED"].includes(sewingTask.status)) {
+        if (
+          sewingTask &&
+          ["COMPLETED", "VERIFIED"].includes(sewingTask.status)
+        ) {
           const batch = await tx.productionBatch.findUnique({
             where: { id: subBatch.batchId },
           });
