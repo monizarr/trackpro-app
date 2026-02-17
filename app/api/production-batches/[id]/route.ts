@@ -104,6 +104,15 @@ export async function GET(
             },
           },
         },
+        sewingResults: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+        subBatches: {
+          include: { items: true },
+          orderBy: { createdAt: "asc" },
+        },
         timeline: {
           orderBy: {
             createdAt: "desc",

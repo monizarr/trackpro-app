@@ -24,18 +24,19 @@ _Bahan hasil potong dibawa ke tempat jahit dan kepala penjahit __**memulai penja
     a) Ka. Penjahit / Ka. Prod **mengisi hasil jahitan**
     b) Owner / Ka. Prod **verifikasi hasil jahitan**
     c) Owner / Ka. Prod **menugaskan bahan ke kepala finishing**
-    d) **Jika masih ada pcs dari pemotongan yang belum dijahit maka masih bisa menginputkan hasil jahit dan verifikasi hasil jahitan, sampai bahan hasil potong habis**
+    d) **Jika masih ada pcs dari pemotongan yang belum dijahit maka owner, ka. produksi, ka. penjahit masih bisa menginputkan hasil jahit. dan ka. produksi, owner dapat verifikasi hasil jahitan berikutnya, sampai bahan hasil potong habis**
 
 __di tahap penjahitan tidak ada barang reject__ 
 
 
 
 ## 4. Finishing
-_Hasil jahit dibawa ke tempat finishing dan kepala penjahit __**memulai finishing (kancing, rimbas, setrika, dll). Sub Batch finishing sudah berbeda dengan sub batch yang dikirim dari penjahitan**_
+_Hasil jahit dibawa ke tempat finishing dan kepala penjahit __**memulai finishing (kancing, rimbas, setrika, dll). Sub Batch finishing tidak meneruskan sub batch yang dikirim dari penjahitan, perlu untuk menampilkan jumlah yang diterima dari penjahitan**_
 
     a) Ka. Finishing **mengisi hasil finishing dalam jumlah tertentu (menyesuaikan barang yang diterima dari penjahitan dan yang sudah selesai finishing)**
     b) Ka. Prod **verifikasi hasil finishing **yang sudah selesai diproses di finishing  
     c) Ka. Prod **menyerahkan ke Ka. Gudang** (membawa sebagian hasil finishing yang sudah selesai ke gudang ) 
+    d) **Jika masih ada pcs dari penjahitan yang belum dilakukan finishing maka owner, ka. produksi, ka. finishing masih bisa menginputkan hasil jahit. dan ka. produksi, owner dapat verifikasi hasil finishing berikutnya, sampai pcs yang diterima dari penjahitan habis di finishing**
 
 __di tahap finishing data output barang produksi akan tersortir menjadi barang jadi dan barang cacat produksi, barang cacat produksi seperti : kotor, sobek, rusak jahit__
 

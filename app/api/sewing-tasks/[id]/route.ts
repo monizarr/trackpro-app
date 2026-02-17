@@ -29,6 +29,16 @@ export async function GET(
                 productSize: "asc",
               },
             },
+            subBatches: {
+              where: { source: "SEWING" },
+              include: { items: true },
+              orderBy: { createdAt: "asc" },
+            },
+            materialColorAllocations: {
+              include: {
+                materialColorVariant: true,
+              },
+            },
           },
         },
         assignedTo: {
@@ -44,9 +54,10 @@ export async function GET(
     }
     return NextResponse.json(task);
   } catch (error) {
-    console.error("Error fetching cutting task:", error);
+    console.error("Error fetching sewing task:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "Failed to fetch cutting task" },
+      { error: "Failed to fetch sewing task", details: errorMessage },
       { status: 500 },
     );
   }

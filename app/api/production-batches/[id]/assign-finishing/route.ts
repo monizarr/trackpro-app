@@ -45,11 +45,14 @@ export async function POST(
       );
     }
 
-    if (batch.status !== "SEWING_VERIFIED") {
+    if (
+      batch.status !== "SEWING_VERIFIED" &&
+      batch.status !== "ASSIGNED_TO_FINISHING"
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: `Batch harus berstatus SEWING_VERIFIED untuk di-assign ke finishing. Status saat ini: ${batch.status}`,
+          error: `Batch harus berstatus SEWING_VERIFIED atau ASSIGNED_TO_FINISHING untuk di-assign ke finishing. Status saat ini: ${batch.status}`,
         },
         { status: 400 },
       );
@@ -80,18 +83,36 @@ export async function POST(
       );
     }
 
+    // Check if finishing task already exists (from sub-batch forwarding)
+    const existingFinishingTask = await prisma.finishingTask.findUnique({
+      where: { batchId: batchId },
+    });
+
     // Execute assignment in transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Create finishing task
-      const finishingTask = await tx.finishingTask.create({
-        data: {
-          batchId,
-          assignedToId,
-          piecesReceived: batch.sewingTask?.piecesCompleted || 0,
-          status: "PENDING",
-          notes,
-        },
-      });
+      let finishingTask;
+
+      if (existingFinishingTask) {
+        // Update existing finishing task (created via sub-batch forwarding)
+        finishingTask = await tx.finishingTask.update({
+          where: { id: existingFinishingTask.id },
+          data: {
+            assignedToId,
+            notes: notes || existingFinishingTask.notes,
+          },
+        });
+      } else {
+        // Create new finishing task
+        finishingTask = await tx.finishingTask.create({
+          data: {
+            batchId,
+            assignedToId,
+            piecesReceived: batch.sewingTask?.piecesCompleted || 0,
+            status: "PENDING",
+            notes,
+          },
+        });
+      }
 
       // Update batch status
       await tx.productionBatch.update({

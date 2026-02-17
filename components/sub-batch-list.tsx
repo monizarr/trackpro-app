@@ -93,7 +93,7 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: Su
 
     const fetchSubBatches = useCallback(async () => {
         try {
-            const response = await fetch(`/api/production-batches/${batchId}/sub-batches`)
+            const response = await fetch(`/api/production-batches/${batchId}/sub-batches?source=FINISHING`)
             const result = await response.json()
             if (result.success) {
                 setSubBatches(result.data)

@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Package, User, AlertCircle, CheckCircle2, Loader2, FileText, Trash2, QrCode, CheckCircle, UserPlus, Scissors, Users, Sparkles, Clock } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, Package, User, AlertCircle, CheckCircle2, Loader2, FileText, Trash2, QrCode, CheckCircle, UserPlus, Scissors, Users, Sparkles, Clock } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -188,6 +188,35 @@ interface ProductionBatch {
             name: string;
         };
     };
+    sewingResults?: Array<{
+        id: string;
+        productSize: string;
+        color: string;
+        actualPieces: number;
+        isConfirmed: boolean;
+        createdAt: string;
+    }>;
+    subBatches?: Array<{
+        id: string;
+        subBatchSku: string;
+        source: string;
+        status: string;
+        finishingGoodOutput: number;
+        rejectKotor: number;
+        rejectSobek: number;
+        rejectRusakJahit: number;
+        notes?: string | null;
+        createdAt: string;
+        items: Array<{
+            id: string;
+            productSize: string;
+            color: string;
+            goodQuantity: number;
+            rejectKotor: number;
+            rejectSobek: number;
+            rejectRusakJahit: number;
+        }>;
+    }>;
 }
 
 interface TimelineEvent {
@@ -280,6 +309,10 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
     const [showSubBatchDialog, setShowSubBatchDialog] = useState(false);
     const [startingFinishing, setStartingFinishing] = useState(false);
 
+    const [showCompleteSewingDialog, setShowCompleteSewingDialog] = useState(false);
+    const [completingSewing, setCompletingSewing] = useState(false);
+    const [completeSewingNotes, setCompleteSewingNotes] = useState("");
+
     const [showCompleteDialog, setShowCompleteDialog] = useState(false);
     const [completeNotes, setCompleteNotes] = useState("");
     const [completing, setCompleting] = useState(false);
@@ -290,6 +323,19 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
     const [verifyFinishingAction, setVerifyFinishingAction] = useState<"approve" | "reject">("approve");
     const [verifyFinishingNotes, setVerifyFinishingNotes] = useState("");
     const [verifyingFinishing, setVerifyingFinishing] = useState(false);
+
+    // Sewing sub-batch verify & forward states
+    const [showVerifySewingSubBatchDialog, setShowVerifySewingSubBatchDialog] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [verifySewingSubBatch, setVerifySewingSubBatch] = useState<any>(null);
+    const [verifySewingSubBatchAction, setVerifySewingSubBatchAction] = useState<"approve" | "reject">("approve");
+    const [verifyingSewingSubBatch, setVerifyingSewingSubBatch] = useState(false);
+
+    const [showForwardToFinishingDialog, setShowForwardToFinishingDialog] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [forwardingSubBatch, setForwardingSubBatch] = useState<any>(null);
+    const [forwardingToFinishing, setForwardingToFinishing] = useState(false);
+    const [forwardFinisherId, setForwardFinisherId] = useState("");
 
     // Workers list
     const [cutters, setCutters] = useState<Cutter[]>([]);
@@ -365,7 +411,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
 
     const fetchSubBatches = async () => {
         try {
-            const response = await fetch(`/api/production-batches/${resolvedParams.id}/sub-batches`);
+            const response = await fetch(`/api/production-batches/${resolvedParams.id}/sub-batches?source=FINISHING`);
             const result = await response.json();
 
             if (result.success) {
@@ -623,6 +669,39 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
         }
     };
 
+    const handleCompleteSewing = async () => {
+        if (!batch) return;
+
+        setCompletingSewing(true);
+        try {
+            const response = await fetch(`/api/production-batches/${batch.id}/complete-sewing`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    notes: completeSewingNotes,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                toast.success("Berhasil", result.message || "Penjahitan selesai");
+                setShowCompleteSewingDialog(false);
+                setCompleteSewingNotes("");
+                fetchBatchDetail();
+            } else {
+                toast.error("Error", result.error || "Gagal menyelesaikan penjahitan");
+            }
+        } catch (error) {
+            console.error("Error completing sewing:", error);
+            toast.error("Error", "Terjadi kesalahan saat menyelesaikan penjahitan");
+        } finally {
+            setCompletingSewing(false);
+        }
+    };
+
     const handleVerifySewing = async () => {
         if (!batch?.sewingTask) return;
 
@@ -654,6 +733,82 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             toast.error("Error", "Terjadi kesalahan saat verifikasi");
         } finally {
             setVerifyingSewing(false);
+        }
+    };
+
+    // Handler: Verify individual sewing sub-batch
+    const handleVerifySewingSubBatch = async () => {
+        if (!verifySewingSubBatch) return;
+
+        setVerifyingSewingSubBatch(true);
+        try {
+            const response = await fetch(`/api/sub-batches/${verifySewingSubBatch.id}/verify`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: verifySewingSubBatchAction }),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                toast.success("Berhasil", result.message || "Sub-batch berhasil diverifikasi");
+                setShowVerifySewingSubBatchDialog(false);
+                setVerifySewingSubBatch(null);
+                setVerifySewingSubBatchAction("approve");
+                fetchBatchDetail();
+            } else {
+                toast.error("Error", result.error || "Gagal verifikasi sub-batch");
+            }
+        } catch (error) {
+            console.error("Error verifying sewing sub-batch:", error);
+            toast.error("Error", "Terjadi kesalahan saat verifikasi sub-batch");
+        } finally {
+            setVerifyingSewingSubBatch(false);
+        }
+    };
+
+    // Handler: Forward verified sewing sub-batch to finishing
+    const handleForwardToFinishing = async () => {
+        if (!forwardingSubBatch) return;
+
+        // Check if finishing task already exists
+        const hasFinishingTask = batch?.finishingTask;
+
+        // If no finishing task, require finisher selection
+        if (!hasFinishingTask && !forwardFinisherId) {
+            toast.error("Error", "Pilih kepala finishing terlebih dahulu");
+            return;
+        }
+
+        setForwardingToFinishing(true);
+        try {
+            const bodyData: Record<string, string> = {};
+            if (!hasFinishingTask && forwardFinisherId) {
+                bodyData.assignedToId = forwardFinisherId;
+            }
+
+            const response = await fetch(`/api/sub-batches/${forwardingSubBatch.id}/forward-to-finishing`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(bodyData),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                toast.success("Berhasil", result.message || "Sub-batch diteruskan ke finishing");
+                setShowForwardToFinishingDialog(false);
+                setForwardingSubBatch(null);
+                setForwardFinisherId("");
+                fetchBatchDetail();
+            } else {
+                toast.error("Error", result.error || "Gagal meneruskan ke finishing");
+            }
+        } catch (error) {
+            console.error("Error forwarding sub-batch to finishing:", error);
+            toast.error("Error", "Terjadi kesalahan saat meneruskan ke finishing");
+        } finally {
+            setForwardingToFinishing(false);
         }
     };
 
@@ -966,63 +1121,39 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
     // Calculate progress
     const cuttingOutput = batch.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0) || 0;
 
-    // Calculate sewing output from sub-batches items (preferred) or batch task (fallback)
-    const sewingOutput = subBatches.length > 0
-        ? subBatches.reduce((sum, sb) => {
-            let total = 0;
-            if (sb.items && Array.isArray(sb.items)) {
-                for (const item of sb.items) {
-                    total += (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
-                }
-            }
-            return sum + total;
-        }, 0)
-        : (batch.sewingTask?.piecesCompleted || 0);
+    // Sewing output = from accumulated SewingResult records or sewingTask.piecesCompleted
+    const sewingOutput = batch.sewingTask?.piecesCompleted || 0;
 
-    const sewingReject = subBatches.length > 0
-        ? subBatches.reduce((sum, sb) => {
-            let total = 0;
-            if (sb.items && Array.isArray(sb.items)) {
-                for (const item of sb.items) {
-                    total += (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
-                }
-            }
-            return sum + total;
-        }, 0)
-        : (batch.sewingTask?.rejectPieces || 0);
+    // No reject tracking at sewing stage
+    const sewingReject = 0;
 
-    const finishingOutput = subBatches.length > 0
-        ? subBatches.reduce((sum, sb) => {
-            let total = 0;
-            if (sb.items && Array.isArray(sb.items)) {
-                for (const item of sb.items) {
-                    total += item.goodQuantity || 0;
-                }
+    // Finishing output = from sub-batches (finishing → warehouse sub-batches)
+    const finishingOutput = subBatches.reduce((sum, sb) => {
+        let total = 0;
+        if (sb.items && Array.isArray(sb.items)) {
+            for (const item of sb.items) {
+                total += item.goodQuantity || 0;
             }
-            return sum + total;
-        }, 0)
-        : (batch.finishingTask?.piecesCompleted || 0);
+        }
+        return sum + total;
+    }, 0);
 
-    const finishingReject = subBatches.length > 0
-        ? subBatches.reduce((sum, sb) => {
-            let total = 0;
-            if (sb.items && Array.isArray(sb.items)) {
-                for (const item of sb.items) {
-                    total += (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
-                }
+    const finishingReject = subBatches.reduce((sum, sb) => {
+        let total = 0;
+        if (sb.items && Array.isArray(sb.items)) {
+            for (const item of sb.items) {
+                total += (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
             }
-            return sum + total;
-        }, 0)
-        : (batch.finishingTask?.rejectPieces || 0);
+        }
+        return sum + total;
+    }, 0);
 
-    // Calculate remaining sewing output (not yet submitted to sub-batches)
+    // Calculate remaining sewing output (not yet submitted to finishing sub-batches)
     // Get all items already in sub-batches
     const submittedItems = new Map<string, number>();
     for (const subBatch of subBatches) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (subBatch && (subBatch as any).items && Array.isArray((subBatch as any).items)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            for (const item of (subBatch as any).items) {
+        if (subBatch && subBatch.items && Array.isArray(subBatch.items)) {
+            for (const item of subBatch.items) {
                 const key = `${item.productSize}|${item.color}`;
                 const total = (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
                 submittedItems.set(key, (submittedItems.get(key) || 0) + total);
@@ -1030,30 +1161,43 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
         }
     }
 
-    // Calculate remaining sewingOutputs for dialog
-    const remainingSewingOutputs = (batch.cuttingResults?.map(cr => ({
-        productSize: cr.productSize,
-        color: cr.color,
-        quantity: Math.max(0, cr.actualPieces - (submittedItems.get(`${cr.productSize}|${cr.color}`) || 0)),
-    })) || []).filter(output => output.quantity > 0);
+    // Calculate remaining sewingOutputs for CreateSubBatchDialog (finishing → warehouse)
+    // Group sewing sub-batches by size/color to get total sewn per size/color
+    const sewingSubBatches = (batch.subBatches || []).filter(sb => sb.source === "SEWING");
+    const sewnPerSizeColor = new Map<string, number>();
+    for (const sb of sewingSubBatches) {
+        for (const item of (sb.items || [])) {
+            const key = `${item.productSize}|${item.color}`;
+            sewnPerSizeColor.set(key, (sewnPerSizeColor.get(key) || 0) + item.goodQuantity);
+        }
+    }
 
-    // Calculate total finishing input (dari semua sub-batches)
+    // Remaining = sewing output per size/color minus already submitted to finishing sub-batches
+    const remainingSewingOutputs: Array<{ productSize: string; color: string; quantity: number }> = [];
+    for (const [key, sewnQty] of sewnPerSizeColor) {
+        const [productSize, color] = key.split("|");
+        const submitted = submittedItems.get(key) || 0;
+        const remaining = Math.max(0, sewnQty - submitted);
+        if (remaining > 0) {
+            remainingSewingOutputs.push({ productSize, color, quantity: remaining });
+        }
+    }
+
+    // Calculate total finishing input (dari semua finishing sub-batches)
     let totalFinishingInput = 0;
     for (const subBatch of subBatches) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (subBatch && (subBatch as any).items && Array.isArray((subBatch as any).items)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            for (const item of (subBatch as any).items) {
+        if (subBatch && subBatch.items && Array.isArray(subBatch.items)) {
+            for (const item of subBatch.items) {
                 totalFinishingInput += (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
             }
         }
     }
 
-    // Calculate total sewing output (jumlah pcs yang seharusnya masuk finishing)
-    const totalSewingOutput = batch.sewingTask?.piecesCompleted || (batch.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0) || 0);
+    // Total sewing output that should be processed in finishing
+    const totalSewingOutput = batch.sewingTask?.piecesCompleted || 0;
 
     // Check if all sewing output has been processed in finishing
-    const canCompleteBatch = totalFinishingInput > 0 && totalFinishingInput === totalSewingOutput;
+    const canCompleteBatch = totalFinishingInput > 0 && totalFinishingInput >= totalSewingOutput;
 
     return (
         <div className="flex-1 space-y-6 p-8 pt-6">
@@ -1145,23 +1289,68 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                     )}
 
                     {(batch.status === "ASSIGNED_TO_SEWER" || batch.status === "IN_SEWING") && (
-                        <Button
-                            size="sm"
-                            onClick={() => {
-                                // Initialize sewing results from cutting results
-                                if (batch.cuttingResults) {
-                                    setSewingResults(batch.cuttingResults.map((cr) => ({
-                                        productSize: cr.productSize,
-                                        color: cr.color,
-                                        actualPieces: cr.actualPieces,
-                                    })));
+                        <>
+                            {/* Only show Input button if there are remaining pieces to sew */}
+                            {(() => {
+                                const alreadySewn = new Map<string, number>();
+                                for (const sb of (batch.subBatches || []).filter(s => s.source === "SEWING")) {
+                                    for (const item of (sb.items || [])) {
+                                        const key = `${item.productSize}|${item.color}`;
+                                        alreadySewn.set(key, (alreadySewn.get(key) || 0) + item.goodQuantity);
+                                    }
                                 }
-                                setShowInputSewingDialog(true);
-                            }}
-                        >
-                            <Scissors className="h-4 w-4 mr-2" />
-                            Input Hasil Jahitan
-                        </Button>
+                                const hasRemaining = (batch.cuttingResults || []).some(cr => {
+                                    const key = `${cr.productSize}|${cr.color}`;
+                                    return cr.actualPieces - (alreadySewn.get(key) || 0) > 0;
+                                });
+                                return hasRemaining ? (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => {
+                                            // Initialize sewing results with REMAINING quantities
+                                            const sewn = new Map<string, number>();
+                                            for (const sb of (batch.subBatches || []).filter(s => s.source === "SEWING")) {
+                                                for (const item of (sb.items || [])) {
+                                                    const key = `${item.productSize}|${item.color}`;
+                                                    sewn.set(key, (sewn.get(key) || 0) + item.goodQuantity);
+                                                }
+                                            }
+                                            if (batch.cuttingResults) {
+                                                setSewingResults(
+                                                    batch.cuttingResults
+                                                        .map((cr) => {
+                                                            const key = `${cr.productSize}|${cr.color}`;
+                                                            const remaining = cr.actualPieces - (sewn.get(key) || 0);
+                                                            return {
+                                                                productSize: cr.productSize,
+                                                                color: cr.color,
+                                                                actualPieces: Math.max(0, remaining),
+                                                            };
+                                                        })
+                                                        .filter(r => r.actualPieces > 0)
+                                                );
+                                            }
+                                            setShowInputSewingDialog(true);
+                                        }}
+                                    >
+                                        <Scissors className="h-4 w-4 mr-2" />
+                                        Input Hasil Jahitan
+                                    </Button>
+                                ) : null;
+                            })()}
+
+                            {/* Show "Selesaikan Jahitan" button when there are sewing results */}
+                            {batch.status === "IN_SEWING" && (batch.sewingTask?.piecesCompleted || 0) > 0 && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setShowCompleteSewingDialog(true)}
+                                >
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Selesaikan Jahitan
+                                </Button>
+                            )}
+                        </>
                     )}
 
                     {batch.status === "SEWING_COMPLETED" && (
@@ -1235,40 +1424,40 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             </div>
 
             {/* Batch Overview */}
-                <Card className="">
-                    <CardHeader className="py-3">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                            <Package className="h-5 w-5" />
-                            Ringkasan Hasil Produksi   
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="py-2">
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center pb-4">
-                            <div>
-                                <p className="text-2xl font-bold text-green-600">{finishingOutput}</p>
-                                <p className="text-xs text-muted-foreground">Barang Jadi</p>
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold text-yellow-600">{subBatches.reduce((sum, sb) => sum + sb.rejectKotor, 0)}</p>
-                                <p className="text-xs text-muted-foreground">Kotor</p>
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold text-red-600">{subBatches.reduce((sum, sb) => sum + sb.rejectSobek, 0)}</p>
-                                <p className="text-xs text-muted-foreground">Sobek</p>
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold text-red-600">{subBatches.reduce((sum, sb) => sum + sb.rejectRusakJahit, 0)}</p>
-                                <p className="text-xs text-muted-foreground">Rusak Jahit</p>
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">
-                                    {subBatches.reduce((sum, sb) => sum + sb.rejectKotor + sb.rejectSobek + sb.rejectRusakJahit, 0) + finishingOutput}
-                                </p>
-                                <p className="text-xs text-muted-foreground">Total</p>
-                            </div>
+            <Card className="">
+                <CardHeader className="py-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                        <Package className="h-5 w-5" />
+                        Ringkasan Hasil Produksi
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="py-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center pb-4">
+                        <div>
+                            <p className="text-2xl font-bold text-green-600">{finishingOutput}</p>
+                            <p className="text-xs text-muted-foreground">Barang Jadi</p>
                         </div>
-                    </CardContent>
-                </Card>
+                        <div>
+                            <p className="text-2xl font-bold text-yellow-600">{subBatches.reduce((sum, sb) => sum + sb.rejectKotor, 0)}</p>
+                            <p className="text-xs text-muted-foreground">Kotor</p>
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-red-600">{subBatches.reduce((sum, sb) => sum + sb.rejectSobek, 0)}</p>
+                            <p className="text-xs text-muted-foreground">Sobek</p>
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-red-600">{subBatches.reduce((sum, sb) => sum + sb.rejectRusakJahit, 0)}</p>
+                            <p className="text-xs text-muted-foreground">Rusak Jahit</p>
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold">
+                                {subBatches.reduce((sum, sb) => sum + sb.rejectKotor + sb.rejectSobek + sb.rejectRusakJahit, 0) + finishingOutput}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Total</p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Batch Information */}
             <Card>
@@ -1690,58 +1879,19 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 {/* Sewing Tab */}
                 <TabsContent value="sewing" className="space-y-4">
                     <div className="grid gap-4 lg:grid-cols-2">
-                        {/* Sewing Task Info or Sub-Batches */}
+                        {/* Sewing Task Info + Accumulated Results */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>Task Penjahitan</CardTitle>
                                 <CardDescription>
-                                    {subBatches.length > 0
-                                        ? `${subBatches.length} sub-batch dengan total ${subBatches.reduce((sum, sb) => {
-                                            let total = 0;
-                                            if (sb.items && Array.isArray(sb.items)) {
-                                                for (const item of sb.items) {
-                                                    total += (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
-                                                }
-                                            }
-                                            return sum + total;
-                                        }, 0)} pcs`
+                                    {batch.sewingTask
+                                        ? `Total ${batch.sewingTask.piecesCompleted} pcs dari ${batch.sewingTask.piecesReceived} pcs`
                                         : "Informasi tugas penjahitan"
                                     }
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                {subBatches.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {subBatches.map((sb) => {
-                                            const totalItems = sb.items?.reduce((sum, item) => sum + (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0), 0) || 0;
-                                            const goodQty = sb.items?.reduce((sum, item) => sum + (item.goodQuantity || 0), 0) || 0;
-                                            const rejectQty = sb.items?.reduce((sum, item) => sum + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0), 0) || 0;
-                                            return (
-                                                <div key={sb.id} className="border rounded-lg p-3 space-y-2">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="font-mono text-sm font-medium">{sb.subBatchSku}</span>
-                                                        {getStatusBadge(sb.status)}
-                                                    </div>
-                                                    <Separator />
-                                                    <div className="grid grid-cols-2 gap-2 text-sm">
-                                                        <div className="flex justify-between">
-                                                            <span className="text-muted-foreground">Diterima</span>
-                                                            <span className="font-medium">{totalItems} pcs</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-muted-foreground">Selesai</span>
-                                                            <span className="font-medium text-green-600">{goodQty} pcs</span>
-                                                        </div>
-                                                        <div className="flex justify-between col-span-2">
-                                                            <span className="text-muted-foreground">Reject</span>
-                                                            <span className="font-medium text-destructive">{rejectQty} pcs</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : batch.sewingTask ? (
+                                {batch.sewingTask ? (
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-muted-foreground">Penjahit</span>
@@ -1753,16 +1903,18 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                         </div>
                                         <Separator />
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Diterima</span>
+                                            <span className="text-sm text-muted-foreground">Diterima dari Potong</span>
                                             <span className="text-sm font-medium">{batch.sewingTask.piecesReceived} pcs</span>
                                         </div>
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Selesai</span>
+                                            <span className="text-sm text-muted-foreground">Sudah Dijahit</span>
                                             <span className="text-sm font-medium text-green-600">{batch.sewingTask.piecesCompleted} pcs</span>
                                         </div>
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Reject</span>
-                                            <span className="text-sm font-medium text-destructive">{batch.sewingTask.rejectPieces} pcs</span>
+                                            <span className="text-sm text-muted-foreground">Sisa Belum Dijahit</span>
+                                            <span className="text-sm font-medium text-orange-600">
+                                                {Math.max(0, batch.sewingTask.piecesReceived - batch.sewingTask.piecesCompleted)} pcs
+                                            </span>
                                         </div>
                                         <Separator />
                                         {batch.sewingTask.startedAt && (
@@ -1782,6 +1934,93 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                                 <span className="text-sm text-muted-foreground">Catatan</span>
                                                 <p className="text-sm p-2 bg-muted rounded">{batch.sewingTask.notes}</p>
                                             </div>
+                                        )}
+
+                                        {/* Show accumulated sewing results detail from sub-batches */}
+                                        {(batch.subBatches || []).filter(sb => sb.source === "SEWING").length > 0 && (
+                                            <>
+                                                <Separator />
+                                                <div className="space-y-3">
+                                                    <span className="text-sm font-medium">Detail Hasil Jahitan (Sub-Batch)</span>
+                                                    {(batch.subBatches || []).filter(sb => sb.source === "SEWING").map((sb) => {
+                                                        const sbTotalPcs = (sb.items || []).reduce((sum: number, item: { goodQuantity?: number }) => sum + (item.goodQuantity || 0), 0);
+                                                        return (
+                                                            <div key={sb.id} className="space-y-2 rounded-lg border p-3">
+                                                                <div className="flex justify-between items-center">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-xs font-medium font-mono">{sb.subBatchSku}</span>
+                                                                        <Badge variant="secondary" className="text-xs">{sbTotalPcs} pcs</Badge>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        {sb.status === "CREATED" && (
+                                                                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">Menunggu Verifikasi</Badge>
+                                                                        )}
+                                                                        {sb.status === "SEWING_VERIFIED" && (
+                                                                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">Terverifikasi</Badge>
+                                                                        )}
+                                                                        {sb.status === "FORWARDED_TO_FINISHING" && (
+                                                                            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">Diteruskan ke Finishing</Badge>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-xs text-muted-foreground">{formatDate(sb.createdAt)}</div>
+                                                                <div className="rounded-md border">
+                                                                    <Table>
+                                                                        <TableHeader>
+                                                                            <TableRow>
+                                                                                <TableHead>Ukuran</TableHead>
+                                                                                <TableHead>Warna</TableHead>
+                                                                                <TableHead className="text-right">Pcs</TableHead>
+                                                                            </TableRow>
+                                                                        </TableHeader>
+                                                                        <TableBody>
+                                                                            {(sb.items || []).map((item: { id: string; productSize: string; color: string; goodQuantity: number }) => (
+                                                                                <TableRow key={item.id}>
+                                                                                    <TableCell className="font-medium">{item.productSize}</TableCell>
+                                                                                    <TableCell>
+                                                                                        <Badge variant="outline">{item.color}</Badge>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="text-right">{item.goodQuantity} pcs</TableCell>
+                                                                                </TableRow>
+                                                                            ))}
+                                                                        </TableBody>
+                                                                    </Table>
+                                                                </div>
+                                                                {/* Action buttons per sewing sub-batch */}
+                                                                <div className="flex gap-2 justify-end pt-1">
+                                                                    {sb.status === "CREATED" && (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="outline"
+                                                                            onClick={() => {
+                                                                                setVerifySewingSubBatch(sb);
+                                                                                setVerifySewingSubBatchAction("approve");
+                                                                                setShowVerifySewingSubBatchDialog(true);
+                                                                            }}
+                                                                        >
+                                                                            <CheckCircle className="h-3 w-3 mr-1" />
+                                                                            Verifikasi
+                                                                        </Button>
+                                                                    )}
+                                                                    {sb.status === "SEWING_VERIFIED" && (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            onClick={() => {
+                                                                                setForwardingSubBatch(sb);
+                                                                                setForwardFinisherId("");
+                                                                                setShowForwardToFinishingDialog(true);
+                                                                            }}
+                                                                        >
+                                                                            <ArrowRight className="h-3 w-3 mr-1" />
+                                                                            Teruskan ke Finishing
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </>
                                         )}
                                     </div>
                                 ) : (
@@ -1809,14 +2048,33 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                         <span className="text-muted-foreground">Output Jahit</span>
                                         <span className="font-medium text-green-600">{sewingOutput} pcs</span>
                                     </div>
-                                    {sewingReject > 0 && (
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Reject</span>
-                                            <span className="font-medium text-destructive">{sewingReject} pcs</span>
-                                        </div>
-                                    )}
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Sisa Belum Dijahit</span>
+                                        <span className="font-medium text-orange-600">{Math.max(0, cuttingOutput - sewingOutput)} pcs</span>
+                                    </div>
                                     <Progress value={cuttingOutput > 0 ? (sewingOutput / cuttingOutput) * 100 : 0} className="h-2" />
                                 </div>
+
+                                {/* Summary per size/color */}
+                                {sewingSubBatches.length > 0 && batch.cuttingResults && (
+                                    <div className="space-y-2 pt-2 border-t">
+                                        <span className="text-sm font-medium">Per Ukuran/Warna</span>
+                                        {batch.cuttingResults.map((cr) => {
+                                            const key = `${cr.productSize}|${cr.color}`;
+                                            const sewn = sewnPerSizeColor.get(key) || 0;
+                                            const pct = cr.actualPieces > 0 ? Math.round((sewn / cr.actualPieces) * 100) : 0;
+                                            return (
+                                                <div key={key} className="space-y-1">
+                                                    <div className="flex justify-between text-xs">
+                                                        <span className="text-muted-foreground">{cr.productSize} - {cr.color}</span>
+                                                        <span>{sewn}/{cr.actualPieces} ({pct}%)</span>
+                                                    </div>
+                                                    <Progress value={pct} className="h-1" />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
@@ -1825,85 +2083,22 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 {/* Finishing Tab */}
                 <TabsContent value="finishing" className="space-y-4">
                     <div className="grid gap-4 lg:grid-cols-2">
-                        {/* Finishing Task Info or Sub-Batches */}
+                        {/* Finishing Summary - Simplified: received from sewing vs processed */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>Task Finishing</CardTitle>
                                 <CardDescription>
-                                    {subBatches.length > 0
-                                        ? `${subBatches.length} sub-batch dengan total ${subBatches.reduce((sum, sb) => {
-                                            let total = 0;
-                                            if (sb.items && Array.isArray(sb.items)) {
-                                                for (const item of sb.items) {
-                                                    total += (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
-                                                }
-                                            }
-                                            return sum + total;
-                                        }, 0)} pcs dari jahit`
+                                    {batch.finishingTask
+                                        ? `Diterima ${batch.finishingTask.piecesReceived} pcs dari penjahitan`
                                         : "Informasi tugas finishing"
                                     }
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                {subBatches.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {subBatches.map((sb) => {
-                                            const goodQty = sb.items?.reduce((sum, item) => sum + (item.goodQuantity || 0), 0) || 0;
-                                            const rejectKotor = sb.items?.reduce((sum, item) => sum + (item.rejectKotor || 0), 0) || 0;
-                                            const rejectSobek = sb.items?.reduce((sum, item) => sum + (item.rejectSobek || 0), 0) || 0;
-                                            const rejectRusakJahit = sb.items?.reduce((sum, item) => sum + (item.rejectRusakJahit || 0), 0) || 0;
-                                            const totalReject = rejectKotor + rejectSobek + rejectRusakJahit;
-                                            return (
-                                                <div key={sb.id} className="border rounded-lg p-3 space-y-2">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="font-mono text-sm font-medium">{sb.subBatchSku}</span>
-                                                        {getStatusBadge(sb.status)}
-                                                    </div>
-                                                    <Separator />
-                                                    <div className="grid grid-cols-2 gap-2 text-sm">
-                                                        <div className="flex justify-between">
-                                                            <span className="text-muted-foreground">Input</span>
-                                                            <span className="font-medium">{goodQty + totalReject} pcs</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-muted-foreground">Selesai</span>
-                                                            <span className="font-medium text-green-600">{goodQty} pcs</span>
-                                                        </div>
-                                                        <div className="flex justify-between col-span-2">
-                                                            <span className="text-muted-foreground">Reject</span>
-                                                            <span className="font-medium text-destructive">{totalReject} pcs</span>
-                                                        </div>
-                                                        {totalReject > 0 && (
-                                                            <>
-                                                                {rejectKotor > 0 && (
-                                                                    <div className="flex justify-between text-xs col-span-2">
-                                                                        <span className="text-muted-foreground">- Kotor</span>
-                                                                        <span>{rejectKotor} pcs</span>
-                                                                    </div>
-                                                                )}
-                                                                {rejectSobek > 0 && (
-                                                                    <div className="flex justify-between text-xs col-span-2">
-                                                                        <span className="text-muted-foreground">- Sobek</span>
-                                                                        <span>{rejectSobek} pcs</span>
-                                                                    </div>
-                                                                )}
-                                                                {rejectRusakJahit > 0 && (
-                                                                    <div className="flex justify-between text-xs col-span-2">
-                                                                        <span className="text-muted-foreground">- Rusak Jahit</span>
-                                                                        <span>{rejectRusakJahit} pcs</span>
-                                                                    </div>
-                                                                )}
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : batch.finishingTask ? (
+                                {batch.finishingTask ? (
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Pekerja</span>
+                                            <span className="text-sm text-muted-foreground">Ka. Finishing</span>
                                             <span className="text-sm font-medium">{batch.finishingTask.assignedTo?.name || "-"}</span>
                                         </div>
                                         <div className="flex justify-between items-center">
@@ -1912,30 +2107,43 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                         </div>
                                         <Separator />
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Diterima</span>
-                                            <span className="text-sm font-medium">{batch.finishingTask.piecesReceived} pcs</span>
+                                            <span className="text-sm text-muted-foreground">Diterima dari Penjahitan</span>
+                                            <span className="text-lg font-bold">{batch.finishingTask.piecesReceived} pcs</span>
                                         </div>
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Selesai</span>
-                                            <span className="text-sm font-medium text-green-600">{batch.finishingTask.piecesCompleted} pcs</span>
+                                            <span className="text-sm text-muted-foreground">Sudah Diproses Finishing</span>
+                                            <span className="text-lg font-bold text-green-600">{totalFinishingInput} pcs</span>
                                         </div>
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Reject</span>
-                                            <span className="text-sm font-medium text-destructive">{batch.finishingTask.rejectPieces} pcs</span>
+                                            <span className="text-sm text-muted-foreground">Sisa Belum Diproses</span>
+                                            <span className="text-lg font-bold text-orange-600">{Math.max(0, totalSewingOutput - totalFinishingInput)} pcs</span>
                                         </div>
-                                        <Separator />
-                                        {batch.finishingTask.startedAt && (
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm text-muted-foreground">Mulai</span>
-                                                <span className="text-xs">{formatDate(batch.finishingTask.startedAt)}</span>
-                                            </div>
+                                        <Progress value={totalSewingOutput > 0 ? (totalFinishingInput / totalSewingOutput) * 100 : 0} className="h-2" />
+
+                                        {/* Reject summary from sub-batches */}
+                                        {finishingReject > 0 && (
+                                            <>
+                                                <Separator />
+                                                <div className="space-y-2">
+                                                    <span className="text-sm font-medium text-destructive">Reject</span>
+                                                    <div className="grid grid-cols-3 gap-2 text-sm">
+                                                        <div className="bg-orange-50 dark:bg-orange-950/20 p-2 rounded text-center">
+                                                            <p className="text-xs text-muted-foreground">Kotor</p>
+                                                            <p className="font-medium">{subBatches.reduce((sum, sb) => sum + sb.rejectKotor, 0)}</p>
+                                                        </div>
+                                                        <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded text-center">
+                                                            <p className="text-xs text-muted-foreground">Sobek</p>
+                                                            <p className="font-medium">{subBatches.reduce((sum, sb) => sum + sb.rejectSobek, 0)}</p>
+                                                        </div>
+                                                        <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded text-center">
+                                                            <p className="text-xs text-muted-foreground">Rusak Jahit</p>
+                                                            <p className="font-medium">{subBatches.reduce((sum, sb) => sum + sb.rejectRusakJahit, 0)}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
                                         )}
-                                        {batch.finishingTask.completedAt && (
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm text-muted-foreground">Selesai</span>
-                                                <span className="text-xs">{formatDate(batch.finishingTask.completedAt)}</span>
-                                            </div>
-                                        )}
+
                                         {batch.finishingTask.notes && (
                                             <div className="space-y-1 pt-2">
                                                 <span className="text-sm text-muted-foreground">Catatan</span>
@@ -1952,50 +2160,57 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             </CardContent>
                         </Card>
 
-                        {/* Finishing Progress Info */}
-                        {batch.status === "IN_FINISHING" && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Status Finishing</CardTitle>
-                                    <CardDescription>Progress hasil finishing vs hasil jahit</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Total Hasil Jahit (Input)</span>
-                                            <span className="font-medium">{totalSewingOutput} pcs</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Total Sudah Diproses Finishing</span>
-                                            <span className="font-medium">{totalFinishingInput} pcs</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Sisa Belum Diproses</span>
-                                            <span className="font-medium text-orange-600">{Math.max(0, totalSewingOutput - totalFinishingInput)} pcs</span>
-                                        </div>
-                                        <Progress value={totalSewingOutput > 0 ? (totalFinishingInput / totalSewingOutput) * 100 : 0} className="h-2" />
+                        {/* Finishing Progress / Status */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Status Finishing</CardTitle>
+                                <CardDescription>
+                                    {subBatches.length > 0
+                                        ? `${subBatches.length} sub-batch hasil finishing`
+                                        : "Progress hasil finishing"
+                                    }
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Total Hasil Jahit (Input)</span>
+                                        <span className="font-medium">{totalSewingOutput} pcs</span>
                                     </div>
-
-                                    {canCompleteBatch ? (
-                                        <Alert>
-                                            <CheckCircle className="h-4 w-4" />
-                                            <AlertDescription>
-                                                Semua hasil jahit sudah diproses finishing. Batch siap untuk diselesaikan.
-                                            </AlertDescription>
-                                        </Alert>
-                                    ) : (
-                                        <Alert>
-                                            <AlertCircle className="h-4 w-4" />
-                                            <AlertDescription>
-                                                Masih ada {Math.max(0, totalSewingOutput - totalFinishingInput)} pcs hasil jahit yang belum diproses.
-                                                Batch baru dapat diselesaikan jika semua hasil jahit sudah diproses di finishing.
-                                            </AlertDescription>
-                                        </Alert>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Sudah Diproses Finishing</span>
+                                        <span className="font-medium text-green-600">{totalFinishingInput} pcs</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Barang Bagus</span>
+                                        <span className="font-medium text-green-600">{finishingOutput} pcs</span>
+                                    </div>
+                                    {finishingReject > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Reject</span>
+                                            <span className="font-medium text-destructive">{finishingReject} pcs</span>
+                                        </div>
                                     )}
-                                </CardContent>
-                            </Card>
-                        )}
+                                    <Progress value={totalSewingOutput > 0 ? (totalFinishingInput / totalSewingOutput) * 100 : 0} className="h-2" />
+                                </div>
 
+                                {canCompleteBatch ? (
+                                    <Alert>
+                                        <CheckCircle className="h-4 w-4" />
+                                        <AlertDescription>
+                                            Semua hasil jahit sudah diproses finishing. Batch siap untuk diselesaikan.
+                                        </AlertDescription>
+                                    </Alert>
+                                ) : totalSewingOutput > 0 && totalFinishingInput < totalSewingOutput ? (
+                                    <Alert>
+                                        <AlertCircle className="h-4 w-4" />
+                                        <AlertDescription>
+                                            Masih ada {Math.max(0, totalSewingOutput - totalFinishingInput)} pcs yang belum diproses finishing.
+                                        </AlertDescription>
+                                    </Alert>
+                                ) : null}
+                            </CardContent>
+                        </Card>
                     </div>
                 </TabsContent>
 
@@ -2720,45 +2935,59 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                     <DialogHeader>
                         <DialogTitle>Input Hasil Jahitan</DialogTitle>
                         <DialogDescription>
-                            Input hasil jahitan untuk batch ini
+                            Input hasil jahitan parsial. Anda dapat menginput beberapa kali sampai semua potongan selesai dijahit.
                         </DialogDescription>
                     </DialogHeader>
                     {batch && (
                         <div className="space-y-4 py-4">
+                            {sewingSubBatches.length > 0 && (
+                                <Alert>
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertDescription>
+                                        Sudah ada {batch.sewingTask?.piecesCompleted || 0} pcs hasil jahitan sebelumnya.
+                                        Input di bawah hanya untuk sisa yang belum dijahit.
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                             <div className="rounded-md border">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Ukuran</TableHead>
                                             <TableHead>Warna</TableHead>
-                                            <TableHead className="text-right">Dari Potongan</TableHead>
+                                            <TableHead className="text-right">Sisa Potong</TableHead>
                                             <TableHead className="text-right">Hasil Jahitan</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {sewingResults.map((result, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell className="font-medium">{result.productSize}</TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline">{result.color}</Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right">{result.actualPieces} pcs</TableCell>
-                                                <TableCell className="text-right">
-                                                    <Input
-                                                        type="number"
-                                                        min="0"
-                                                        max={result.actualPieces}
-                                                        value={result.actualPieces}
-                                                        onChange={(e) => {
-                                                            const updated = [...sewingResults];
-                                                            updated[index].actualPieces = parseInt(e.target.value) || 0;
-                                                            setSewingResults(updated);
-                                                        }}
-                                                        className="w-20 text-right"
-                                                    />
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {sewingResults.map((result, index) => {
+                                            // maxPieces is the remaining from cutting
+                                            const maxPieces = result.actualPieces;
+                                            return (
+                                                <TableRow key={index}>
+                                                    <TableCell className="font-medium">{result.productSize}</TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="outline">{result.color}</Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right text-muted-foreground">{maxPieces} pcs</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            max={maxPieces}
+                                                            value={result.actualPieces}
+                                                            onChange={(e) => {
+                                                                const val = Math.min(parseInt(e.target.value) || 0, maxPieces);
+                                                                const updated = [...sewingResults];
+                                                                updated[index].actualPieces = val;
+                                                                setSewingResults(updated);
+                                                            }}
+                                                            className="w-20 text-right"
+                                                        />
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
                                         <TableRow className="font-bold bg-muted/50">
                                             <TableCell colSpan={2}>Total</TableCell>
                                             <TableCell className="text-right">
@@ -2806,6 +3035,82 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 </DialogContent>
             </Dialog>
 
+            {/* Complete Sewing Dialog */}
+            <Dialog open={showCompleteSewingDialog} onOpenChange={setShowCompleteSewingDialog}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Selesaikan Penjahitan</DialogTitle>
+                        <DialogDescription>
+                            Tandai penjahitan sebagai selesai dan lanjut ke verifikasi
+                        </DialogDescription>
+                    </DialogHeader>
+                    {batch && batch.sewingTask && (
+                        <div className="space-y-4 py-4">
+                            <Card>
+                                <CardContent className="pt-4 space-y-3">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label className="text-muted-foreground text-xs">Input dari Potong</Label>
+                                            <p className="text-xl font-bold">{cuttingOutput} pcs</p>
+                                        </div>
+                                        <div>
+                                            <Label className="text-muted-foreground text-xs">Total Dijahit</Label>
+                                            <p className="text-xl font-bold text-green-600">{batch.sewingTask.piecesCompleted} pcs</p>
+                                        </div>
+                                    </div>
+                                    {cuttingOutput > batch.sewingTask.piecesCompleted && (
+                                        <Alert>
+                                            <AlertCircle className="h-4 w-4" />
+                                            <AlertDescription>
+                                                Masih ada {cuttingOutput - batch.sewingTask.piecesCompleted} pcs yang belum dijahit.
+                                                Anda dapat menyelesaikan penjahitan parsial dan meneruskan {batch.sewingTask.piecesCompleted} pcs ke verifikasi dan finishing.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+                                    {cuttingOutput <= batch.sewingTask.piecesCompleted && (
+                                        <Alert>
+                                            <CheckCircle2 className="h-4 w-4" />
+                                            <AlertDescription>
+                                                Semua potongan sudah dijahit. Siap untuk diselesaikan.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="complete-sewing-notes">Catatan (Opsional)</Label>
+                                <Textarea
+                                    id="complete-sewing-notes"
+                                    placeholder="Catatan penyelesaian penjahitan..."
+                                    value={completeSewingNotes}
+                                    onChange={(e) => setCompleteSewingNotes(e.target.value)}
+                                    rows={3}
+                                />
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowCompleteSewingDialog(false);
+                                setCompleteSewingNotes("");
+                            }}
+                            disabled={completingSewing}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            onClick={handleCompleteSewing}
+                            disabled={completingSewing || (batch?.sewingTask?.piecesCompleted || 0) === 0}
+                        >
+                            {completingSewing ? "Menyelesaikan..." : `Selesaikan Jahitan (${batch?.sewingTask?.piecesCompleted || 0} pcs)`}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Verify Sewing Dialog */}
             <Dialog open={showVerifySewingDialog} onOpenChange={setShowVerifySewingDialog}>
                 <DialogContent className="max-w-2xl">
@@ -2822,16 +3127,62 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                     <CardTitle>Hasil Penjahitan</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-3">
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-3 gap-4">
                                         <div>
-                                            <Label className="text-muted-foreground">Pieces Diterima</Label>
+                                            <Label className="text-muted-foreground">Dari Potong</Label>
                                             <p className="text-2xl font-bold">{batch.sewingTask.piecesReceived}</p>
                                         </div>
                                         <div>
-                                            <Label className="text-muted-foreground">Pieces Completed</Label>
+                                            <Label className="text-muted-foreground">Dijahit</Label>
                                             <p className="text-2xl font-bold text-green-600">{batch.sewingTask.piecesCompleted}</p>
                                         </div>
+                                        <div>
+                                            <Label className="text-muted-foreground">Sisa</Label>
+                                            <p className="text-2xl font-bold text-orange-600">
+                                                {Math.max(0, batch.sewingTask.piecesReceived - batch.sewingTask.piecesCompleted)}
+                                            </p>
+                                        </div>
                                     </div>
+
+                                    {/* Detail per size/color */}
+                                    {sewingSubBatches.length > 0 && (
+                                        <div className="rounded-md border mt-3">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Ukuran</TableHead>
+                                                        <TableHead>Warna</TableHead>
+                                                        <TableHead className="text-right">Pcs</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {(() => {
+                                                        // Group sewing sub-batch items by size/color
+                                                        const grouped = new Map<string, { productSize: string; color: string; total: number }>();
+                                                        for (const sb of sewingSubBatches) {
+                                                            for (const item of (sb.items || [])) {
+                                                                const key = `${item.productSize}|${item.color}`;
+                                                                const existing = grouped.get(key);
+                                                                if (existing) {
+                                                                    existing.total += item.goodQuantity;
+                                                                } else {
+                                                                    grouped.set(key, { productSize: item.productSize, color: item.color, total: item.goodQuantity });
+                                                                }
+                                                            }
+                                                        }
+                                                        return Array.from(grouped.values()).map((item) => (
+                                                            <TableRow key={`${item.productSize}|${item.color}`}>
+                                                                <TableCell className="font-medium">{item.productSize}</TableCell>
+                                                                <TableCell><Badge variant="outline">{item.color}</Badge></TableCell>
+                                                                <TableCell className="text-right">{item.total} pcs</TableCell>
+                                                            </TableRow>
+                                                        ));
+                                                    })()}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    )}
+
                                     {batch.sewingTask.notes && (
                                         <div>
                                             <Label className="text-muted-foreground">Catatan dari Penjahit</Label>
@@ -3208,6 +3559,202 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                 <>
                                     <CheckCircle2 className="mr-2 h-4 w-4" />
                                     Selesaikan Batch
+                                </>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Verify Sewing Sub-Batch Dialog */}
+            <Dialog open={showVerifySewingSubBatchDialog} onOpenChange={setShowVerifySewingSubBatchDialog}>
+                <DialogContent className="max-w-[95vw] sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Verifikasi Sub-Batch Jahitan</DialogTitle>
+                        <DialogDescription>
+                            Verifikasi kualitas hasil jahitan sub-batch ini
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {verifySewingSubBatch && (
+                        <div className="space-y-4 py-4">
+                            <div className="rounded-lg border p-4 space-y-3">
+                                <div>
+                                    <Label className="text-muted-foreground text-xs">Sub-Batch SKU</Label>
+                                    <p className="font-medium font-mono">{verifySewingSubBatch.subBatchSku}</p>
+                                </div>
+                                <Separator />
+                                <div>
+                                    <Label className="text-muted-foreground text-xs">Detail Hasil Jahitan</Label>
+                                    <div className="rounded-md border mt-1">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Ukuran</TableHead>
+                                                    <TableHead>Warna</TableHead>
+                                                    <TableHead className="text-right">Pcs</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {(verifySewingSubBatch.items || []).map((item: { id: string; productSize: string; color: string; goodQuantity: number }) => (
+                                                    <TableRow key={item.id}>
+                                                        <TableCell className="font-medium">{item.productSize}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">{item.color}</Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">{item.goodQuantity} pcs</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                                <TableRow className="font-bold bg-muted/50">
+                                                    <TableCell colSpan={2}>Total</TableCell>
+                                                    <TableCell className="text-right">
+                                                        {(verifySewingSubBatch.items || []).reduce((sum: number, item: { goodQuantity?: number }) => sum + (item.goodQuantity || 0), 0)} pcs
+                                                    </TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Aksi Verifikasi</Label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant={verifySewingSubBatchAction === "approve" ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => setVerifySewingSubBatchAction("approve")}
+                                    >
+                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                        Setujui
+                                    </Button>
+                                    <Button
+                                        variant={verifySewingSubBatchAction === "reject" ? "destructive" : "outline"}
+                                        size="sm"
+                                        onClick={() => setVerifySewingSubBatchAction("reject")}
+                                    >
+                                        <Trash2 className="h-4 w-4 mr-1" />
+                                        Tolak
+                                    </Button>
+                                </div>
+                                {verifySewingSubBatchAction === "reject" && (
+                                    <Alert variant="destructive" className="mt-2">
+                                        <AlertCircle className="h-4 w-4" />
+                                        <AlertDescription>
+                                            Sub-batch akan dihapus dan jumlah pcs dikurangi dari sewing task. Penjahit dapat menginput ulang.
+                                        </AlertDescription>
+                                    </Alert>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+                        <Button variant="outline" onClick={() => setShowVerifySewingSubBatchDialog(false)} disabled={verifyingSewingSubBatch}>
+                            Batal
+                        </Button>
+                        <Button
+                            onClick={handleVerifySewingSubBatch}
+                            disabled={verifyingSewingSubBatch}
+                            variant={verifySewingSubBatchAction === "reject" ? "destructive" : "default"}
+                        >
+                            {verifyingSewingSubBatch ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Memproses...
+                                </>
+                            ) : verifySewingSubBatchAction === "approve" ? (
+                                "Setujui Sub-Batch"
+                            ) : (
+                                "Tolak Sub-Batch"
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Forward to Finishing Dialog */}
+            <Dialog open={showForwardToFinishingDialog} onOpenChange={setShowForwardToFinishingDialog}>
+                <DialogContent className="max-w-[95vw] sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Teruskan ke Finishing</DialogTitle>
+                        <DialogDescription>
+                            Teruskan sub-batch jahitan yang sudah diverifikasi ke tahap finishing
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {forwardingSubBatch && (
+                        <div className="space-y-4 py-4">
+                            <div className="rounded-lg border p-4 space-y-3">
+                                <div>
+                                    <Label className="text-muted-foreground text-xs">Sub-Batch SKU</Label>
+                                    <p className="font-medium font-mono">{forwardingSubBatch.subBatchSku}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground text-xs">Total Pcs</Label>
+                                    <p className="font-medium">
+                                        {(forwardingSubBatch.items || []).reduce((sum: number, item: { goodQuantity?: number }) => sum + (item.goodQuantity || 0), 0)} pcs
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Show finisher selection only if no finishing task exists */}
+                            {!batch?.finishingTask && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="forward-finisher-select">Kepala Finishing</Label>
+                                    <Select
+                                        id="forward-finisher-select"
+                                        value={forwardFinisherId}
+                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForwardFinisherId(e.target.value)}
+                                    >
+                                        <option value="">Pilih kepala finishing</option>
+                                        {finishers.map((finisher) => (
+                                            <option key={finisher.id} value={finisher.id}>
+                                                {finisher.name} ({finisher._count.finishingTasks} task aktif)
+                                            </option>
+                                        ))}
+                                    </Select>
+                                </div>
+                            )}
+
+                            {batch?.finishingTask && (
+                                <Card className="bg-blue-50 border-blue-200">
+                                    <CardContent className="pt-4">
+                                        <p className="text-sm text-blue-800">
+                                            <strong>Info:</strong> Sub-batch ini akan diteruskan ke finishing task yang sudah ada.
+                                            Jumlah pcs akan ditambahkan ke total penerimaan finishing.
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
+                    )}
+
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowForwardToFinishingDialog(false);
+                                setForwardingSubBatch(null);
+                                setForwardFinisherId("");
+                            }}
+                            disabled={forwardingToFinishing}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            onClick={handleForwardToFinishing}
+                            disabled={forwardingToFinishing || (!batch?.finishingTask && !forwardFinisherId)}
+                        >
+                            {forwardingToFinishing ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Memproses...
+                                </>
+                            ) : (
+                                <>
+                                    <ArrowRight className="h-4 w-4 mr-2" />
+                                    Teruskan ke Finishing
                                 </>
                             )}
                         </Button>

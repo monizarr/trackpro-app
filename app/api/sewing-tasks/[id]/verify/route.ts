@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
-
-const connectionString = process.env.DATABASE_URL!;
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+import { prisma } from "@/lib/prisma";
 
 export async function POST(
   request: NextRequest,
@@ -81,7 +74,19 @@ export async function POST(
           where: { id },
           data: {
             status: "VERIFIED",
+            verifiedAt: new Date(),
+            verifiedById: session.user.id,
             notes: notes || task.notes,
+          },
+        });
+
+        // Confirm all unconfirmed sewing results
+        await tx.sewingResult.updateMany({
+          where: { sewingTaskId: id, isConfirmed: false },
+          data: {
+            isConfirmed: true,
+            confirmedById: session.user.id,
+            confirmedAt: new Date(),
           },
         });
 

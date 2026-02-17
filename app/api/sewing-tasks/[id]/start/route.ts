@@ -1,18 +1,11 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
-
-const connectionString = process.env.DATABASE_URL!;
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+import { prisma } from "@/lib/prisma";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -28,7 +21,7 @@ export async function PATCH(
     if (!user || user.role !== "PENJAHIT") {
       return NextResponse.json(
         { error: "Only PENJAHIT can start sewing tasks" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -46,14 +39,14 @@ export async function PATCH(
     if (task.assignedToId !== user.id) {
       return NextResponse.json(
         { error: "Task not assigned to you" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     if (task.status !== "PENDING") {
       return NextResponse.json(
         { error: `Task already ${task.status}` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -92,7 +85,7 @@ export async function PATCH(
     console.error("Error starting sewing task:", error);
     return NextResponse.json(
       { error: "Failed to start sewing task" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

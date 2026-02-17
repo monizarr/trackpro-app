@@ -124,10 +124,17 @@ export default function FinishingTaskDetailPage() {
         sewingTask?: {
             piecesCompleted: number;
         };
+        sewingResults?: Array<{
+            id: string;
+            productSize: string;
+            color: string;
+            actualPieces: number;
+        }>;
     } | null>(null)
     const [task, setTask] = useState<FinishingTask | null>(null)
     const [loading, setLoading] = useState(true)
     const [subBatches, setSubBatches] = useState<SubBatchSummary[]>([]);
+    const [sewingSubBatches, setSewingSubBatches] = useState<SubBatchSummary[]>([]);
     const [showSubBatchDialog, setShowSubBatchDialog] = useState(false);
     const [startingFinishing, setStartingFinishing] = useState(false);
 
@@ -172,7 +179,8 @@ export default function FinishingTaskDetailPage() {
     console.log(task)
     const fetchSubBatches = async () => {
         try {
-            const response = await fetch(`/api/production-batches/${task?.batch.id}/sub-batches`);
+            // Fetch only FINISHING sub-batches
+            const response = await fetch(`/api/production-batches/${task?.batch.id}/sub-batches?source=FINISHING`);
             const result = await response.json();
 
             if (result.success) {
@@ -180,6 +188,20 @@ export default function FinishingTaskDetailPage() {
             }
         } catch (error) {
             console.error("Error fetching sub-batches:", error);
+        }
+    };
+
+    const fetchSewingSubBatches = async () => {
+        try {
+            // Fetch sewing sub-batches to calculate total received from sewing
+            const response = await fetch(`/api/production-batches/${task?.batch.id}/sub-batches?source=SEWING`);
+            const result = await response.json();
+
+            if (result.success) {
+                setSewingSubBatches(result.data || []);
+            }
+        } catch (error) {
+            console.error("Error fetching sewing sub-batches:", error);
         }
     };
 
@@ -208,12 +230,13 @@ export default function FinishingTaskDetailPage() {
         // Fetch sub-batches and batch detail when task is loaded
         if (task?.batch?.id) {
             fetchSubBatches();
+            fetchSewingSubBatches();
             fetchBatchDetail();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [task?.batch?.id])
 
-    // Calculate submitted items from sub-batches
+    // Calculate submitted items from FINISHING sub-batches (items already processed by finishing)
     const submittedItems = new Map<string, number>();
     for (const subBatch of subBatches) {
         if (subBatch && subBatch.items && Array.isArray(subBatch.items)) {
@@ -225,22 +248,35 @@ export default function FinishingTaskDetailPage() {
         }
     }
 
-    // Calculate remaining sewingOutputs for dialog
-    const remainingSewingOutputs = (batch?.cuttingResults?.map(cr => ({
-        productSize: cr.productSize,
-        color: cr.color,
-        quantity: Math.max(0, cr.actualPieces - (submittedItems.get(`${cr.productSize}|${cr.color}`) || 0)),
-    })) || []).filter(output => output.quantity > 0);
+    // Calculate sewing output per size/color from SEWING sub-batches
+    const sewnPerSizeColor = new Map<string, number>();
+    for (const sb of sewingSubBatches) {
+        if (sb && sb.items && Array.isArray(sb.items)) {
+            for (const item of sb.items) {
+                const key = `${item.productSize}|${item.color}`;
+                sewnPerSizeColor.set(key, (sewnPerSizeColor.get(key) || 0) + (item.goodQuantity || 0));
+            }
+        }
+    }
 
-    // Calculate total finishing input (dari semua sub-batches)
+    // Remaining = sewing output per size/color minus already submitted to finishing sub-batches
+    const remainingSewingOutputs: Array<{ productSize: string; color: string; quantity: number }> = [];
+    for (const [key, sewnQty] of sewnPerSizeColor) {
+        const [productSize, color] = key.split("|");
+        const submitted = submittedItems.get(key) || 0;
+        const remaining = Math.max(0, sewnQty - submitted);
+        if (remaining > 0) {
+            remainingSewingOutputs.push({ productSize, color, quantity: remaining });
+        }
+    }
+
+    // Calculate total finishing input (dari semua FINISHING sub-batches)
     let totalFinishingInput = 0;
     let totalFinishingGood = 0;
     let totalFinishingReject = 0;
     for (const subBatch of subBatches) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (subBatch && (subBatch as any).items && Array.isArray((subBatch as any).items)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            for (const item of (subBatch as any).items) {
+        if (subBatch && subBatch.items && Array.isArray(subBatch.items)) {
+            for (const item of subBatch.items) {
                 const good = item.goodQuantity || 0;
                 const reject = (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
                 totalFinishingGood += good;
@@ -250,8 +286,15 @@ export default function FinishingTaskDetailPage() {
         }
     }
 
-    // Calculate total sewing output (jumlah pcs yang seharusnya masuk finishing)
-    const totalSewingOutput = batch?.sewingTask?.piecesCompleted || (batch?.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0) || 0);
+    // Calculate total sewing output from SEWING sub-batches (total pcs diterima dari jahit)
+    let totalSewingOutput = 0;
+    for (const sb of sewingSubBatches) {
+        totalSewingOutput += sb.finishingGoodOutput || 0;
+    }
+    // Fallback: if no sewing sub-batches yet, use sewingTask.piecesCompleted or cutting results total
+    if (totalSewingOutput === 0) {
+        totalSewingOutput = batch?.sewingTask?.piecesCompleted || (batch?.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0) || 0);
+    }
 
     // Check if all sewing output has been processed in finishing
     const canCompleteBatch = totalFinishingInput > 0 && totalFinishingInput === totalSewingOutput;
@@ -346,8 +389,8 @@ export default function FinishingTaskDetailPage() {
                             <p className="text-lg sm:text-2xl font-bold text-green-600">{currentBatch.completed > 0 ? currentBatch.completed + " pcs" : 0}</p>
                         </div>
                         <div className="space-y-1">
-                            <p className="text-xs sm:text-sm text-muted-foreground">Pcs Diterima</p>
-                            <p className="text-lg sm:text-2xl font-bold">{Number(task.piecesReceived) || 0} Pcs</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">Diterima dari Jahit</p>
+                            <p className="text-lg sm:text-2xl font-bold">{totalSewingOutput} Pcs</p>
                         </div>
                     </div>
                     <div className="pt-2 border-t">
@@ -485,6 +528,7 @@ export default function FinishingTaskDetailPage() {
                     onRefresh={async () => {
                         await fetchBatchDetail();
                         await fetchSubBatches();
+                        await fetchSewingSubBatches();
                     }}
                 />
             )}
@@ -500,6 +544,7 @@ export default function FinishingTaskDetailPage() {
                     onSuccess={async () => {
                         await fetchBatchDetail();
                         await fetchSubBatches();
+                        await fetchSewingSubBatches();
                     }}
                 />
             )}

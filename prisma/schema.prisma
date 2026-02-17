@@ -450,6 +450,7 @@ model SewingTask {
   assignedTo User            @relation("SewingTaskAssigned", fields: [assignedToId], references: [id])
   verifiedBy User?           @relation("SewingTaskVerified", fields: [verifiedById], references: [id])
   sewingResults SewingResult[]
+  subBatches    SubBatch[]   // Sub-batches hasil jahitan
 
   @@index([status])
   @@index([assignedToId])
@@ -495,10 +496,18 @@ model FinishingTask {
 // ============================================
 
 enum SubBatchStatus {
-  CREATED // Sub-batch dibuat dari hasil finishing
+  CREATED // Sub-batch dibuat dari hasil finishing/sewing
+  SEWING_VERIFIED // Diverifikasi Ka. Prod (untuk sub-batch sewing)
+  FORWARDED_TO_FINISHING // Diteruskan ke finishing (untuk sub-batch sewing)
   SUBMITTED_TO_WAREHOUSE // Diserahkan ke gudang
   WAREHOUSE_VERIFIED // Diverifikasi gudang
   COMPLETED // Selesai
+}
+
+// Sumber sub-batch (dari tahap mana)
+enum SubBatchSource {
+  SEWING // Sub-batch dari hasil jahitan (pengiriman ke finishing)
+  FINISHING // Sub-batch dari hasil finishing (pengiriman ke gudang)
 }
 
 // Jenis reject/defect di finishing
@@ -512,7 +521,9 @@ model SubBatch {
   id          String @id @default(cuid())
   subBatchSku String @unique // Format: BATCH-SKU-SUB-001
   batchId     String
+  source      SubBatchSource @default(FINISHING) // Sumber sub-batch
   finishingTaskId String? // Optional - linked to finishing task
+  sewingTaskId    String? // Optional - linked to sewing task
 
   // Warehouse verification (diisi saat verifikasi gudang)
   warehouseVerifiedById String?
@@ -539,12 +550,14 @@ model SubBatch {
   // Relations
   batch               ProductionBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
   warehouseVerifiedBy User?              @relation("SubBatchWarehouseVerifier", fields: [warehouseVerifiedById], references: [id])
+  sewingTask          SewingTask?        @relation(fields: [sewingTaskId], references: [id])
   items               SubBatchItem[] // Detail per size/color
   timeline            SubBatchTimeline[]
   finishedGoods       FinishedGood[] // Barang jadi yang dihasilkan
   finishingTask       FinishingTask[] // Relasi ke finishing task
   @@index([batchId])
   @@index([status])
+  @@index([source])
   @@map("sub_batches")
 }
 
@@ -746,6 +759,10 @@ enum TimelineEvent {
   ASSIGNED_TO_FINISHING
   FINISHING_STARTED
   FINISHING_COMPLETED
+  // Sewing sub-batch events
+  SEWING_SUB_BATCH_VERIFIED
+  SEWING_SUB_BATCH_REJECTED
+  SEWING_SUB_BATCH_FORWARDED
   // Sub-batch events (untuk partial delivery ke warehouse)
   SUB_BATCH_CREATED
   SUB_BATCH_APPROVED
@@ -816,6 +833,9 @@ enum AuditAction {
   EXPORT
   APPROVE
   REJECT
+  VERIFY_SEWING_SUB_BATCH
+  REJECT_SEWING_SUB_BATCH
+  FORWARD_TO_FINISHING
 }
 
 model AuditLog {

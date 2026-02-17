@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 
-// GET - List sub-batches untuk batch tertentu
+// GET - List sub-batches untuk batch tertentu (optional filter by source)
 export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> },
@@ -13,12 +13,24 @@ export async function GET(
       "KEPALA_PRODUKSI",
       "KEPALA_GUDANG",
       "FINISHING",
+      "PENJAHIT",
     ]);
     const params = await context.params;
     const { id } = params;
 
+    // Check for source filter in query params
+    const url = new URL(request.url);
+    const source = url.searchParams.get("source"); // "SEWING" or "FINISHING"
+
+    const whereClause: { batchId: string; source?: "SEWING" | "FINISHING" } = {
+      batchId: id,
+    };
+    if (source === "SEWING" || source === "FINISHING") {
+      whereClause.source = source;
+    }
+
     const subBatches = await prisma.subBatch.findMany({
-      where: { batchId: id },
+      where: whereClause,
       include: {
         warehouseVerifiedBy: {
           select: { id: true, name: true, username: true },
@@ -164,6 +176,7 @@ export async function POST(
         data: {
           subBatchSku,
           batchId: id,
+          source: "FINISHING",
           finishingGoodOutput: totalGoodOutput,
           rejectKotor: totalRejectKotor,
           rejectSobek: totalRejectSobek,
