@@ -9,15 +9,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import Image from "next/image"
 
 function LoginForm() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const callbackUrl = searchParams.get("callbackUrl") || "/"
     const [username, setUsername] = useState("")
-    const [password, setPassword] = useState("")
+    const [password, setPassword] = useState("password123")
     const [showPassword, setShowPassword] = useState(false)
-    const [rememberMe, setRememberMe] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
 
@@ -51,7 +51,7 @@ function LoginForm() {
     return (
         <div className="min-h-screen flex">
             {/* Theme Toggle - Top Right */}
-            <div className="fixed top-4 right-4 z-50">
+            <div className="fixed top-4 right-4 z-50 bg-white dark:bg-gray-900 rounded-xl shadow-lg">
                 <ThemeToggle />
             </div>
 
@@ -61,7 +61,7 @@ function LoginForm() {
                     <div className="text-center">
                         <Link href="/" className="inline-flex items-center justify-center space-x-2 mb-8">
                             <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-primary-foreground font-bold text-xl shadow-lg">
-                                T
+                                <Image src="/trackpro.svg" alt="TrackPro Logo" width={16} height={16} className="h-4 w-4" />
                             </div>
                         </Link>
                         <h1 className="text-3xl font-bold text-foreground">TrackPro Login</h1>
@@ -108,12 +108,6 @@ function LoginForm() {
                                     <Label htmlFor="password" className="text-sm font-medium">
                                         Password
                                     </Label>
-                                    <Link
-                                        href="/forgot-password"
-                                        className="text-sm text-primary hover:text-primary/80 font-medium"
-                                    >
-                                        Forgot password?
-                                    </Link>
                                 </div>
                                 <div className="relative">
                                     <Input
@@ -140,20 +134,6 @@ function LoginForm() {
                                     </button>
                                 </div>
                             </div>
-
-                            <div className="flex items-center space-x-2">
-                                <input
-                                    id="remember-me"
-                                    name="remember-me"
-                                    type="checkbox"
-                                    checked={rememberMe}
-                                    onChange={(e) => setRememberMe(e.target.checked)}
-                                    className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
-                                />
-                                <Label htmlFor="remember-me" className="text-sm font-normal">
-                                    Ingat saya selama 30 hari
-                                </Label>
-                            </div>
                         </div>
 
                         <Button
@@ -170,19 +150,12 @@ function LoginForm() {
                                 "Masuk"
                             )}
                         </Button>
-
-                        <div className="text-center text-sm text-muted-foreground">
-                            Don&apos;t have an account?{" "}
-                            <Link href="/register" className="text-primary hover:text-primary/80 font-medium">
-                                Sign up
-                            </Link>
-                        </div>
                     </form>
                 </div>
             </div>
 
             {/* Right Side - Branding */}
-            <div className="hidden lg:flex flex-1 bg-linear-to-tr from-primary to-accent p-12 items-center justify-center relative overflow-hidden">
+            <div className="hidden lg:flex flex-1 bg-linear-to-tr from-primary to-primary/80 p-12 items-center justify-center relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
                 <div className="relative z-10 text-white max-w-lg">
                     <h2 className="text-4xl font-bold mb-6">
@@ -190,7 +163,7 @@ function LoginForm() {
                     </h2>
                     <p className="text-lg text-primary-foreground/80 mb-8">
                         {/* TrackPro helps you manage your production workflow efficiently with real-time tracking and comprehensive reporting. */}
-                            TrackPro membantu Anda mengelola alur produksi dengan efisien melalui pelacakan waktu nyata dan pelaporan komprehensif.
+                        TrackPro membantu Anda mengelola alur produksi dengan efisien melalui pelacakan waktu nyata dan pelaporan komprehensif.
                     </p>
                     <div className="space-y-4">
                         <div className="flex items-center space-x-3">

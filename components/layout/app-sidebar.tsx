@@ -20,6 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import Image from "next/image"
 
 export interface NavItem {
     title: string
@@ -62,7 +63,7 @@ export function AppSidebar({
                 {logo || (
                     <Link href="/" className="flex items-center gap-2 font-semibold">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                            <span className="text-sm font-bold">T</span>
+                            <Image src="/trackpro.svg" alt="TrackPro Logo" width={16} height={16} className="h-3 w-3" />
                         </div>
                         <span className="text-base hidden sm:inline">TrackPro</span>
                     </Link>
