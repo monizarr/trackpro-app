@@ -39,12 +39,10 @@ async function debug() {
           item.productSize,
           "good:",
           item.goodQuantity,
-          "kotor:",
-          item.rejectKotor,
-          "sobek:",
-          item.rejectSobek,
-          "rusak_jahit:",
-          item.rejectRusakJahit,
+          "bs:",
+          item.rejectBS,
+          "bs_permanen:",
+          item.rejectBSPermanent,
         );
       }
     } else {

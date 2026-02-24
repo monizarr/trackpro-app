@@ -77,8 +77,8 @@ export async function POST(
      * Request body format:
      * {
      *   items: [
-     *     { productSize: "M", color: "Putih", goodQuantity: 50, rejectKotor: 2, rejectSobek: 1, rejectRusakJahit: 0 },
-     *     { productSize: "L", color: "Putih", goodQuantity: 30, rejectKotor: 0, rejectSobek: 0, rejectRusakJahit: 1 }
+     *     { productSize: "M", color: "Putih", goodQuantity: 50, rejectBS: 2, rejectBSPermanent: 1 },
+     *     { productSize: "L", color: "Putih", goodQuantity: 30, rejectBS: 0, rejectBSPermanent: 1 }
      *   ],
      *   notes?: string
      * }
@@ -112,7 +112,11 @@ export async function POST(
     }
 
     // Validate batch status - harus IN_FINISHING
-    if (!["IN_FINISHING", "FINISHING_COMPLETED"].includes(batch.status)) {
+    if (
+      !["IN_FINISHING", "FINISHING_COMPLETED", "IN_SEWING"].includes(
+        batch.status,
+      )
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -136,9 +140,8 @@ export async function POST(
 
       const totalPieces =
         (item.goodQuantity || 0) +
-        (item.rejectKotor || 0) +
-        (item.rejectSobek || 0) +
-        (item.rejectRusakJahit || 0);
+        (item.rejectBS || 0) +
+        (item.rejectBSPermanent || 0);
 
       if (totalPieces <= 0) {
         return NextResponse.json(
@@ -153,15 +156,13 @@ export async function POST(
 
     // Calculate totals from items
     let totalGoodOutput = 0;
-    let totalRejectKotor = 0;
-    let totalRejectSobek = 0;
-    let totalRejectRusakJahit = 0;
+    let totalRejectBS = 0;
+    let totalRejectBSPermanent = 0;
 
     for (const item of items) {
       totalGoodOutput += item.goodQuantity || 0;
-      totalRejectKotor += item.rejectKotor || 0;
-      totalRejectSobek += item.rejectSobek || 0;
-      totalRejectRusakJahit += item.rejectRusakJahit || 0;
+      totalRejectBS += item.rejectBS || 0;
+      totalRejectBSPermanent += item.rejectBSPermanent || 0;
     }
 
     // Create sub-batch in transaction
@@ -178,9 +179,8 @@ export async function POST(
           batchId: id,
           source: "FINISHING",
           finishingGoodOutput: totalGoodOutput,
-          rejectKotor: totalRejectKotor,
-          rejectSobek: totalRejectSobek,
-          rejectRusakJahit: totalRejectRusakJahit,
+          rejectBS: totalRejectBS,
+          rejectBSPermanent: totalRejectBSPermanent,
           status: "CREATED",
           notes: notes || null,
           items: {
@@ -189,23 +189,21 @@ export async function POST(
                 productSize: string;
                 color: string;
                 goodQuantity?: number;
-                rejectKotor?: number;
-                rejectSobek?: number;
-                rejectRusakJahit?: number;
+                rejectBS?: number;
+                rejectBSPermanent?: number;
               }) => ({
                 productSize: item.productSize,
                 color: item.color,
                 goodQuantity: item.goodQuantity || 0,
-                rejectKotor: item.rejectKotor || 0,
-                rejectSobek: item.rejectSobek || 0,
-                rejectRusakJahit: item.rejectRusakJahit || 0,
+                rejectBS: item.rejectBS || 0,
+                rejectBSPermanent: item.rejectBSPermanent || 0,
               }),
             ),
           },
           timeline: {
             create: {
               event: "SUB_BATCH_CREATED",
-              details: `Sub-batch hasil finishing dibuat oleh ${session.user.name}. Good: ${totalGoodOutput}, Kotor: ${totalRejectKotor}, Sobek: ${totalRejectSobek}, Rusak Jahit: ${totalRejectRusakJahit}`,
+              details: `Sub-batch hasil finishing dibuat oleh ${session.user.name}. Good: ${totalGoodOutput}, BS: ${totalRejectBS}, BS Permanen: ${totalRejectBSPermanent}`,
             },
           },
         },
@@ -217,9 +215,8 @@ export async function POST(
       // Update finishing task totals
       if (batch.finishingTask) {
         const currentCompleted = batch.finishingTask.piecesCompleted;
-        const currentRejectKotor = batch.finishingTask.rejectKotor;
-        const currentRejectSobek = batch.finishingTask.rejectSobek;
-        const currentRejectRusakJahit = batch.finishingTask.rejectRusakJahit;
+        const currentRejectBS = batch.finishingTask.rejectBS;
+        const currentRejectBSPermanent = batch.finishingTask.rejectBSPermanent;
 
         await tx.finishingTask.update({
           where: { id: batch.finishingTask.id },
@@ -228,12 +225,11 @@ export async function POST(
             piecesCompleted:
               currentCompleted +
               totalGoodOutput +
-              totalRejectKotor +
-              totalRejectSobek +
-              totalRejectRusakJahit,
-            rejectKotor: currentRejectKotor + totalRejectKotor,
-            rejectSobek: currentRejectSobek + totalRejectSobek,
-            rejectRusakJahit: currentRejectRusakJahit + totalRejectRusakJahit,
+              totalRejectBS +
+              totalRejectBSPermanent,
+            rejectBS: currentRejectBS + totalRejectBS,
+            rejectBSPermanent:
+              currentRejectBSPermanent + totalRejectBSPermanent,
           },
         });
       }
@@ -243,7 +239,7 @@ export async function POST(
         data: {
           batchId: id,
           event: "SUB_BATCH_CREATED",
-          details: `Sub-batch ${subBatchSku} dibuat dari hasil finishing. Good: ${totalGoodOutput}, Reject: ${totalRejectKotor + totalRejectSobek + totalRejectRusakJahit}`,
+          details: `Sub-batch ${subBatchSku} dibuat dari hasil finishing. Good: ${totalGoodOutput}, Reject: ${totalRejectBS + totalRejectBSPermanent}`,
         },
       });
 

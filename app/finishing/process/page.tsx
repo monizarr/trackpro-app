@@ -8,6 +8,7 @@ import { AlertCircle, CheckCircle, ChevronRight, Clock, Loader2, Play, Zap } fro
 import { useRouter } from "next/navigation"
 import { toast } from "@/lib/toast"
 import { useEffect, useState } from "react"
+import { formatDateTime } from "@/lib/utils"
 
 interface FinishingTask {
     id: string
@@ -58,25 +59,25 @@ export default function FinishingProcessPage() {
     const STATUS_GROUPS = {
         MENUNGGU: {
             label: "Menunggu",
-            statuses: ["ASSIGNED_TO_FINISHING"],
+            statuses: ["FORWADED_TO_FINISHING", "PENDING", "IN_SEWING", "ASSIGNED_TO_FINISHING"],
             icon: Clock,
             color: "text-yellow-600"
         },
         PROSES: {
             label: "Proses",
-            statuses: ["IN_FINISHING"],
+            statuses: ["IN_FINISHING", 'IN_PROGRESS'],
             icon: Play,
             color: "text-blue-600"
         },
         SELESAI: {
             label: "Selesai",
-            statuses: ["FINISHING_COMPLETED"],
+            statuses: ["FINISHING_COMPLETED", "COMPLETED"],
             icon: CheckCircle,
             color: "text-orange-600"
         },
         TERVERIFIKASI: {
             label: "Terverifikasi",
-            statuses: ["FINISHING_VERIFIED", "WAREHOUSE_VERIFIED","COMPLETED"],
+            statuses: ["FINISHING_VERIFIED", "WAREHOUSE_VERIFIED", "VERIFIED"],
             icon: Zap,
             color: "text-green-600"
         }
@@ -102,7 +103,7 @@ export default function FinishingProcessPage() {
 
     const filterTasks = (groupStatuses: string[]) => {
         return tasks.filter(task => {
-            const matchesStatus = groupStatuses.includes(task.batch.status)
+            const matchesStatus = groupStatuses.includes(task.status)
 
             // Gunakan createdAt untuk filter bulan
             const taskDate = new Date(task.createdAt)
@@ -115,7 +116,7 @@ export default function FinishingProcessPage() {
 
     const getGroupStats = (groupStatuses: string[]) => {
         const groupTasks = tasks.filter(task => {
-            const matchesStatus = groupStatuses.includes(task.batch.status)
+            const matchesStatus = groupStatuses.includes(task.status)
 
             // Gunakan createdAt untuk filter bulan
             const taskDate = new Date(task.createdAt)
@@ -248,12 +249,12 @@ export default function FinishingProcessPage() {
                                                         <div className="font-mono font-medium text-sm sm:text-base truncate">{task.batch.batchSku}</div>
                                                         <div className="text-xs sm:text-sm text-muted-foreground truncate">{task.batch.product.name}</div>
                                                         <div className="text-xs text-muted-foreground mt-1">
-                                                            Target: {task.batch.targetQuantity} pcs
+                                                            {formatDateTime(task.createdAt)}
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         <div className="text-right">
-                                                            {getStatusBadge(task.batch.status)}
+                                                            {getStatusBadge(task.status)}
                                                         </div>
                                                         <ChevronRight className="h-5 w-5 text-muted-foreground" />
                                                     </div>

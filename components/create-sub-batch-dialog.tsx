@@ -23,9 +23,8 @@ interface FinishingOutputItem {
     productSize: string
     color: string
     goodQuantity: number // Barang jadi bagus
-    rejectKotor: number // Kotor - dicuci di gudang
-    rejectSobek: number // Sobek - Bad Stock
-    rejectRusakJahit: number // Rusak jahit - Bad Stock
+    rejectBS: number // BS (Bad Stock) - barang kotor, bisa dicuci di gudang
+    rejectBSPermanent: number // BS Permanen - sobek/rusak jahit, tidak bisa diperbaiki
 }
 
 interface CreateSubBatchDialogProps {
@@ -43,7 +42,7 @@ interface CreateSubBatchDialogProps {
  * Workflow baru:
  * - Sub-batch dibuat di tahap finishing (bukan sewing)
  * - Digunakan untuk tracking partial delivery ke gudang
- * - Mencatat barang jadi (good) dan reject (kotor, sobek, rusak jahit)
+ * - Mencatat barang jadi (good) dan reject (BS, BS Permanen)
  * - Tahap 4.a sampai 5.c berulang sampai semua hasil jahit selesai diproses
  */
 export function CreateSubBatchDialog({
@@ -99,9 +98,8 @@ export function CreateSubBatchDialog({
                 productSize,
                 color,
                 goodQuantity: 0,
-                rejectKotor: 0,
-                rejectSobek: 0,
-                rejectRusakJahit: 0,
+                rejectBS: 0,
+                rejectBSPermanent: 0,
             },
         ])
     }
@@ -133,7 +131,7 @@ export function CreateSubBatchDialog({
     }
 
     const getTotalForItem = (item: FinishingOutputItem) => {
-        return item.goodQuantity + item.rejectKotor + item.rejectSobek + item.rejectRusakJahit
+        return item.goodQuantity + item.rejectBS + item.rejectBSPermanent
     }
 
     const getAvailableQuantity = (productSize: string, color: string) => {
@@ -166,11 +164,10 @@ export function CreateSubBatchDialog({
         return items.reduce(
             (acc, item) => ({
                 good: acc.good + item.goodQuantity,
-                kotor: acc.kotor + item.rejectKotor,
-                sobek: acc.sobek + item.rejectSobek,
-                rusakJahit: acc.rusakJahit + item.rejectRusakJahit,
+                bs: acc.bs + item.rejectBS,
+                bsPermanent: acc.bsPermanent + item.rejectBSPermanent,
             }),
-            { good: 0, kotor: 0, sobek: 0, rusakJahit: 0 }
+            { good: 0, bs: 0, bsPermanent: 0 }
         )
     }
 
@@ -207,9 +204,8 @@ export function CreateSubBatchDialog({
                         productSize: item.productSize,
                         color: item.color,
                         goodQuantity: item.goodQuantity,
-                        rejectKotor: item.rejectKotor,
-                        rejectSobek: item.rejectSobek,
-                        rejectRusakJahit: item.rejectRusakJahit,
+                        rejectBS: item.rejectBS,
+                        rejectBSPermanent: item.rejectBSPermanent,
                     })),
                     notes: notes || null,
                 }),
@@ -234,7 +230,7 @@ export function CreateSubBatchDialog({
 
     const sizeColorOptions = getSizeColorOptions()
     const totals = getTotals()
-    const totalAll = totals.good + totals.kotor + totals.sobek + totals.rusakJahit
+    const totalAll = totals.good + totals.bs + totals.bsPermanent
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -325,7 +321,7 @@ export function CreateSubBatchDialog({
                                         </Button>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                                             <div className="space-y-2">
                                                 <Label className="text-green-600">Barang Jadi</Label>
                                                 <Input
@@ -340,12 +336,12 @@ export function CreateSubBatchDialog({
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <Label className="text-yellow-600">Kotor</Label>
+                                                <Label className="text-yellow-600">BS (Kotor)</Label>
                                                 <Input
                                                     type="number"
-                                                    value={item.rejectKotor || ""}
+                                                    value={item.rejectBS || ""}
                                                     onChange={(e) =>
-                                                        updateItem(index, "rejectKotor", parseInt(e.target.value) || 0)
+                                                        updateItem(index, "rejectBS", parseInt(e.target.value) || 0)
                                                     }
                                                     min={0}
                                                     max={available}
@@ -354,32 +350,18 @@ export function CreateSubBatchDialog({
                                                 <p className="text-xs text-muted-foreground">Dicuci di gudang</p>
                                             </div>
                                             <div className="space-y-2">
-                                                <Label className="text-red-600">Sobek</Label>
+                                                <Label className="text-red-600">BS Permanen</Label>
                                                 <Input
                                                     type="number"
-                                                    value={item.rejectSobek || ""}
+                                                    value={item.rejectBSPermanent || ""}
                                                     onChange={(e) =>
-                                                        updateItem(index, "rejectSobek", parseInt(e.target.value) || 0)
+                                                        updateItem(index, "rejectBSPermanent", parseInt(e.target.value) || 0)
                                                     }
                                                     min={0}
                                                     max={available}
                                                     placeholder="0"
                                                 />
-                                                <p className="text-xs text-muted-foreground">Bad Stock</p>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-red-600">Rusak Jahit</Label>
-                                                <Input
-                                                    type="number"
-                                                    value={item.rejectRusakJahit || ""}
-                                                    onChange={(e) =>
-                                                        updateItem(index, "rejectRusakJahit", parseInt(e.target.value) || 0)
-                                                    }
-                                                    min={0}
-                                                    max={available}
-                                                    placeholder="0"
-                                                />
-                                                <p className="text-xs text-muted-foreground">Bad Stock</p>
+                                                <p className="text-xs text-muted-foreground">Sobek / Rusak Jahit</p>
                                             </div>
                                         </div>
                                     </CardContent>
@@ -404,22 +386,18 @@ export function CreateSubBatchDialog({
                 {items.length > 0 && (
                     <Card className="bg-muted">
                         <CardContent className="py-4">
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                                 <div>
                                     <p className="text-2xl font-bold text-green-600">{totals.good}</p>
                                     <p className="text-xs text-muted-foreground">Barang Jadi</p>
                                 </div>
                                 <div>
-                                    <p className="text-2xl font-bold text-yellow-600">{totals.kotor}</p>
-                                    <p className="text-xs text-muted-foreground">Kotor</p>
+                                    <p className="text-2xl font-bold text-yellow-600">{totals.bs}</p>
+                                    <p className="text-xs text-muted-foreground">BS (Kotor)</p>
                                 </div>
                                 <div>
-                                    <p className="text-2xl font-bold text-red-600">{totals.sobek}</p>
-                                    <p className="text-xs text-muted-foreground">Sobek</p>
-                                </div>
-                                <div>
-                                    <p className="text-2xl font-bold text-red-600">{totals.rusakJahit}</p>
-                                    <p className="text-xs text-muted-foreground">Rusak Jahit</p>
+                                    <p className="text-2xl font-bold text-red-600">{totals.bsPermanent}</p>
+                                    <p className="text-xs text-muted-foreground">BS Permanen</p>
                                 </div>
                                 <div>
                                     <p className="text-2xl font-bold">{totalAll}</p>

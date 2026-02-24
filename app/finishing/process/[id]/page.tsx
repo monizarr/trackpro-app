@@ -72,9 +72,8 @@ interface SubBatchItem {
     productSize: string;
     color: string;
     goodQuantity: number;
-    rejectKotor: number;
-    rejectSobek: number;
-    rejectRusakJahit: number;
+    rejectBS: number;
+    rejectBSPermanent: number;
 }
 
 interface SubBatchSummary {
@@ -82,9 +81,8 @@ interface SubBatchSummary {
     subBatchSku: string;
     status: string;
     finishingGoodOutput: number;
-    rejectKotor: number;
-    rejectSobek: number;
-    rejectRusakJahit: number;
+    rejectBS: number;
+    rejectBSPermanent: number;
     notes?: string | null;
     items: SubBatchItem[];
     warehouseVerifiedBy?: { id: string; name: string; username: string } | null;
@@ -242,7 +240,7 @@ export default function FinishingTaskDetailPage() {
         if (subBatch && subBatch.items && Array.isArray(subBatch.items)) {
             for (const item of subBatch.items) {
                 const key = `${item.productSize}|${item.color}`;
-                const total = (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
+                const total = (item.goodQuantity || 0) + (item.rejectBS || 0) + (item.rejectBSPermanent || 0);
                 submittedItems.set(key, (submittedItems.get(key) || 0) + total);
             }
         }
@@ -278,7 +276,7 @@ export default function FinishingTaskDetailPage() {
         if (subBatch && subBatch.items && Array.isArray(subBatch.items)) {
             for (const item of subBatch.items) {
                 const good = item.goodQuantity || 0;
-                const reject = (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
+                const reject = (item.rejectBS || 0) + (item.rejectBSPermanent || 0);
                 totalFinishingGood += good;
                 totalFinishingReject += reject;
                 totalFinishingInput += good + reject;
@@ -347,7 +345,7 @@ export default function FinishingTaskDetailPage() {
         materialReceived: task.batch.materialColorAllocations.reduce((sum: number, alloc: { allocatedQty: number }) => sum + alloc.allocatedQty, 0),
         materialItems: task.batch.materialColorAllocations.map((alloc: { materialColorVariant: { unit: string } }) => alloc.materialColorVariant.unit).join(", "),
         totalRoll: task.batch.totalRolls,
-        status: task.batch.status
+        status: task.status
     }
     console.log("Current Batch:", currentBatch);
     return (
@@ -410,7 +408,7 @@ export default function FinishingTaskDetailPage() {
             </Card>
 
             {/* Finishing Actions - ASSIGNED_TO_FINISHING status */}
-            {currentBatch.status === 'ASSIGNED_TO_FINISHING' && (
+            {currentBatch.status === 'PENDING' && (
                 <Card>
                     <CardHeader>
                         <CardTitle>Mulai Proses Finishing</CardTitle>
@@ -436,7 +434,7 @@ export default function FinishingTaskDetailPage() {
                 </Card>
             )}
             {/* Finishing Actions - IN_FINISHING status */}
-            {currentBatch.status === 'IN_FINISHING' && (
+            {currentBatch.status === 'IN_PROGRESS' && (
                 <Card>
                     <CardHeader>
                         <CardTitle>Proses Finishing</CardTitle>
@@ -511,44 +509,49 @@ export default function FinishingTaskDetailPage() {
             )}
 
             {/* Finishing Completed */}
-            {(currentBatch.status === 'FINISHING_COMPLETED' || currentBatch.status === 'WAREHOUSE_VERIFIED') && (
-                <Alert>
+            {(currentBatch.status === 'COMPLETED') && (
+                <Alert variant="default">
                     <CheckCircle className="h-4 w-4" />
                     <AlertDescription>
-                        Task finishing sudah {currentBatch.status === 'WAREHOUSE_VERIFIED' ? 'terverifikasi oleh gudang' : 'selesai dan menunggu verifikasi gudang'}.
+                        Task finishing sudah {currentBatch.status === 'COMPLETED' ? 'terverifikasi oleh gudang' : 'selesai dan menunggu verifikasi gudang'}.
                     </AlertDescription>
                 </Alert>
-            )}
+            )
+            }
 
             {/* Sub-Batches List - daftar sub-batch hasil finishing */}
-            {['IN_FINISHING', 'FINISHING_COMPLETED', 'WAREHOUSE_VERIFIED', 'COMPLETED'].includes(currentBatch.status) && (
-                <SubBatchList
-                    role="FINISHING"
-                    batchId={currentBatch.id}
-                    onRefresh={async () => {
-                        await fetchBatchDetail();
-                        await fetchSubBatches();
-                        await fetchSewingSubBatches();
-                    }}
-                />
-            )}
+            {
+                ['IN_PROGRESS', 'VERIFIED', 'COMPLETED'].includes(currentBatch.status) && (
+                    <SubBatchList
+                        role="FINISHING"
+                        batchId={currentBatch.id}
+                        onRefresh={async () => {
+                            await fetchBatchDetail();
+                            await fetchSubBatches();
+                            await fetchSewingSubBatches();
+                        }}
+                    />
+                )
+            }
 
             {/* Create Sub-Batch Dialog - untuk input hasil finishing ke gudang */}
-            {currentBatch.status === 'IN_FINISHING' && (
-                <CreateSubBatchDialog
-                    open={showSubBatchDialog}
-                    onOpenChange={setShowSubBatchDialog}
-                    batchId={currentBatch.id}
-                    batchSku={currentBatch.batchSku}
-                    sewingOutputs={remainingSewingOutputs}
-                    onSuccess={async () => {
-                        await fetchBatchDetail();
-                        await fetchSubBatches();
-                        await fetchSewingSubBatches();
-                    }}
-                />
-            )}
+            {
+                currentBatch.status === 'IN_FINISHING' && (
+                    <CreateSubBatchDialog
+                        open={showSubBatchDialog}
+                        onOpenChange={setShowSubBatchDialog}
+                        batchId={currentBatch.id}
+                        batchSku={currentBatch.batchSku}
+                        sewingOutputs={remainingSewingOutputs}
+                        onSuccess={async () => {
+                            await fetchBatchDetail();
+                            await fetchSubBatches();
+                            await fetchSewingSubBatches();
+                        }}
+                    />
+                )
+            }
 
-        </div>
+        </div >
     )
 }

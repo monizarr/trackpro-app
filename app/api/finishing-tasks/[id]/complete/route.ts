@@ -36,16 +36,9 @@ export async function PATCH(
     const body = await request.json();
 
     // Reject tracking with detail types:
-    // - rejectKotor: Kotor - akan di-reproduksi dengan dicuci di gudang
-    // - rejectSobek: Sobek - masuk Bad Stock (BS)
-    // - rejectRusakJahit: Rusak jahit - masuk Bad Stock (BS)
-    const {
-      piecesCompleted,
-      rejectKotor,
-      rejectSobek,
-      rejectRusakJahit,
-      notes,
-    } = body;
+    // - rejectBS: BS (Bad Stock) - barang kotor, bisa di-reproduksi dengan dicuci di gudang
+    // - rejectBSPermanent: BS Permanen - sobek/rusak jahit, tidak bisa diperbaiki
+    const { piecesCompleted, rejectBS, rejectBSPermanent, notes } = body;
 
     // Check if task exists and belongs to this user
     const task = await prisma.finishingTask.findUnique({
@@ -70,8 +63,7 @@ export async function PATCH(
       );
     }
 
-    const totalReject =
-      (rejectKotor || 0) + (rejectSobek || 0) + (rejectRusakJahit || 0);
+    const totalReject = (rejectBS || 0) + (rejectBSPermanent || 0);
     const totalCompleted = (piecesCompleted || 0) + totalReject;
 
     // Update task to completed with detailed reject tracking
@@ -80,9 +72,8 @@ export async function PATCH(
       data: {
         status: "COMPLETED",
         piecesCompleted: totalCompleted,
-        rejectKotor: rejectKotor || 0,
-        rejectSobek: rejectSobek || 0,
-        rejectRusakJahit: rejectRusakJahit || 0,
+        rejectBS: rejectBS || 0,
+        rejectBSPermanent: rejectBSPermanent || 0,
         notes,
         completedAt: new Date(),
       },
@@ -101,7 +92,7 @@ export async function PATCH(
       data: {
         batchId: task.batchId,
         event: "FINISHING_COMPLETED",
-        details: `Finishing selesai. Good: ${piecesCompleted}, Kotor: ${rejectKotor || 0}, Sobek: ${rejectSobek || 0}, Rusak Jahit: ${rejectRusakJahit || 0}${notes ? `. Catatan: ${notes}` : ""}`,
+        details: `Finishing selesai. Good: ${piecesCompleted}, BS: ${rejectBS || 0}, BS Permanen: ${rejectBSPermanent || 0}${notes ? `. Catatan: ${notes}` : ""}`,
       },
     });
 
@@ -117,7 +108,7 @@ export async function PATCH(
           userId: produksiUser.id,
           type: "TASK_COMPLETED",
           title: "Finishing Task Selesai",
-          message: `Task finishing telah selesai. Good: ${piecesCompleted}, Reject: ${totalReject} (Kotor: ${rejectKotor || 0}, Sobek: ${rejectSobek || 0}, Rusak Jahit: ${rejectRusakJahit || 0})`,
+          message: `Task finishing telah selesai. Good: ${piecesCompleted}, Reject: ${totalReject} (BS: ${rejectBS || 0}, BS Permanen: ${rejectBSPermanent || 0})`,
           isRead: false,
         },
       });

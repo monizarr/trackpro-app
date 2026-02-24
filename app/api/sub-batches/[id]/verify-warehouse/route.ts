@@ -91,8 +91,7 @@ export async function POST(
       }
 
       // Create reject goods if any (categorized by type)
-      const totalReject =
-        subBatch.rejectKotor + subBatch.rejectSobek + subBatch.rejectRusakJahit;
+      const totalReject = subBatch.rejectBS + subBatch.rejectBSPermanent;
       let rejectGood = null;
       if (totalReject > 0) {
         rejectGood = await tx.finishedGood.create({
@@ -103,7 +102,7 @@ export async function POST(
             type: "REJECT",
             quantity: totalReject,
             location: goodsLocation,
-            notes: `Sub-batch: ${subBatch.subBatchSku}. Kotor: ${subBatch.rejectKotor}, Sobek: ${subBatch.rejectSobek}, Rusak Jahit: ${subBatch.rejectRusakJahit}`,
+            notes: `Sub-batch: ${subBatch.subBatchSku}. BS: ${subBatch.rejectBS}, BS Permanen: ${subBatch.rejectBSPermanent}`,
             verifiedById: session.user.id,
             verifiedAt: new Date(),
           },
@@ -115,7 +114,7 @@ export async function POST(
         data: {
           subBatchId,
           event: "WAREHOUSE_VERIFIED",
-          details: `Diverifikasi gudang oleh ${session.user.name}. Good: ${subBatch.finishingGoodOutput}, Reject: ${totalReject} (Kotor: ${subBatch.rejectKotor}, Sobek: ${subBatch.rejectSobek}, Rusak Jahit: ${subBatch.rejectRusakJahit}). Lokasi: ${goodsLocation}`,
+          details: `Diverifikasi gudang oleh ${session.user.name}. Good: ${subBatch.finishingGoodOutput}, Reject: ${totalReject} (BS: ${subBatch.rejectBS}, BS Permanen: ${subBatch.rejectBSPermanent}). Lokasi: ${goodsLocation}`,
         },
       });
 
@@ -139,8 +138,7 @@ export async function POST(
           0,
         );
         const totalRejectAll = allSubBatches.reduce(
-          (sum, sb) =>
-            sum + sb.rejectKotor + sb.rejectSobek + sb.rejectRusakJahit,
+          (sum, sb) => sum + sb.rejectBS + sb.rejectBSPermanent,
           0,
         );
 

@@ -69,9 +69,8 @@ export async function POST(
         for (const item of subBatch.items) {
           totalFinishingInput +=
             (item.goodQuantity || 0) +
-            (item.rejectKotor || 0) +
-            (item.rejectSobek || 0) +
-            (item.rejectRusakJahit || 0);
+            (item.rejectBS || 0) +
+            (item.rejectBSPermanent || 0);
         }
       }
     }
@@ -104,7 +103,7 @@ export async function POST(
       0,
     );
     const totalRejectPieces = batch.subBatches.reduce(
-      (sum, sb) => sum + sb.rejectKotor + sb.rejectSobek + sb.rejectRusakJahit,
+      (sum, sb) => sum + sb.rejectBS + sb.rejectBSPermanent,
       0,
     );
 

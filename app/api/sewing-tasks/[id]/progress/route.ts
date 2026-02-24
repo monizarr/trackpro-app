@@ -153,9 +153,8 @@ export async function PATCH(
             productSize: r.productSize,
             color: r.color,
             goodQuantity: r.actualPieces || 0,
-            rejectKotor: 0,
-            rejectSobek: 0,
-            rejectRusakJahit: 0,
+            rejectBS: 0,
+            rejectBSPermanent: 0,
           }),
         );
 
@@ -167,9 +166,8 @@ export async function PATCH(
           source: "SEWING",
           sewingTaskId: task.id,
           finishingGoodOutput: thisSubmissionTotal,
-          rejectKotor: 0,
-          rejectSobek: 0,
-          rejectRusakJahit: 0,
+          rejectBS: 0,
+          rejectBSPermanent: 0,
           status: "CREATED",
           notes: notes || null,
           items: {

@@ -44,9 +44,8 @@ export async function GET(
                 productSize: true,
                 color: true,
                 goodQuantity: true, // Updated field name from piecesAssigned
-                rejectKotor: true,
-                rejectSobek: true,
-                rejectRusakJahit: true,
+                rejectBS: true,
+                rejectBSPermanent: true,
               },
             },
           },

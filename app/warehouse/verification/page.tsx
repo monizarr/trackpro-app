@@ -25,9 +25,8 @@ interface SubBatchItem {
     productSize: string
     color: string
     goodQuantity: number
-    rejectKotor: number
-    rejectSobek: number
-    rejectRusakJahit: number
+    rejectBS: number
+    rejectBSPermanent: number
 }
 
 interface SubBatch {
@@ -35,9 +34,8 @@ interface SubBatch {
     subBatchSku: string
     status: string
     finishingGoodOutput: number
-    rejectKotor: number
-    rejectSobek: number
-    rejectRusakJahit: number
+    rejectBS: number
+    rejectBSPermanent: number
     submittedToWarehouseAt: Date | null
     batch: {
         id: string
@@ -143,7 +141,7 @@ export default function WarehouseVerificationPage() {
     console.log("Grouped by batch:", groupedByBatch)
 
     const totalPieces = subBatches.reduce((sum, sb) => sum + sb.finishingGoodOutput, 0)
-    const totalReject = subBatches.reduce((sum, sb) => sum + sb.rejectKotor + sb.rejectSobek + sb.rejectRusakJahit, 0)
+    const totalReject = subBatches.reduce((sum, sb) => sum + sb.rejectBS + sb.rejectBSPermanent, 0)
 
     if (loading) {
         return (
@@ -287,22 +285,18 @@ export default function WarehouseVerificationPage() {
                                             </div>
 
                                             {/* Items breakdown */}
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
                                                 <div className="bg-green-50 dark:bg-green-950 p-2 rounded">
                                                     <p className="text-muted-foreground text-xs">Barang Jadi</p>
                                                     <p className="font-medium text-green-600">{subBatch.finishingGoodOutput} pcs</p>
                                                 </div>
                                                 <div className="bg-yellow-50 dark:bg-yellow-950 p-2 rounded">
-                                                    <p className="text-muted-foreground text-xs">Reject Kotor</p>
-                                                    <p className="font-medium text-yellow-600">{subBatch.rejectKotor} pcs</p>
+                                                    <p className="text-muted-foreground text-xs">BS (Kotor)</p>
+                                                    <p className="font-medium text-yellow-600">{subBatch.rejectBS} pcs</p>
                                                 </div>
                                                 <div className="bg-red-50 dark:bg-red-950 p-2 rounded">
-                                                    <p className="text-muted-foreground text-xs">Reject Sobek</p>
-                                                    <p className="font-medium text-red-600">{subBatch.rejectSobek} pcs</p>
-                                                </div>
-                                                <div className="bg-red-50 dark:bg-red-950 p-2 rounded">
-                                                    <p className="text-muted-foreground text-xs">Reject Rusak Jahit</p>
-                                                    <p className="font-medium text-red-600">{subBatch.rejectRusakJahit} pcs</p>
+                                                    <p className="text-muted-foreground text-xs">BS Permanen</p>
+                                                    <p className="font-medium text-red-600">{subBatch.rejectBSPermanent} pcs</p>
                                                 </div>
                                             </div>
 
@@ -367,7 +361,7 @@ export default function WarehouseVerificationPage() {
                                 <div className="bg-red-50 dark:bg-red-950 p-4 rounded-lg text-center">
                                     <p className="text-sm text-muted-foreground">Barang Gagal</p>
                                     <p className="text-3xl font-bold text-red-600">
-                                        {selectedSubBatch.rejectKotor + selectedSubBatch.rejectSobek + selectedSubBatch.rejectRusakJahit}
+                                        {selectedSubBatch.rejectBS + selectedSubBatch.rejectBSPermanent}
                                     </p>
                                     <p className="text-xs text-muted-foreground">pcs</p>
                                 </div>

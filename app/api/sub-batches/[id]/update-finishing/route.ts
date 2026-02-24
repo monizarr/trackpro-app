@@ -5,9 +5,8 @@ import { requireRole } from "@/lib/auth-helpers";
 interface FinishingResultItem {
   itemId: string;
   goodQuantity: number;
-  rejectKotor: number;
-  rejectSobek: number;
-  rejectRusakJahit: number;
+  rejectBS: number;
+  rejectBSPermanent: number;
 }
 
 // PATCH update finishing results for sub-batch
@@ -52,9 +51,8 @@ export async function PATCH(
     // Update sub-batch items and aggregated totals
     const result = await prisma.$transaction(async (tx) => {
       let totalGood = 0;
-      let totalKotor = 0;
-      let totalSobek = 0;
-      let totalRusakJahit = 0;
+      let totalBS = 0;
+      let totalBSPermanent = 0;
 
       // Update each item
       for (const item of items as FinishingResultItem[]) {
@@ -62,16 +60,14 @@ export async function PATCH(
           where: { id: item.itemId },
           data: {
             goodQuantity: item.goodQuantity,
-            rejectKotor: item.rejectKotor,
-            rejectSobek: item.rejectSobek,
-            rejectRusakJahit: item.rejectRusakJahit,
+            rejectBS: item.rejectBS,
+            rejectBSPermanent: item.rejectBSPermanent,
           },
         });
 
         totalGood += item.goodQuantity;
-        totalKotor += item.rejectKotor;
-        totalSobek += item.rejectSobek;
-        totalRusakJahit += item.rejectRusakJahit;
+        totalBS += item.rejectBS;
+        totalBSPermanent += item.rejectBSPermanent;
       }
 
       // Update sub-batch aggregated totals
@@ -79,9 +75,8 @@ export async function PATCH(
         where: { id: subBatchId },
         data: {
           finishingGoodOutput: totalGood,
-          rejectKotor: totalKotor,
-          rejectSobek: totalSobek,
-          rejectRusakJahit: totalRusakJahit,
+          rejectBS: totalBS,
+          rejectBSPermanent: totalBSPermanent,
           notes: notes || subBatch.notes,
         },
         include: { items: true },

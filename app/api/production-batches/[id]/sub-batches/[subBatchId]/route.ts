@@ -138,18 +138,16 @@ async function handleSubmitToWarehouse(
     subBatchSku: string;
     status: string;
     finishingGoodOutput: number;
-    rejectKotor: number;
-    rejectSobek: number;
-    rejectRusakJahit: number;
+    rejectBS: number;
+    rejectBSPermanent: number;
     batch: { id: string; batchSku: string; productId: string; status: string };
     items: Array<{
       id: string;
       productSize: string;
       color: string;
       goodQuantity: number;
-      rejectKotor: number;
-      rejectSobek: number;
-      rejectRusakJahit: number;
+      rejectBS: number;
+      rejectBSPermanent: number;
     }>;
   },
   session: SessionUser,
@@ -174,7 +172,7 @@ async function handleSubmitToWarehouse(
         timeline: {
           create: {
             event: "SUBMITTED_TO_WAREHOUSE",
-            details: `Diserahkan ke gudang oleh ${session.user.name}. Good: ${subBatch.finishingGoodOutput}, Kotor: ${subBatch.rejectKotor}, Sobek: ${subBatch.rejectSobek}, Rusak Jahit: ${subBatch.rejectRusakJahit}`,
+            details: `Diserahkan ke gudang oleh ${session.user.name}. Good: ${subBatch.finishingGoodOutput}, BS: ${subBatch.rejectBS}, BS Permanen: ${subBatch.rejectBSPermanent}`,
           },
         },
       },
@@ -203,8 +201,8 @@ async function handleSubmitToWarehouse(
  * Action: VERIFY_WAREHOUSE
  * Ka. Gudang memverifikasi barang yang masuk
  * - Barang jadi (good) -> masuk FinishedGood sebagai FINISHED
- * - Barang kotor -> masuk FinishedGood sebagai REJECT dengan notes "KOTOR"
- * - Barang sobek/rusak jahit -> masuk Bad Stock
+ * - BS (kotor, bisa dicuci) -> masuk FinishedGood sebagai REJECT dengan notes "BS"
+ * - BS Permanen (sobek/rusak jahit) -> masuk Bad Stock
  */
 async function handleVerifyWarehouse(
   subBatch: {
@@ -213,18 +211,16 @@ async function handleVerifyWarehouse(
     subBatchSku: string;
     status: string;
     finishingGoodOutput: number;
-    rejectKotor: number;
-    rejectSobek: number;
-    rejectRusakJahit: number;
+    rejectBS: number;
+    rejectBSPermanent: number;
     batch: { id: string; batchSku: string; productId: string; status: string };
     items: Array<{
       id: string;
       productSize: string;
       color: string;
       goodQuantity: number;
-      rejectKotor: number;
-      rejectSobek: number;
-      rejectRusakJahit: number;
+      rejectBS: number;
+      rejectBSPermanent: number;
     }>;
   },
   session: SessionUser,
@@ -271,49 +267,33 @@ async function handleVerifyWarehouse(
         });
       }
 
-      // Kotor items -> REJECT type with notes (akan dicuci untuk re-produksi)
-      if (item.rejectKotor > 0) {
+      // BS items -> REJECT type with notes (bisa dicuci untuk re-produksi)
+      if (item.rejectBS > 0) {
         await tx.finishedGood.create({
           data: {
             batchId: subBatch.batchId,
             productId: subBatch.batch.productId,
             subBatchId: subBatch.id,
             type: "REJECT",
-            quantity: item.rejectKotor,
+            quantity: item.rejectBS,
             location: "AREA_CUCI",
-            notes: `KOTOR - ${subBatch.subBatchSku} - ${item.productSize} ${item.color} - Perlu dicuci untuk re-produksi`,
+            notes: `BS - ${subBatch.subBatchSku} - ${item.productSize} ${item.color} - Perlu dicuci untuk re-produksi`,
             verifiedById: session.user.id,
           },
         });
       }
 
-      // Sobek items -> REJECT type (Bad Stock)
-      if (item.rejectSobek > 0) {
+      // BS Permanen items -> REJECT type (Bad Stock)
+      if (item.rejectBSPermanent > 0) {
         await tx.finishedGood.create({
           data: {
             batchId: subBatch.batchId,
             productId: subBatch.batch.productId,
             subBatchId: subBatch.id,
             type: "REJECT",
-            quantity: item.rejectSobek,
+            quantity: item.rejectBSPermanent,
             location: "BAD_STOCK",
-            notes: `SOBEK - ${subBatch.subBatchSku} - ${item.productSize} ${item.color} - Bad Stock`,
-            verifiedById: session.user.id,
-          },
-        });
-      }
-
-      // Rusak jahit items -> REJECT type (Bad Stock)
-      if (item.rejectRusakJahit > 0) {
-        await tx.finishedGood.create({
-          data: {
-            batchId: subBatch.batchId,
-            productId: subBatch.batch.productId,
-            subBatchId: subBatch.id,
-            type: "REJECT",
-            quantity: item.rejectRusakJahit,
-            location: "BAD_STOCK",
-            notes: `RUSAK_JAHIT - ${subBatch.subBatchSku} - ${item.productSize} ${item.color} - Bad Stock`,
+            notes: `BS_PERMANEN - ${subBatch.subBatchSku} - ${item.productSize} ${item.color} - Bad Stock Permanen`,
             verifiedById: session.user.id,
           },
         });
@@ -325,7 +305,7 @@ async function handleVerifyWarehouse(
       data: {
         batchId: subBatch.batchId,
         event: "SUB_BATCH_WAREHOUSE_VERIFIED",
-        details: `${subBatch.subBatchSku} diverifikasi gudang oleh ${session.user.name}. Good: ${subBatch.finishingGoodOutput}, Reject: ${subBatch.rejectKotor + subBatch.rejectSobek + subBatch.rejectRusakJahit}`,
+        details: `${subBatch.subBatchSku} diverifikasi gudang oleh ${session.user.name}. Good: ${subBatch.finishingGoodOutput}, Reject: ${subBatch.rejectBS + subBatch.rejectBSPermanent}`,
       },
     });
 

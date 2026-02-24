@@ -180,18 +180,16 @@ interface SubBatchItem {
     productSize: string
     color: string
     goodQuantity: number
-    rejectKotor: number
-    rejectSobek: number
-    rejectRusakJahit: number
+    rejectBS: number
+    rejectBSPermanent: number
 }
 
 interface SubBatch {
     id: string
     subBatchSku: string
     finishingGoodOutput: number
-    rejectKotor: number
-    rejectSobek: number
-    rejectRusakJahit: number
+    rejectBS: number
+    rejectBSPermanent: number
     status: string
     createdAt: string
     warehouseVerifiedBy?: {
@@ -2650,22 +2648,18 @@ export default function BatchManagementPage() {
                                                                                                     {getSubBatchStatusBadge(subBatch.status)}
                                                                                                 </div>
 
-                                                                                                <div className="grid grid-cols-4 gap-2 text-sm">
+                                                                                                <div className="grid grid-cols-3 gap-2 text-sm">
                                                                                                     <div>
                                                                                                         <p className="text-xs text-muted-foreground">Good</p>
                                                                                                         <p className="font-semibold text-green-600">{subBatch.finishingGoodOutput} pcs</p>
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <p className="text-xs text-muted-foreground">Kotor</p>
-                                                                                                        <p className="font-semibold text-yellow-600">{subBatch.rejectKotor} pcs</p>
+                                                                                                        <p className="text-xs text-muted-foreground">BS (Kotor)</p>
+                                                                                                        <p className="font-semibold text-yellow-600">{subBatch.rejectBS} pcs</p>
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <p className="text-xs text-muted-foreground">Sobek</p>
-                                                                                                        <p className="font-semibold text-orange-600">{subBatch.rejectSobek} pcs</p>
-                                                                                                    </div>
-                                                                                                    <div>
-                                                                                                        <p className="text-xs text-muted-foreground">Rusak Jahit</p>
-                                                                                                        <p className="font-semibold text-red-600">{subBatch.rejectRusakJahit} pcs</p>
+                                                                                                        <p className="text-xs text-muted-foreground">BS Permanen</p>
+                                                                                                        <p className="font-semibold text-red-600">{subBatch.rejectBSPermanent} pcs</p>
                                                                                                     </div>
                                                                                                 </div>
 
@@ -2913,16 +2907,12 @@ export default function BatchManagementPage() {
                                                                                             <p className="font-semibold text-green-600">{subBatch.finishingGoodOutput}</p>
                                                                                         </div>
                                                                                         <div>
-                                                                                            <p className="text-muted-foreground">Kotor</p>
-                                                                                            <p className="font-semibold text-yellow-600">{subBatch.rejectKotor}</p>
+                                                                                            <p className="text-muted-foreground">BS (Kotor)</p>
+                                                                                            <p className="font-semibold text-yellow-600">{subBatch.rejectBS}</p>
                                                                                         </div>
                                                                                         <div>
-                                                                                            <p className="text-muted-foreground">Sobek</p>
-                                                                                            <p className="font-semibold text-orange-600">{subBatch.rejectSobek}</p>
-                                                                                        </div>
-                                                                                        <div>
-                                                                                            <p className="text-muted-foreground">Rusak Jahit</p>
-                                                                                            <p className="font-semibold text-red-600">{subBatch.rejectRusakJahit}</p>
+                                                                                            <p className="text-muted-foreground">BS Permanen</p>
+                                                                                            <p className="font-semibold text-red-600">{subBatch.rejectBSPermanent}</p>
                                                                                         </div>
                                                                                     </div>
 

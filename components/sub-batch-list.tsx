@@ -23,9 +23,8 @@ interface SubBatchItem {
     productSize: string
     color: string
     goodQuantity: number
-    rejectKotor: number
-    rejectSobek: number
-    rejectRusakJahit: number
+    rejectBS: number
+    rejectBSPermanent: number
 }
 
 // Sub-batch untuk workflow baru (dibuat di tahap finishing)
@@ -34,9 +33,8 @@ interface SubBatch {
     subBatchSku: string
     status: string // CREATED | SUBMITTED_TO_WAREHOUSE | WAREHOUSE_VERIFIED | COMPLETED
     finishingGoodOutput: number
-    rejectKotor: number
-    rejectSobek: number
-    rejectRusakJahit: number
+    rejectBS: number
+    rejectBSPermanent: number
     notes?: string
     warehouseVerifiedBy?: { id: string; name: string; username: string }
     items: SubBatchItem[]
@@ -136,7 +134,7 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: Su
     }
 
     const getTotalReject = (subBatch: SubBatch) => {
-        return subBatch.rejectKotor + subBatch.rejectSobek + subBatch.rejectRusakJahit
+        return subBatch.rejectBS + subBatch.rejectBSPermanent
     }
 
     const getGrandTotal = (subBatch: SubBatch) => {
@@ -164,12 +162,11 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: Su
         (acc, sb) => ({
             total: acc.total + 1,
             goodOutput: acc.goodOutput + sb.finishingGoodOutput,
-            rejectKotor: acc.rejectKotor + sb.rejectKotor,
-            rejectSobek: acc.rejectSobek + sb.rejectSobek,
-            rejectRusakJahit: acc.rejectRusakJahit + sb.rejectRusakJahit,
+            rejectBS: acc.rejectBS + sb.rejectBS,
+            rejectBSPermanent: acc.rejectBSPermanent + sb.rejectBSPermanent,
             verified: acc.verified + (sb.status === "WAREHOUSE_VERIFIED" || sb.status === "COMPLETED" ? 1 : 0),
         }),
-        { total: 0, goodOutput: 0, rejectKotor: 0, rejectSobek: 0, rejectRusakJahit: 0, verified: 0 }
+        { total: 0, goodOutput: 0, rejectBS: 0, rejectBSPermanent: 0, verified: 0 }
     )
 
     return (
@@ -183,26 +180,22 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: Su
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="py-2">
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                         <div>
                             <p className="text-2xl font-bold text-green-600">{summary.goodOutput}</p>
                             <p className="text-xs text-muted-foreground">Barang Jadi</p>
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-yellow-600">{summary.rejectKotor}</p>
-                            <p className="text-xs text-muted-foreground">Kotor</p>
+                            <p className="text-2xl font-bold text-yellow-600">{summary.rejectBS}</p>
+                            <p className="text-xs text-muted-foreground">BS (Kotor)</p>
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-red-600">{summary.rejectSobek}</p>
-                            <p className="text-xs text-muted-foreground">Sobek</p>
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-red-600">{summary.rejectRusakJahit}</p>
-                            <p className="text-xs text-muted-foreground">Rusak Jahit</p>
+                            <p className="text-2xl font-bold text-red-600">{summary.rejectBSPermanent}</p>
+                            <p className="text-xs text-muted-foreground">BS Permanen</p>
                         </div>
                         <div>
                             <p className="text-2xl font-bold">
-                                {summary.goodOutput + summary.rejectKotor + summary.rejectSobek + summary.rejectRusakJahit}
+                                {summary.goodOutput + summary.rejectBS + summary.rejectBSPermanent}
                             </p>
                             <p className="text-xs text-muted-foreground">Total</p>
                         </div>
@@ -260,9 +253,8 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: Su
                                             <TableHead>Ukuran</TableHead>
                                             <TableHead>Warna</TableHead>
                                             <TableHead className="text-right text-green-600">Good</TableHead>
-                                            <TableHead className="text-right text-yellow-600">Kotor</TableHead>
-                                            <TableHead className="text-right text-red-600">Sobek</TableHead>
-                                            <TableHead className="text-right text-red-600">Rusak Jahit</TableHead>
+                                            <TableHead className="text-right text-yellow-600">BS (Kotor)</TableHead>
+                                            <TableHead className="text-right text-red-600">BS Permanen</TableHead>
                                             <TableHead className="text-right">Total</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -272,20 +264,18 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: Su
                                                 <TableCell>{item.productSize}</TableCell>
                                                 <TableCell>{item.color}</TableCell>
                                                 <TableCell className="text-right text-green-600">{item.goodQuantity}</TableCell>
-                                                <TableCell className="text-right text-yellow-600">{item.rejectKotor || "-"}</TableCell>
-                                                <TableCell className="text-right text-red-600">{item.rejectSobek || "-"}</TableCell>
-                                                <TableCell className="text-right text-red-600">{item.rejectRusakJahit || "-"}</TableCell>
+                                                <TableCell className="text-right text-yellow-600">{item.rejectBS || "-"}</TableCell>
+                                                <TableCell className="text-right text-red-600">{item.rejectBSPermanent || "-"}</TableCell>
                                                 <TableCell className="text-right font-semibold">
-                                                    {item.goodQuantity + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0)}
+                                                    {item.goodQuantity + (item.rejectBS || 0) + (item.rejectBSPermanent || 0)}
                                                 </TableCell>
                                             </TableRow>
                                         ))}
                                         <TableRow className="font-semibold bg-muted">
                                             <TableCell colSpan={2}>Total</TableCell>
                                             <TableCell className="text-right text-green-600">{subBatch.finishingGoodOutput}</TableCell>
-                                            <TableCell className="text-right text-yellow-600">{subBatch.rejectKotor || "-"}</TableCell>
-                                            <TableCell className="text-right text-red-600">{subBatch.rejectSobek || "-"}</TableCell>
-                                            <TableCell className="text-right text-red-600">{subBatch.rejectRusakJahit || "-"}</TableCell>
+                                            <TableCell className="text-right text-yellow-600">{subBatch.rejectBS || "-"}</TableCell>
+                                            <TableCell className="text-right text-red-600">{subBatch.rejectBSPermanent || "-"}</TableCell>
                                             <TableCell className="text-right">{getGrandTotal(subBatch)}</TableCell>
                                         </TableRow>
                                     </TableBody>
@@ -352,14 +342,11 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: Su
                                             <strong>Penanganan Reject:</strong>
                                         </p>
                                         <ul className="text-sm text-amber-700 mt-1 space-y-1">
-                                            {subBatch.rejectKotor > 0 && (
-                                                <li>• {subBatch.rejectKotor} pcs kotor → Re-produksi dengan dicuci di gudang</li>
+                                            {subBatch.rejectBS > 0 && (
+                                                <li>• {subBatch.rejectBS} pcs BS (kotor) → Re-produksi dengan dicuci di gudang</li>
                                             )}
-                                            {subBatch.rejectSobek > 0 && (
-                                                <li>• {subBatch.rejectSobek} pcs sobek → Simpan di Bad Stock (BS)</li>
-                                            )}
-                                            {subBatch.rejectRusakJahit > 0 && (
-                                                <li>• {subBatch.rejectRusakJahit} pcs rusak jahit → Simpan di Bad Stock (BS)</li>
+                                            {subBatch.rejectBSPermanent > 0 && (
+                                                <li>• {subBatch.rejectBSPermanent} pcs BS Permanen (sobek/rusak jahit) → Simpan di Bad Stock</li>
                                             )}
                                         </ul>
                                     </div>

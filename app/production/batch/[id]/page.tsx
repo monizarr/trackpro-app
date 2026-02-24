@@ -202,9 +202,8 @@ interface ProductionBatch {
         source: string;
         status: string;
         finishingGoodOutput: number;
-        rejectKotor: number;
-        rejectSobek: number;
-        rejectRusakJahit: number;
+        rejectBS: number;
+        rejectBSPermanent: number;
         notes?: string | null;
         createdAt: string;
         items: Array<{
@@ -212,9 +211,8 @@ interface ProductionBatch {
             productSize: string;
             color: string;
             goodQuantity: number;
-            rejectKotor: number;
-            rejectSobek: number;
-            rejectRusakJahit: number;
+            rejectBS: number;
+            rejectBSPermanent: number;
         }>;
     }>;
 }
@@ -232,9 +230,8 @@ interface SubBatchItem {
     productSize: string;
     color: string;
     goodQuantity: number;
-    rejectKotor: number;
-    rejectSobek: number;
-    rejectRusakJahit: number;
+    rejectBS: number;
+    rejectBSPermanent: number;
 }
 
 interface SubBatchSummary {
@@ -242,9 +239,8 @@ interface SubBatchSummary {
     subBatchSku: string;
     status: string;
     finishingGoodOutput: number;
-    rejectKotor: number;
-    rejectSobek: number;
-    rejectRusakJahit: number;
+    rejectBS: number;
+    rejectBSPermanent: number;
     notes?: string | null;
     items: SubBatchItem[];
     warehouseVerifiedBy?: { id: string; name: string; username: string } | null;
@@ -1142,7 +1138,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
         let total = 0;
         if (sb.items && Array.isArray(sb.items)) {
             for (const item of sb.items) {
-                total += (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
+                total += (item.rejectBS || 0) + (item.rejectBSPermanent || 0);
             }
         }
         return sum + total;
@@ -1155,7 +1151,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
         if (subBatch && subBatch.items && Array.isArray(subBatch.items)) {
             for (const item of subBatch.items) {
                 const key = `${item.productSize}|${item.color}`;
-                const total = (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
+                const total = (item.goodQuantity || 0) + (item.rejectBS || 0) + (item.rejectBSPermanent || 0);
                 submittedItems.set(key, (submittedItems.get(key) || 0) + total);
             }
         }
@@ -1188,7 +1184,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
     for (const subBatch of subBatches) {
         if (subBatch && subBatch.items && Array.isArray(subBatch.items)) {
             for (const item of subBatch.items) {
-                totalFinishingInput += (item.goodQuantity || 0) + (item.rejectKotor || 0) + (item.rejectSobek || 0) + (item.rejectRusakJahit || 0);
+                totalFinishingInput += (item.goodQuantity || 0) + (item.rejectBS || 0) + (item.rejectBSPermanent || 0);
             }
         }
     }
@@ -1432,26 +1428,22 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="py-2">
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center pb-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center pb-4">
                         <div>
                             <p className="text-2xl font-bold text-green-600">{finishingOutput}</p>
                             <p className="text-xs text-muted-foreground">Barang Jadi</p>
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-yellow-600">{subBatches.reduce((sum, sb) => sum + sb.rejectKotor, 0)}</p>
-                            <p className="text-xs text-muted-foreground">Kotor</p>
+                            <p className="text-2xl font-bold text-yellow-600">{subBatches.reduce((sum, sb) => sum + sb.rejectBS, 0)}</p>
+                            <p className="text-xs text-muted-foreground">BS (Kotor)</p>
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-red-600">{subBatches.reduce((sum, sb) => sum + sb.rejectSobek, 0)}</p>
-                            <p className="text-xs text-muted-foreground">Sobek</p>
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-red-600">{subBatches.reduce((sum, sb) => sum + sb.rejectRusakJahit, 0)}</p>
-                            <p className="text-xs text-muted-foreground">Rusak Jahit</p>
+                            <p className="text-2xl font-bold text-red-600">{subBatches.reduce((sum, sb) => sum + sb.rejectBSPermanent, 0)}</p>
+                            <p className="text-xs text-muted-foreground">BS Permanen</p>
                         </div>
                         <div>
                             <p className="text-2xl font-bold">
-                                {subBatches.reduce((sum, sb) => sum + sb.rejectKotor + sb.rejectSobek + sb.rejectRusakJahit, 0) + finishingOutput}
+                                {subBatches.reduce((sum, sb) => sum + sb.rejectBS + sb.rejectBSPermanent, 0) + finishingOutput}
                             </p>
                             <p className="text-xs text-muted-foreground">Total</p>
                         </div>
@@ -2126,18 +2118,14 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                                 <Separator />
                                                 <div className="space-y-2">
                                                     <span className="text-sm font-medium text-destructive">Reject</span>
-                                                    <div className="grid grid-cols-3 gap-2 text-sm">
+                                                    <div className="grid grid-cols-2 gap-2 text-sm">
                                                         <div className="bg-orange-50 dark:bg-orange-950/20 p-2 rounded text-center">
-                                                            <p className="text-xs text-muted-foreground">Kotor</p>
-                                                            <p className="font-medium">{subBatches.reduce((sum, sb) => sum + sb.rejectKotor, 0)}</p>
+                                                            <p className="text-xs text-muted-foreground">BS (Kotor)</p>
+                                                            <p className="font-medium">{subBatches.reduce((sum, sb) => sum + sb.rejectBS, 0)}</p>
                                                         </div>
                                                         <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded text-center">
-                                                            <p className="text-xs text-muted-foreground">Sobek</p>
-                                                            <p className="font-medium">{subBatches.reduce((sum, sb) => sum + sb.rejectSobek, 0)}</p>
-                                                        </div>
-                                                        <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded text-center">
-                                                            <p className="text-xs text-muted-foreground">Rusak Jahit</p>
-                                                            <p className="font-medium">{subBatches.reduce((sum, sb) => sum + sb.rejectRusakJahit, 0)}</p>
+                                                            <p className="text-xs text-muted-foreground">BS Permanen</p>
+                                                            <p className="font-medium">{subBatches.reduce((sum, sb) => sum + sb.rejectBSPermanent, 0)}</p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -3360,22 +3348,18 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                     <div>
                                         <Label className="text-muted-foreground text-xs">Total Reject</Label>
                                         <p className="font-medium">
-                                            {verifyingSubBatch.rejectKotor + verifyingSubBatch.rejectSobek + verifyingSubBatch.rejectRusakJahit} pcs
+                                            {verifyingSubBatch.rejectBS + verifyingSubBatch.rejectBSPermanent} pcs
                                         </p>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2 text-sm">
+                                <div className="grid grid-cols-2 gap-2 text-sm">
                                     <div className="bg-orange-50 p-2 rounded">
-                                        <p className="text-xs text-muted-foreground">Kotor</p>
-                                        <p className="font-medium">{verifyingSubBatch.rejectKotor}</p>
+                                        <p className="text-xs text-muted-foreground">BS (Kotor)</p>
+                                        <p className="font-medium">{verifyingSubBatch.rejectBS}</p>
                                     </div>
                                     <div className="bg-red-50 p-2 rounded">
-                                        <p className="text-xs text-muted-foreground">Sobek</p>
-                                        <p className="font-medium">{verifyingSubBatch.rejectSobek}</p>
-                                    </div>
-                                    <div className="bg-red-50 p-2 rounded">
-                                        <p className="text-xs text-muted-foreground">Rusak Jahit</p>
-                                        <p className="font-medium">{verifyingSubBatch.rejectRusakJahit}</p>
+                                        <p className="text-xs text-muted-foreground">BS Permanen</p>
+                                        <p className="font-medium">{verifyingSubBatch.rejectBSPermanent}</p>
                                     </div>
                                 </div>
                             </div>
@@ -3529,7 +3513,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                 <AlertCircle className="h-4 w-4" />
                                 <AlertDescription>
                                     Masih ada {Math.max(0, totalSewingOutput - totalFinishingInput)} pcs yang belum diproses di finishing.
-                                    Batch baru dapat diselesaikan jika jumlah pcs hasil jahit = barang jadi + kotor + sobek + rusak jahit.
+                                    Batch baru dapat diselesaikan jika jumlah pcs hasil jahit = barang jadi + BS + BS Permanen.
                                 </AlertDescription>
                             </Alert>
                         )}

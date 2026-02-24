@@ -65,7 +65,7 @@ export async function PATCH(
       data: {
         subBatchId,
         event: "FINISHING_COMPLETED",
-        details: `Finishing selesai. Good: ${result.finishingGoodOutput}, Kotor: ${result.rejectKotor}, Sobek: ${result.rejectSobek}, Rusak Jahit: ${result.rejectRusakJahit}`,
+        details: `Finishing selesai. Good: ${result.finishingGoodOutput}, BS: ${result.rejectBS}, BS Permanen: ${result.rejectBSPermanent}`,
       },
     });
 

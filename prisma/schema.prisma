@@ -467,9 +467,8 @@ model FinishingTask {
   piecesCompleted Int        @default(0) // Total hasil finishing (good + reject)
   
   // Reject tracking - baru dicatat di tahap finishing
-  rejectKotor      Int        @default(0) // Kotor - di-reproduksi dengan dicuci
-  rejectSobek      Int        @default(0) // Sobek - masuk Bad Stock
-  rejectRusakJahit Int        @default(0) // Rusak jahit - masuk Bad Stock
+  rejectBS         Int        @default(0) // BS (Bad Stock) - barang kotor, bisa di-reproduksi dengan dicuci
+  rejectBSPermanent Int       @default(0) // BS Permanen - sobek/rusak jahit, tidak bisa diperbaiki
   
   status          TaskStatus @default(PENDING)
   notes           String?
@@ -512,9 +511,8 @@ enum SubBatchSource {
 
 // Jenis reject/defect di finishing
 enum FinishingDefectType {
-  KOTOR // Kotor - akan di-reproduksi dengan dicuci di gudang
-  SOBEK // Sobek - masuk Bad Stock (BS)
-  RUSAK_JAHIT // Rusak jahit - masuk Bad Stock (BS)
+  BS // Bad Stock - barang kotor, bisa di-reproduksi dengan dicuci di gudang
+  BS_PERMANENT // BS Permanen - sobek/rusak jahit, tidak bisa diperbaiki
 }
 
 model SubBatch {
@@ -532,9 +530,8 @@ model SubBatch {
   finishingGoodOutput Int @default(0) // Hasil finishing barang jadi (good pieces)
   
   // Reject tracking - reject baru dicatat di tahap finishing
-  rejectKotor     Int @default(0) // Kotor - di-reproduksi dengan dicuci
-  rejectSobek     Int @default(0) // Sobek - masuk Bad Stock
-  rejectRusakJahit Int @default(0) // Rusak jahit - masuk Bad Stock
+  rejectBS         Int @default(0) // BS (Bad Stock) - barang kotor, bisa di-reproduksi dengan dicuci
+  rejectBSPermanent Int @default(0) // BS Permanen - sobek/rusak jahit, tidak bisa diperbaiki
 
   status SubBatchStatus @default(CREATED)
   notes  String?
@@ -570,9 +567,8 @@ model SubBatchItem {
   
   // Hasil finishing per item
   goodQuantity      Int @default(0) // Barang jadi bagus
-  rejectKotor       Int @default(0) // Kotor - dicuci di gudang
-  rejectSobek       Int @default(0) // Sobek - Bad Stock
-  rejectRusakJahit  Int @default(0) // Rusak jahit - Bad Stock
+  rejectBS          Int @default(0) // BS (Bad Stock) - barang kotor, bisa dicuci di gudang
+  rejectBSPermanent Int @default(0) // BS Permanen - sobek/rusak jahit, tidak bisa diperbaiki
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
