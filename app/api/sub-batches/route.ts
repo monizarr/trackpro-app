@@ -35,6 +35,15 @@ export async function GET(request: Request) {
                 sku: true,
               },
             },
+            finishingTask: {
+              select: {
+                id: true,
+                assignedTo: {
+                  select: { id: true, name: true },
+                },
+                piecesReceived: true,
+              },
+            },
           },
         },
         warehouseVerifiedBy: {

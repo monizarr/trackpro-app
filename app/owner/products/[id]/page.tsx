@@ -1165,28 +1165,10 @@ export default function ProductDetailPage() {
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {/* Product Image */}
-                        {product.images && product.images.length > 0 ? (
-                            <div className="relative w-full aspect-3/4">
-                                <Image
-                                    src={product.images[0]}
-                                    alt={product.name}
-                                    fill
-                                    className="rounded-lg object-cover"
-                                />
-                            </div>
-                        ) : (
-                            <div className="relative w-full aspect-3/4 bg-muted rounded-lg flex items-center justify-center">
-                                <p className="text-muted-foreground">No image</p>
-                            </div>
-                        )}
-
-                        <Separator />
-
                         {/* Product Details */}
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-muted-foreground">Price</span>
+                                <span className="text-sm font-medium text-muted-foreground">Harga Produksi</span>
                                 <span className="text-xl font-bold">{formatPrice(Number(product.price))}</span>
                             </div>
                             <div className="flex justify-between items-center">

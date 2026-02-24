@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { toast } from "@/lib/toast"
 import {
     Dialog,
     DialogContent,
@@ -16,27 +17,27 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { AlertCircle, Package, XCircle, Loader2, CheckCircle, MapPin, User, Shirt } from "lucide-react"
+import { AlertCircle, Package, XCircle, Loader2, CheckCircle, MapPin, User } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface SubBatchItem {
     id: string
     productSize: string
     color: string
-    piecesAssigned: number
-    sewingOutput: number
-    finishingOutput: number
+    goodQuantity: number
+    rejectKotor: number
+    rejectSobek: number
+    rejectRusakJahit: number
 }
 
 interface SubBatch {
     id: string
     subBatchSku: string
     status: string
-    piecesAssigned: number
-    sewingOutput: number
-    sewingReject: number
-    finishingOutput: number
-    finishingReject: number
+    finishingGoodOutput: number
+    rejectKotor: number
+    rejectSobek: number
+    rejectRusakJahit: number
     submittedToWarehouseAt: Date | null
     batch: {
         id: string
@@ -46,9 +47,12 @@ interface SubBatch {
             name: string
             sku: string
         }
+        finishingTask: {
+            id: string
+            assignedTo: { id: string; name: string }
+            piecesReceived: number
+        } | null
     }
-    assignedSewer: { id: string; name: string }
-    assignedFinisher?: { id: string; name: string }
     items: SubBatchItem[]
 }
 
@@ -60,7 +64,6 @@ export default function WarehouseVerificationPage() {
     const [showVerifyDialog, setShowVerifyDialog] = useState(false)
     const [goodsLocation, setGoodsLocation] = useState("")
     const [warehouseNotes, setWarehouseNotes] = useState("")
-    const { toast } = useToast()
 
     const fetchSubBatches = async () => {
         try {
@@ -71,11 +74,7 @@ export default function WarehouseVerificationPage() {
                 setSubBatches(result.data || [])
             }
         } catch (err) {
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: "Gagal memuat data sub-batch: " + err
-            })
+            toast.error("Error", "Gagal memuat data sub-batch")
         } finally {
             setLoading(false)
         }
@@ -83,7 +82,7 @@ export default function WarehouseVerificationPage() {
 
     useEffect(() => {
         fetchSubBatches()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
     }, [])
 
     const openVerifyDialog = (subBatch: SubBatch) => {
@@ -97,11 +96,7 @@ export default function WarehouseVerificationPage() {
         if (!selectedSubBatch) return
 
         if (!goodsLocation.trim()) {
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: "Lokasi penyimpanan harus diisi"
-            })
+            toast.error("Error", "Lokasi penyimpanan harus diisi")
             return
         }
 
@@ -118,10 +113,7 @@ export default function WarehouseVerificationPage() {
 
             if (response.ok) {
                 const result = await response.json()
-                toast({
-                    title: "Berhasil",
-                    description: result.message || `Sub-batch ${selectedSubBatch.subBatchSku} telah diverifikasi`
-                })
+                toast.success("Berhasil", result.message || `Sub-batch ${selectedSubBatch.subBatchSku} telah diverifikasi`)
                 setShowVerifyDialog(false)
                 fetchSubBatches()
             } else {
@@ -129,11 +121,7 @@ export default function WarehouseVerificationPage() {
                 throw new Error(error.error || 'Failed to verify')
             }
         } catch (error) {
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: error instanceof Error ? error.message : "Gagal memverifikasi sub-batch"
-            })
+            toast.error("Error", error instanceof Error ? error.message : "Gagal memverifikasi sub-batch")
         } finally {
             setVerifying(false)
         }
@@ -152,8 +140,10 @@ export default function WarehouseVerificationPage() {
         return acc
     }, {} as Record<string, { batch: SubBatch['batch']; subBatches: SubBatch[] }>)
 
-    const totalPieces = subBatches.reduce((sum, sb) => sum + sb.finishingOutput, 0)
-    const totalReject = subBatches.reduce((sum, sb) => sum + sb.sewingReject + sb.finishingReject, 0)
+    console.log("Grouped by batch:", groupedByBatch)
+
+    const totalPieces = subBatches.reduce((sum, sb) => sum + sb.finishingGoodOutput, 0)
+    const totalReject = subBatches.reduce((sum, sb) => sum + sb.rejectKotor + sb.rejectSobek + sb.rejectRusakJahit, 0)
 
     if (loading) {
         return (
@@ -279,14 +269,10 @@ export default function WarehouseVerificationPage() {
                                                         {subBatch.subBatchSku}
                                                     </p>
                                                     <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                                                        <span className="flex items-center gap-1">
-                                                            <User className="h-3 w-3" />
-                                                            {subBatch.assignedSewer?.name || "-"}
-                                                        </span>
-                                                        {subBatch.assignedFinisher && (
+                                                        {subBatch.batch.finishingTask?.assignedTo && (
                                                             <span className="flex items-center gap-1">
-                                                                <Shirt className="h-3 w-3" />
-                                                                {subBatch.assignedFinisher.name}
+                                                                <User className="h-3 w-3" />
+                                                                {subBatch.batch.finishingTask.assignedTo.name}
                                                             </span>
                                                         )}
                                                     </div>
@@ -302,21 +288,21 @@ export default function WarehouseVerificationPage() {
 
                                             {/* Items breakdown */}
                                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-                                                <div className="bg-muted/50 p-2 rounded">
-                                                    <p className="text-muted-foreground text-xs">Ditugaskan</p>
-                                                    <p className="font-medium">{subBatch.piecesAssigned} pcs</p>
-                                                </div>
                                                 <div className="bg-green-50 dark:bg-green-950 p-2 rounded">
-                                                    <p className="text-muted-foreground text-xs">Output Finishing</p>
-                                                    <p className="font-medium text-green-600">{subBatch.finishingOutput} pcs</p>
+                                                    <p className="text-muted-foreground text-xs">Barang Jadi</p>
+                                                    <p className="font-medium text-green-600">{subBatch.finishingGoodOutput} pcs</p>
+                                                </div>
+                                                <div className="bg-yellow-50 dark:bg-yellow-950 p-2 rounded">
+                                                    <p className="text-muted-foreground text-xs">Reject Kotor</p>
+                                                    <p className="font-medium text-yellow-600">{subBatch.rejectKotor} pcs</p>
                                                 </div>
                                                 <div className="bg-red-50 dark:bg-red-950 p-2 rounded">
-                                                    <p className="text-muted-foreground text-xs">Reject Jahit</p>
-                                                    <p className="font-medium text-red-600">{subBatch.sewingReject} pcs</p>
+                                                    <p className="text-muted-foreground text-xs">Reject Sobek</p>
+                                                    <p className="font-medium text-red-600">{subBatch.rejectSobek} pcs</p>
                                                 </div>
                                                 <div className="bg-red-50 dark:bg-red-950 p-2 rounded">
-                                                    <p className="text-muted-foreground text-xs">Reject Finishing</p>
-                                                    <p className="font-medium text-red-600">{subBatch.finishingReject} pcs</p>
+                                                    <p className="text-muted-foreground text-xs">Reject Rusak Jahit</p>
+                                                    <p className="font-medium text-red-600">{subBatch.rejectRusakJahit} pcs</p>
                                                 </div>
                                             </div>
 
@@ -328,7 +314,7 @@ export default function WarehouseVerificationPage() {
                                                         variant="secondary"
                                                         className="text-xs"
                                                     >
-                                                        {item.productSize} {item.color}: {item.finishingOutput}
+                                                        {item.productSize} {item.color}: {item.goodQuantity} pcs
                                                     </Badge>
                                                 ))}
                                             </div>
@@ -374,14 +360,14 @@ export default function WarehouseVerificationPage() {
                                 <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg text-center">
                                     <p className="text-sm text-muted-foreground">Barang Jadi</p>
                                     <p className="text-3xl font-bold text-green-600">
-                                        {selectedSubBatch.finishingOutput}
+                                        {selectedSubBatch.finishingGoodOutput}
                                     </p>
                                     <p className="text-xs text-muted-foreground">pcs</p>
                                 </div>
                                 <div className="bg-red-50 dark:bg-red-950 p-4 rounded-lg text-center">
                                     <p className="text-sm text-muted-foreground">Barang Gagal</p>
                                     <p className="text-3xl font-bold text-red-600">
-                                        {selectedSubBatch.sewingReject + selectedSubBatch.finishingReject}
+                                        {selectedSubBatch.rejectKotor + selectedSubBatch.rejectSobek + selectedSubBatch.rejectRusakJahit}
                                     </p>
                                     <p className="text-xs text-muted-foreground">pcs</p>
                                 </div>
@@ -393,7 +379,7 @@ export default function WarehouseVerificationPage() {
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     {selectedSubBatch.items.map((item) => (
                                         <Badge key={item.id} variant="outline">
-                                            {item.productSize} {item.color}: {item.finishingOutput} pcs
+                                            {item.productSize} {item.color}: {item.goodQuantity} pcs
                                         </Badge>
                                     ))}
                                 </div>
