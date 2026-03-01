@@ -46,9 +46,10 @@ model User {
   verifiedFinishingTasks  FinishingTask[]       @relation("FinishingTaskVerified")
   confirmedCuttingResults CuttingResult[]       @relation("CuttingResultConfirmed")
   confirmedSewingResults  SewingResult[]        @relation("SewingResultConfirmed")
-  verifiedFinishedGoods   FinishedGood[]
-  notifications           Notification[]
-  auditLogs               AuditLog[]
+  verifiedFinishedGoods       FinishedGood[]
+  finishedGoodTransactions    FinishedGoodTransaction[]    @relation("FGTransactionUser")
+  notifications               Notification[]
+  auditLogs                   AuditLog[]
 
   // Sub-batch relations (warehouse verification only)
   verifiedSubBatchesWarehouse SubBatch[] @relation("SubBatchWarehouseVerifier")
@@ -83,11 +84,12 @@ model Product {
   updatedAt   DateTime      @updatedAt
 
   // Relations
-  createdBy         User                  @relation("ProductCreator", fields: [createdById], references: [id])
-  productionBatches ProductionBatch[]
-  materials         ProductMaterial[]
-  colorVariants     ProductColorVariant[] // Varian warna produk
-  sizeVariants      ProductSizeVariant[]  // Varian ukuran produk
+  createdBy                  User                         @relation("ProductCreator", fields: [createdById], references: [id])
+  productionBatches          ProductionBatch[]
+  materials                  ProductMaterial[]
+  colorVariants              ProductColorVariant[]         // Varian warna produk
+  sizeVariants               ProductSizeVariant[]          // Varian ukuran produk
+  finishedGoodTransactions   FinishedGoodTransaction[]
 
   @@index([sku])
   @@index([status])
@@ -329,7 +331,8 @@ model ProductionBatch {
   subBatches               SubBatch[] // Sub-batches untuk sewing & finishing
   qualityChecks            QualityCheck[]
   timeline                 BatchTimeline[]
-  finishedGoods            FinishedGood[]
+  finishedGoods                 FinishedGood[]
+  finishedGoodTransactions      FinishedGoodTransaction[]
 
   @@index([batchSku])
   @@index([status])
@@ -696,6 +699,42 @@ model FinishedGood {
   @@index([type])
   @@index([verifiedAt])
   @@map("finished_goods")
+}
+
+// ============================================
+// FINISHED GOOD TRANSACTIONS (BARANG JADI MASUK/KELUAR)
+// ============================================
+
+enum FinishedGoodTransactionType {
+  IN         // Barang masuk gudang (dari produksi)
+  OUT        // Barang keluar gudang (distribusi/pengiriman)
+  ADJUSTMENT // Penyesuaian stok
+}
+
+model FinishedGoodTransaction {
+  id          String                       @id @default(cuid())
+  productId   String
+  type        FinishedGoodTransactionType
+  quantity    Int
+  date        DateTime                     @default(now())
+  notes       String?
+  reference   String?                      // Nomor referensi (PO, DO, dll)
+  destination String?                      // Tujuan pengiriman (untuk type OUT)
+  batchId     String?                      // Opsional - dari batch produksi mana
+  userId      String
+  createdAt   DateTime                     @default(now())
+  updatedAt   DateTime                     @updatedAt
+
+  product Product         @relation(fields: [productId], references: [id])
+  user    User             @relation("FGTransactionUser", fields: [userId], references: [id])
+  batch   ProductionBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([type])
+  @@index([date])
+  @@index([userId])
+  @@index([reference])
+  @@map("finished_good_transactions")
 }
 
 // ============================================

@@ -11,6 +11,7 @@ import {
     CheckCircle,
     User,
     LogOut,
+    ArrowUpDown,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -34,9 +35,9 @@ const navItems = [
         icon: Package,
     },
     {
-        title: "Alokasi",
-        href: "/warehouse/allocation",
-        icon: Box,
+        title: "Brg Jadi",
+        href: "/warehouse/finished-goods-stock",
+        icon: ArrowUpDown,
     },
     {
         title: "Verifikasi",

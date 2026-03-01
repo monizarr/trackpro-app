@@ -8,6 +8,7 @@ import {
     Warehouse,
     CheckCircle,
     Archive,
+    ArrowUpDown,
 } from "lucide-react"
 import { AppSidebar, NavGroup } from "./app-sidebar"
 
@@ -44,6 +45,11 @@ const navigation: NavGroup[] = [
                 title: "Barang Jadi",
                 href: "/warehouse/finished-goods",
                 icon: Archive,
+            },
+            {
+                title: "Stok Barang Jadi",
+                href: "/warehouse/finished-goods-stock",
+                icon: ArrowUpDown,
             },
         ],
     },
