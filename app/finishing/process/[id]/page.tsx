@@ -536,7 +536,7 @@ export default function FinishingTaskDetailPage() {
 
             {/* Create Sub-Batch Dialog - untuk input hasil finishing ke gudang */}
             {
-                currentBatch.status === 'IN_FINISHING' && (
+                currentBatch.status === 'IN_FINISHING' || currentBatch.status === 'IN_PROGRESS' && (
                     <CreateSubBatchDialog
                         open={showSubBatchDialog}
                         onOpenChange={setShowSubBatchDialog}

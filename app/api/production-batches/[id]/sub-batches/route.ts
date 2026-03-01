@@ -110,12 +110,16 @@ export async function POST(
         { status: 404 },
       );
     }
+    // console.log("Batch found:", batch.batchSku, "Status:", batch.status);
 
     // Validate batch status - harus IN_FINISHING
     if (
-      !["IN_FINISHING", "FINISHING_COMPLETED", "IN_SEWING"].includes(
-        batch.status,
-      )
+      ![
+        "IN_FINISHING",
+        "FINISHING_COMPLETED",
+        "IN_SEWING",
+        "SEWING_COMPLETED",
+      ].includes(batch.status)
     ) {
       return NextResponse.json(
         {
