@@ -495,7 +495,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             const result = await response.json();
 
             if (result.success) {
-                toast.success("Berhasil", result.message || "Batch berhasil di-assign ke pemotong");
+                toast.success("Berhasil", result.message || "Batch berhasil di-Tugaskan ke pemotong");
                 setShowAssignDialog(false);
                 setSelectedCutterId("");
                 setAssignNotes("");
@@ -608,7 +608,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             const result = await response.json();
 
             if (result.success) {
-                toast.success("Berhasil", result.message || "Batch berhasil di-assign ke penjahit");
+                toast.success("Berhasil", result.message || "Batch berhasil di-Tugaskan ke penjahit");
                 setShowAssignSewerDialog(false);
                 setSelectedSewerId("");
                 setAssignSewerNotes("");
@@ -830,7 +830,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             const result = await response.json();
 
             if (result.success) {
-                toast.success("Berhasil", result.message || "Batch berhasil di-assign ke finishing");
+                toast.success("Berhasil", result.message || "Batch berhasil di-Tugaskan ke finishing");
                 setShowAssignFinishingDialog(false);
                 setSelectedFinisherId("");
                 setAssignFinishingNotes("");
@@ -965,11 +965,11 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             PENDING: { label: "Menunggu", variant: "secondary" },
             MATERIAL_REQUESTED: { label: "Material Diminta", variant: "secondary" },
             MATERIAL_ALLOCATED: { label: "Material Dialokasi", variant: "outline" },
-            ASSIGNED_TO_CUTTER: { label: "Di-assign ke Pemotong", variant: "default" },
+            ASSIGNED_TO_CUTTER: { label: "Di-Tugaskan ke Pemotong", variant: "default" },
             IN_CUTTING: { label: "Proses Pemotongan", variant: "default" },
             CUTTING_COMPLETED: { label: "Potongan Selesai", variant: "secondary" },
             CUTTING_VERIFIED: { label: "Potongan Terverifikasi", variant: "outline" },
-            ASSIGNED_TO_SEWER: { label: "Di-assign ke Penjahit", variant: "default" },
+            ASSIGNED_TO_SEWER: { label: "Di-Tugaskan ke Penjahit", variant: "default" },
             IN_SEWING: { label: "Proses Penjahitan", variant: "default" },
             SEWING_COMPLETED: { label: "Jahitan Selesai", variant: "secondary" },
             SEWING_VERIFIED: { label: "Jahitan Terverifikasi", variant: "outline" },
@@ -991,11 +991,11 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             PENDING: "Menunggu",
             MATERIAL_REQUESTED: "Material Diminta",
             MATERIAL_ALLOCATED: "Material Dialokasi",
-            ASSIGNED_TO_CUTTER: "Di-assign ke Pemotong",
+            ASSIGNED_TO_CUTTER: "Di-Tugaskan ke Pemotong",
             IN_CUTTING: "Proses Pemotongan",
             CUTTING_COMPLETED: "Pemotongan Selesai",
             CUTTING_VERIFIED: "Potongan Terverifikasi",
-            ASSIGNED_TO_SEWER: "Di-assign ke Penjahit",
+            ASSIGNED_TO_SEWER: "Di-Tugaskan ke Penjahit",
             IN_SEWING: "Proses Penjahitan",
             SEWING_COMPLETED: "Penjahitan Selesai",
             SEWING_VERIFIED: "Jahitan Terverifikasi",
@@ -1238,7 +1238,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             onClick={() => setShowAssignDialog(true)}
                         >
                             <UserPlus className="h-4 w-4 mr-2" />
-                            Assign ke Pemotong
+                            Tugaskan ke Pemotong
                         </Button>
                     )}
 
@@ -1279,7 +1279,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                 onClick={() => setShowAssignSewerDialog(true)}
                             >
                                 <UserPlus className="h-4 w-4 mr-2" />
-                                Assign ke Penjahit
+                                Tugaskan ke Penjahit
                             </Button>
                         </>
                     )}
@@ -1365,7 +1365,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             onClick={() => setShowAssignFinishingDialog(true)}
                         >
                             <UserPlus className="h-4 w-4 mr-2" />
-                            Assign ke Finishing
+                            Tugaskan ke Finishing
                         </Button>
                     )}
 
@@ -1928,92 +1928,6 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                             </div>
                                         )}
 
-                                        {/* Show accumulated sewing results detail from sub-batches */}
-                                        {(batch.subBatches || []).filter(sb => sb.source === "SEWING").length > 0 && (
-                                            <>
-                                                <Separator />
-                                                <div className="space-y-3">
-                                                    <span className="text-sm font-medium">Detail Hasil Jahitan (Sub-Batch)</span>
-                                                    {(batch.subBatches || []).filter(sb => sb.source === "SEWING").map((sb) => {
-                                                        const sbTotalPcs = (sb.items || []).reduce((sum: number, item: { goodQuantity?: number }) => sum + (item.goodQuantity || 0), 0);
-                                                        return (
-                                                            <div key={sb.id} className="space-y-2 rounded-lg border p-3">
-                                                                <div className="flex justify-between items-center">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-xs font-medium font-mono">{sb.subBatchSku}</span>
-                                                                        <Badge variant="secondary" className="text-xs">{sbTotalPcs} pcs</Badge>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        {sb.status === "CREATED" && (
-                                                                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">Menunggu Verifikasi</Badge>
-                                                                        )}
-                                                                        {sb.status === "SEWING_VERIFIED" && (
-                                                                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">Terverifikasi</Badge>
-                                                                        )}
-                                                                        {sb.status === "FORWARDED_TO_FINISHING" && (
-                                                                            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">Diteruskan ke Finishing</Badge>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                                <div className="text-xs text-muted-foreground">{formatDate(sb.createdAt)}</div>
-                                                                <div className="rounded-md border">
-                                                                    <Table>
-                                                                        <TableHeader>
-                                                                            <TableRow>
-                                                                                <TableHead>Ukuran</TableHead>
-                                                                                <TableHead>Warna</TableHead>
-                                                                                <TableHead className="text-right">Pcs</TableHead>
-                                                                            </TableRow>
-                                                                        </TableHeader>
-                                                                        <TableBody>
-                                                                            {(sb.items || []).map((item: { id: string; productSize: string; color: string; goodQuantity: number }) => (
-                                                                                <TableRow key={item.id}>
-                                                                                    <TableCell className="font-medium">{item.productSize}</TableCell>
-                                                                                    <TableCell>
-                                                                                        <Badge variant="outline">{item.color}</Badge>
-                                                                                    </TableCell>
-                                                                                    <TableCell className="text-right">{item.goodQuantity} pcs</TableCell>
-                                                                                </TableRow>
-                                                                            ))}
-                                                                        </TableBody>
-                                                                    </Table>
-                                                                </div>
-                                                                {/* Action buttons per sewing sub-batch */}
-                                                                <div className="flex gap-2 justify-end pt-1">
-                                                                    {sb.status === "CREATED" && (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="outline"
-                                                                            onClick={() => {
-                                                                                setVerifySewingSubBatch(sb);
-                                                                                setVerifySewingSubBatchAction("approve");
-                                                                                setShowVerifySewingSubBatchDialog(true);
-                                                                            }}
-                                                                        >
-                                                                            <CheckCircle className="h-3 w-3 mr-1" />
-                                                                            Verifikasi
-                                                                        </Button>
-                                                                    )}
-                                                                    {sb.status === "SEWING_VERIFIED" && (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            onClick={() => {
-                                                                                setForwardingSubBatch(sb);
-                                                                                setForwardFinisherId("");
-                                                                                setShowForwardToFinishingDialog(true);
-                                                                            }}
-                                                                        >
-                                                                            <ArrowRight className="h-3 w-3 mr-1" />
-                                                                            Teruskan ke Finishing
-                                                                        </Button>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </>
-                                        )}
                                     </div>
                                 ) : (
                                     <div className="text-center py-8 text-muted-foreground">
@@ -2066,6 +1980,99 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                             );
                                         })}
                                     </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Hasil Jahitan</CardTitle>
+                                <CardDescription>Detail hasil proses penjahitan</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {/* Show accumulated sewing results detail from sub-batches */}
+                                {(batch.subBatches || []).filter(sb => sb.source === "SEWING").length > 0 && (
+                                    <>
+                                        <div className="space-y-3">
+                                            <span className="text-sm font-medium">Detail Hasil Jahitan</span>
+                                            {(batch.subBatches || []).filter(sb => sb.source === "SEWING").map((sb) => {
+                                                const sbTotalPcs = (sb.items || []).reduce((sum: number, item: { goodQuantity?: number }) => sum + (item.goodQuantity || 0), 0);
+                                                return (
+                                                    <div key={sb.id} className="space-y-2 rounded-lg border p-3">
+                                                        <div className="flex justify-between items-center">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-xs font-medium font-mono">{sb.subBatchSku}</span>
+                                                                <Badge variant="secondary" className="text-xs">{sbTotalPcs} pcs</Badge>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                {sb.status === "CREATED" && (
+                                                                    <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">Menunggu Verifikasi</Badge>
+                                                                )}
+                                                                {sb.status === "SEWING_VERIFIED" && (
+                                                                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">Terverifikasi</Badge>
+                                                                )}
+                                                                {sb.status === "FORWARDED_TO_FINISHING" && (
+                                                                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">Diteruskan ke Finishing</Badge>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">{formatDate(sb.createdAt)}</div>
+                                                        <div className="rounded-md border">
+                                                            <Table>
+                                                                <TableHeader>
+                                                                    <TableRow>
+                                                                        <TableHead>Ukuran</TableHead>
+                                                                        <TableHead>Warna</TableHead>
+                                                                        <TableHead className="text-right">Pcs</TableHead>
+                                                                    </TableRow>
+                                                                </TableHeader>
+                                                                <TableBody>
+                                                                    {(sb.items || []).map((item: { id: string; productSize: string; color: string; goodQuantity: number }) => (
+                                                                        <TableRow key={item.id}>
+                                                                            <TableCell className="font-medium">{item.productSize}</TableCell>
+                                                                            <TableCell>
+                                                                                <Badge variant="outline">{item.color}</Badge>
+                                                                            </TableCell>
+                                                                            <TableCell className="text-right">{item.goodQuantity} pcs</TableCell>
+                                                                        </TableRow>
+                                                                    ))}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </div>
+                                                        {/* Action buttons per sewing sub-batch */}
+                                                        <div className="flex gap-2 justify-end pt-1">
+                                                            {sb.status === "CREATED" && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() => {
+                                                                        setVerifySewingSubBatch(sb);
+                                                                        setVerifySewingSubBatchAction("approve");
+                                                                        setShowVerifySewingSubBatchDialog(true);
+                                                                    }}
+                                                                >
+                                                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                                                    Verifikasi
+                                                                </Button>
+                                                            )}
+                                                            {sb.status === "SEWING_VERIFIED" && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        setForwardingSubBatch(sb);
+                                                                        setForwardFinisherId("");
+                                                                        setShowForwardToFinishingDialog(true);
+                                                                    }}
+                                                                >
+                                                                    <ArrowRight className="h-3 w-3 mr-1" />
+                                                                    Teruskan ke Finishing
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </>
                                 )}
                             </CardContent>
                         </Card>
@@ -2251,7 +2258,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             </Tabs>
 
             {/* Sub-Batches (shown when status is after CUTTING_VERIFIED) */}
-            {["CUTTING_VERIFIED", "ASSIGNED_TO_SEWER", "IN_SEWING", "SEWING_COMPLETED", "SEWING_VERIFIED", "IN_FINISHING", "FINISHING_COMPLETED", "WAREHOUSE_VERIFIED", "COMPLETED"].includes(batch.status) && (
+            {["IN_FINISHING", "FINISHING_COMPLETED", "WAREHOUSE_VERIFIED", "COMPLETED"].includes(batch.status) && (
                 <SubBatchList
                     role="PRODUCTION_HEAD"
                     batchId={batch.id}
@@ -2564,7 +2571,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Assign ke Pemotong</DialogTitle>
+                        <DialogTitle>Tugaskan ke Pemotong</DialogTitle>
                         <DialogDescription>
                             Pilih pemotong untuk mengerjakan batch ini
                         </DialogDescription>
@@ -2592,7 +2599,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                     <option value="">Pilih pemotong</option>
                                     {cutters.map((cutter) => (
                                         <option key={cutter.id} value={cutter.id}>
-                                            {cutter.name} ({cutter._count.cuttingTasks} task aktif)
+                                            {cutter.name} ({cutter._count.cuttingTasks} job aktif)
                                         </option>
                                     ))}
                                 </Select>
@@ -2633,7 +2640,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             onClick={handleAssignToCutter}
                             disabled={assigning || !selectedCutterId}
                         >
-                            {assigning ? "Mengassign..." : "Assign ke Pemotong"}
+                            {assigning ? "Mengassign..." : "Tugaskan ke Pemotong"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -2871,7 +2878,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             <Dialog open={showAssignSewerDialog} onOpenChange={setShowAssignSewerDialog}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Assign ke Penjahit</DialogTitle>
+                        <DialogTitle>Tugaskan ke Penjahit</DialogTitle>
                         <DialogDescription>
                             Pilih penjahit untuk mengerjakan batch ini
                         </DialogDescription>
@@ -2888,7 +2895,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                     <option value="">Pilih penjahit</option>
                                     {sewers.map((sewer) => (
                                         <option key={sewer.id} value={sewer.id}>
-                                            {sewer.name} ({sewer._count.sewingTasks} task aktif)
+                                            {sewer.name} ({sewer._count.sewingTasks} job aktif)
                                         </option>
                                     ))}
                                 </Select>
@@ -2911,7 +2918,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             Batal
                         </Button>
                         <Button onClick={handleAssignToSewer} disabled={assigningSewer || !selectedSewerId}>
-                            {assigningSewer ? "Mengassign..." : "Assign ke Penjahit"}
+                            {assigningSewer ? "Mengassign..." : "Tugaskan ke Penjahit"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -3244,7 +3251,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             <Dialog open={showAssignFinishingDialog} onOpenChange={setShowAssignFinishingDialog}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Assign ke Finishing</DialogTitle>
+                        <DialogTitle>Tugaskan ke Finishing</DialogTitle>
                         <DialogDescription>
                             Pilih kepala finishing untuk mengerjakan batch ini
                         </DialogDescription>
@@ -3261,7 +3268,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                     <option value="">Pilih kepala finishing</option>
                                     {finishers.map((finisher) => (
                                         <option key={finisher.id} value={finisher.id}>
-                                            {finisher.name} ({finisher._count.finishingTasks} task aktif)
+                                            {finisher.name} ({finisher._count.finishingTasks} job aktif)
                                         </option>
                                     ))}
                                 </Select>
@@ -3281,7 +3288,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             <Card className="bg-blue-50 border-blue-200">
                                 <CardContent className="pt-4">
                                     <p className="text-sm text-blue-800">
-                                        <strong>Info:</strong> Setelah assign ke finishing, kepala finishing akan menginput hasil finishing melalui sub-batch.
+                                        <strong>Info:</strong> Setelah Tugaskan ke finishing, kepala finishing akan menginput hasil finishing melalui sub-batch.
                                     </p>
                                 </CardContent>
                             </Card>
@@ -3300,7 +3307,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             Batal
                         </Button>
                         <Button onClick={handleAssignToFinishing} disabled={assigningFinishing || !selectedFinisherId}>
-                            {assigningFinishing ? "Mengassign..." : "Assign ke Finishing"}
+                            {assigningFinishing ? "Mengassign..." : "Tugaskan ke Finishing"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -3663,7 +3670,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                     <DialogHeader>
                         <DialogTitle>Teruskan ke Finishing</DialogTitle>
                         <DialogDescription>
-                            Teruskan sub-batch jahitan yang sudah diverifikasi ke tahap finishing
+                            Teruskan hasil jahitan yang sudah diverifikasi ke tahap finishing
                         </DialogDescription>
                     </DialogHeader>
 
@@ -3694,7 +3701,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                         <option value="">Pilih kepala finishing</option>
                                         {finishers.map((finisher) => (
                                             <option key={finisher.id} value={finisher.id}>
-                                                {finisher.name} ({finisher._count.finishingTasks} task aktif)
+                                                {finisher.name} ({finisher._count.finishingTasks} job aktif)
                                             </option>
                                         ))}
                                     </Select>

@@ -559,15 +559,15 @@ export default function CuttingTaskDetailPage() {
                         {/* Notes Section */}
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <Label htmlFor="notes" className="font-semibold">Catatan (Opsional)</Label>
-                                <span className="text-xs text-muted-foreground">{notes.length}/200</span>
+                                <Label htmlFor="notes" className="font-semibold">Catatan Pemotongan</Label>
                             </div>
                             <Input
+                                disabled
                                 id="notes"
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value.slice(0, 200))}
                                 placeholder="Contoh: 'Material kusut di roll 2', 'Scrap 3 meter', dll"
-                                className="text-sm"
+                                className="text-sm text-warning-600"
                             />
                         </div>
 
@@ -625,7 +625,7 @@ export default function CuttingTaskDetailPage() {
                                 </p>
                                 <ul className="space-y-1 text-xs ml-6 list-disc">
                                     <li><strong>Simpan Progress:</strong> Menyimpan draft, bisa dilanjutkan nanti</li>
-                                    <li><strong>Submit Verifikasi:</strong> Menyelesaikan task, tidak bisa diubah lagi</li>
+                                    <li><strong>Submit Verifikasi:</strong> Menyelesaikan job, tidak bisa diubah lagi</li>
                                 </ul>
                             </div>
                         </div>

@@ -645,7 +645,7 @@ export default function SewingTaskDetailPage() {
                                     ) : (
                                         <>
                                             <Send className="h-4 w-4 mr-2" />
-                                            Kirim Sub-Batch ke Finishing
+                                            Simpan Jahitan
                                         </>
                                     )}
                                 </Button>
@@ -662,9 +662,9 @@ export default function SewingTaskDetailPage() {
             <AlertDialog open={showSubmitConfirm} onOpenChange={setShowSubmitConfirm}>
                 <AlertDialogContent className="max-w-sm">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Konfirmasi Kirim Sub-Batch</AlertDialogTitle>
+                        <AlertDialogTitle>Konfirmasi Simpan Jahitan</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Anda yakin ingin mengirim hasil jahitan ke finishing sebagai sub-batch baru?
+                            Anda yakin ingin menyimpan hasil jahitan? <br/> hasil jahitan akan diperiksa oleh Kepala Produksi
                         </AlertDialogDescription>
                     </AlertDialogHeader>
 
@@ -727,7 +727,7 @@ export default function SewingTaskDetailPage() {
                                 Mengirim...
                             </>
                         ) : (
-                            <>Ya, Kirim Sub-Batch</>
+                            <>Ya, Simpan Jahitan</>
                         )}
                     </AlertDialogAction>
                 </AlertDialogContent>

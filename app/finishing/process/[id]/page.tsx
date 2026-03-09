@@ -246,9 +246,13 @@ export default function FinishingTaskDetailPage() {
         }
     }
 
-    // Calculate sewing output per size/color from SEWING sub-batches
+    // Only count sewing sub-batches that have been forwarded to finishing
+    const forwardedStatuses = ['FORWARDED_TO_FINISHING', 'SUBMITTED_TO_WAREHOUSE', 'WAREHOUSE_VERIFIED', 'COMPLETED'];
+    const forwardedSewingSubBatches = sewingSubBatches.filter(sb => forwardedStatuses.includes(sb.status));
+
+    // Calculate sewing output per size/color from FORWARDED sewing sub-batches only
     const sewnPerSizeColor = new Map<string, number>();
-    for (const sb of sewingSubBatches) {
+    for (const sb of forwardedSewingSubBatches) {
         if (sb && sb.items && Array.isArray(sb.items)) {
             for (const item of sb.items) {
                 const key = `${item.productSize}|${item.color}`;
@@ -284,15 +288,24 @@ export default function FinishingTaskDetailPage() {
         }
     }
 
-    // Calculate total sewing output from SEWING sub-batches (total pcs diterima dari jahit)
+    // Calculate total sewing output from SEWING sub-batches items (total pcs diterima dari jahit)
+    // Use items-based sewnPerSizeColor for accurate per-size/color totals
     let totalSewingOutput = 0;
-    for (const sb of sewingSubBatches) {
-        totalSewingOutput += sb.finishingGoodOutput || 0;
+    for (const qty of sewnPerSizeColor.values()) {
+        totalSewingOutput += qty;
     }
-    // Fallback: if no sewing sub-batches yet, use sewingTask.piecesCompleted or cutting results total
-    if (totalSewingOutput === 0) {
-        totalSewingOutput = batch?.sewingTask?.piecesCompleted || (batch?.cuttingResults?.reduce((sum, r) => sum + r.actualPieces, 0) || 0);
+    // Fallback: if no sewing sub-batches yet, use sewingTask.piecesCompleted
+    if (totalSewingOutput === 0 && sewingSubBatches.length === 0) {
+        totalSewingOutput = batch?.sewingTask?.piecesCompleted || 0;
     }
+
+    // Build sorted array of sewing outputs per size/color for display
+    const sewingOutputBreakdown: Array<{ productSize: string; color: string; quantity: number }> = [];
+    for (const [key, qty] of sewnPerSizeColor) {
+        const [productSize, color] = key.split("|");
+        sewingOutputBreakdown.push({ productSize, color, quantity: qty });
+    }
+    sewingOutputBreakdown.sort((a, b) => a.color.localeCompare(b.color) || a.productSize.localeCompare(b.productSize));
 
     // Check if all sewing output has been processed in finishing
     const canCompleteBatch = totalFinishingInput > 0 && totalFinishingInput === totalSewingOutput;
@@ -391,6 +404,36 @@ export default function FinishingTaskDetailPage() {
                             <p className="text-lg sm:text-2xl font-bold">{totalSewingOutput} Pcs</p>
                         </div>
                     </div>
+
+                    {/* Detail per Ukuran & Warna dari Jahit */}
+                    {sewingOutputBreakdown.length > 0 && (
+                        <div className="pt-2 border-t">
+                            <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">Detail Diterima dari Jahit</p>
+                            <div className="space-y-1">
+                                {sewingOutputBreakdown.map((item) => {
+                                    const key = `${item.productSize}|${item.color}`;
+                                    const submitted = submittedItems.get(key) || 0;
+                                    const remaining = Math.max(0, item.quantity - submitted);
+                                    return (
+                                        <div key={key} className="flex items-center justify-between text-sm">
+                                            <span>
+                                                <Badge variant="outline" className="mr-1">{item.productSize}</Badge>
+                                                <Badge variant="secondary">{item.color}</Badge>
+                                            </span>
+                                            <span className="font-medium">
+                                                {item.quantity} pcs
+                                                {submitted > 0 && (
+                                                    <span className="text-xs text-muted-foreground ml-1">
+                                                        (sisa: {remaining} pcs)
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                     <div className="pt-2 border-t">
 
                         <div className="text-xs text-muted-foreground mt-2 flex justify-between">

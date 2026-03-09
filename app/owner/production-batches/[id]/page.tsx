@@ -856,7 +856,7 @@ export default function ProductionBatchDetailPage() {
                 {batch.status === "MATERIAL_ALLOCATED" && (
                     <Button onClick={() => setShowAssignDialog(true)} variant="default">
                         <UserPlus className="h-4 w-4 mr-2" />
-                        Assign ke Pemotong
+                        Tugaskan ke Pemotong
                     </Button>
                 )}
 
@@ -1013,7 +1013,7 @@ export default function ProductionBatchDetailPage() {
                                         <Separator />
                                         <div className="space-y-1">
                                             <span className="text-sm text-muted-foreground">Catatan</span>
-                                            <p className="text-sm p-2 bg-muted rounded">{batch.notes}</p>
+                                            <p className="text-sm p-2 bg-muted rounded text-wrap">{batch.notes}</p>
                                         </div>
                                     </>
                                 )}
@@ -1586,7 +1586,7 @@ export default function ProductionBatchDetailPage() {
             <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Assign ke Pemotong</DialogTitle>
+                        <DialogTitle>Tugaskan ke Pemotong</DialogTitle>
                         <DialogDescription>
                             Pilih pemotong untuk mengerjakan batch ini
                         </DialogDescription>
@@ -1655,7 +1655,7 @@ export default function ProductionBatchDetailPage() {
                             onClick={handleAssignToCutter}
                             disabled={assigning || !selectedCutterId}
                         >
-                            {assigning ? "Mengassign..." : "Assign ke Pemotong"}
+                            {assigning ? "Mengassign..." : "Tugaskan ke Pemotong"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -1889,7 +1889,7 @@ export default function ProductionBatchDetailPage() {
             <Dialog open={showAssignSewerDialog} onOpenChange={setShowAssignSewerDialog}>
                 <DialogContent className="max-w-[95vw] sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Assign ke Penjahit</DialogTitle>
+                        <DialogTitle>Tugaskan ke Penjahit</DialogTitle>
                         <DialogDescription>
                             Pilih penjahit untuk batch ini
                         </DialogDescription>
@@ -2028,7 +2028,7 @@ export default function ProductionBatchDetailPage() {
             <Dialog open={showAssignFinisherDialog} onOpenChange={setShowAssignFinisherDialog}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Assign ke Finisher</DialogTitle>
+                        <DialogTitle>Tugaskan ke Finisher</DialogTitle>
                         <DialogDescription>
                             Pilih finisher untuk mengerjakan batch ini
                         </DialogDescription>
@@ -2068,7 +2068,7 @@ export default function ProductionBatchDetailPage() {
                             Batal
                         </Button>
                         <Button onClick={handleAssignToFinisher} disabled={assigningFinisher || !selectedFinisherId}>
-                            {assigningFinisher ? "Mengassign..." : "Assign ke Finisher"}
+                            {assigningFinisher ? "Mengassign..." : "Tugaskan ke Finisher"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
