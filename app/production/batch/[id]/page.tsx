@@ -175,7 +175,7 @@ interface ProductionBatch {
             name: string;
         };
     };
-    finishingTask?: {
+    finishingTasks?: Array<{
         id: string;
         piecesReceived: number;
         piecesCompleted: number;
@@ -187,7 +187,11 @@ interface ProductionBatch {
         assignedTo?: {
             name: string;
         };
-    };
+        subBatch?: {
+            id: string;
+            subBatchSku: string;
+        } | null;
+    }>;
     sewingResults?: Array<{
         id: string;
         productSize: string;
@@ -767,21 +771,17 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
     const handleForwardToFinishing = async () => {
         if (!forwardingSubBatch) return;
 
-        // Check if finishing task already exists
-        const hasFinishingTask = batch?.finishingTask;
-
-        // If no finishing task, require finisher selection
-        if (!hasFinishingTask && !forwardFinisherId) {
+        // Always require finisher selection for each forwarded sub-batch
+        if (!forwardFinisherId) {
             toast.error("Error", "Pilih kepala finishing terlebih dahulu");
             return;
         }
 
         setForwardingToFinishing(true);
         try {
-            const bodyData: Record<string, string> = {};
-            if (!hasFinishingTask && forwardFinisherId) {
-                bodyData.assignedToId = forwardFinisherId;
-            }
+            const bodyData: Record<string, string> = {
+                assignedToId: forwardFinisherId,
+            };
 
             const response = await fetch(`/api/sub-batches/${forwardingSubBatch.id}/forward-to-finishing`, {
                 method: "POST",
@@ -1159,7 +1159,9 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
 
     // Calculate remaining sewingOutputs for CreateSubBatchDialog (finishing → warehouse)
     // Group sewing sub-batches by size/color to get total sewn per size/color
-    const sewingSubBatches = (batch.subBatches || []).filter(sb => sb.source === "SEWING");
+    // Only count sewing sub-batches that have been forwarded to finishing
+    const forwardedStatuses = ['FORWARDED_TO_FINISHING', 'SUBMITTED_TO_WAREHOUSE', 'WAREHOUSE_VERIFIED', 'COMPLETED'];
+    const sewingSubBatches = (batch.subBatches || []).filter(sb => sb.source === "SEWING" && forwardedStatuses.includes(sb.status));
     const sewnPerSizeColor = new Map<string, number>();
     for (const sb of sewingSubBatches) {
         for (const item of (sb.items || [])) {
@@ -1189,8 +1191,11 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
         }
     }
 
-    // Total sewing output that should be processed in finishing
-    const totalSewingOutput = batch.sewingTask?.piecesCompleted || 0;
+    // Total sewing output that has been forwarded to finishing (not all sewn, only forwarded)
+    let totalSewingOutput = 0;
+    for (const qty of sewnPerSizeColor.values()) {
+        totalSewingOutput += qty;
+    }
 
     // Check if all sewing output has been processed in finishing
     const canCompleteBatch = totalFinishingInput > 0 && totalFinishingInput >= totalSewingOutput;
@@ -2082,42 +2087,60 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 {/* Finishing Tab */}
                 <TabsContent value="finishing" className="space-y-4">
                     <div className="grid gap-4 lg:grid-cols-2">
-                        {/* Finishing Summary - Simplified: received from sewing vs processed */}
+                        {/* Finishing Tasks Summary */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>Task Finishing</CardTitle>
                                 <CardDescription>
-                                    {batch.finishingTask
-                                        ? `Diterima ${batch.finishingTask.piecesReceived} pcs dari penjahitan`
+                                    {batch.finishingTasks && batch.finishingTasks.length > 0
+                                        ? `${batch.finishingTasks.length} task finishing (Total diterima: ${batch.finishingTasks.reduce((sum, ft) => sum + ft.piecesReceived, 0)} pcs)`
                                         : "Informasi tugas finishing"
                                     }
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                {batch.finishingTask ? (
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Ka. Finishing</span>
-                                            <span className="text-sm font-medium">{batch.finishingTask.assignedTo?.name || "-"}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Status</span>
-                                            {getStatusBadge(batch.finishingTask.status)}
-                                        </div>
+                                {batch.finishingTasks && batch.finishingTasks.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {batch.finishingTasks.map((ft, index) => (
+                                            <div key={ft.id} className="border rounded-lg p-3 space-y-2">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-medium">
+                                                        Task #{index + 1}
+                                                        {ft.subBatch && (
+                                                            <span className="text-muted-foreground ml-1 font-mono text-xs">
+                                                                ({ft.subBatch.subBatchSku})
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                    {getStatusBadge(ft.status)}
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                                    <div>
+                                                        <span className="text-muted-foreground">Ka. Finishing</span>
+                                                        <p className="font-medium">{ft.assignedTo?.name || "-"}</p>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-muted-foreground">Diterima</span>
+                                                        <p className="font-medium">{ft.piecesReceived} pcs</p>
+                                                    </div>
+                                                </div>
+                                                {ft.notes && (
+                                                    <p className="text-xs text-muted-foreground bg-muted p-2 rounded">{ft.notes}</p>
+                                                )}
+                                            </div>
+                                        ))}
                                         <Separator />
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Diterima dari Penjahitan</span>
-                                            <span className="text-lg font-bold">{batch.finishingTask.piecesReceived} pcs</span>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-muted-foreground">Sudah Diproses Finishing</span>
+                                                <span className="text-lg font-bold text-green-600">{totalFinishingInput} pcs</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-muted-foreground">Sisa Belum Diproses</span>
+                                                <span className="text-lg font-bold text-orange-600">{Math.max(0, totalSewingOutput - totalFinishingInput)} pcs</span>
+                                            </div>
+                                            <Progress value={totalSewingOutput > 0 ? (totalFinishingInput / totalSewingOutput) * 100 : 0} className="h-2" />
                                         </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Sudah Diproses Finishing</span>
-                                            <span className="text-lg font-bold text-green-600">{totalFinishingInput} pcs</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Sisa Belum Diproses</span>
-                                            <span className="text-lg font-bold text-orange-600">{Math.max(0, totalSewingOutput - totalFinishingInput)} pcs</span>
-                                        </div>
-                                        <Progress value={totalSewingOutput > 0 ? (totalFinishingInput / totalSewingOutput) * 100 : 0} className="h-2" />
 
                                         {/* Reject summary from sub-batches */}
                                         {finishingReject > 0 && (
@@ -2137,13 +2160,6 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                                     </div>
                                                 </div>
                                             </>
-                                        )}
-
-                                        {batch.finishingTask.notes && (
-                                            <div className="space-y-1 pt-2">
-                                                <span className="text-sm text-muted-foreground">Catatan</span>
-                                                <p className="text-sm p-2 bg-muted rounded">{batch.finishingTask.notes}</p>
-                                            </div>
                                         )}
                                     </div>
                                 ) : (
@@ -3689,35 +3705,31 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                 </div>
                             </div>
 
-                            {/* Show finisher selection only if no finishing task exists */}
-                            {!batch?.finishingTask && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="forward-finisher-select">Kepala Finishing</Label>
-                                    <Select
-                                        id="forward-finisher-select"
-                                        value={forwardFinisherId}
-                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForwardFinisherId(e.target.value)}
-                                    >
-                                        <option value="">Pilih kepala finishing</option>
-                                        {finishers.map((finisher) => (
-                                            <option key={finisher.id} value={finisher.id}>
-                                                {finisher.name} ({finisher._count.finishingTasks} job aktif)
-                                            </option>
-                                        ))}
-                                    </Select>
-                                </div>
-                            )}
+                            {/* Always show finisher selection - each forwarded sub-batch creates a new task */}
+                            <div className="space-y-2">
+                                <Label htmlFor="forward-finisher-select">Kepala Finishing</Label>
+                                <Select
+                                    id="forward-finisher-select"
+                                    value={forwardFinisherId}
+                                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForwardFinisherId(e.target.value)}
+                                >
+                                    <option value="">Pilih kepala finishing</option>
+                                    {finishers.map((finisher) => (
+                                        <option key={finisher.id} value={finisher.id}>
+                                            {finisher.name} ({finisher._count.finishingTasks} job aktif)
+                                        </option>
+                                    ))}
+                                </Select>
+                            </div>
 
-                            {batch?.finishingTask && (
-                                <Card className="bg-blue-50 border-blue-200">
-                                    <CardContent className="pt-4">
-                                        <p className="text-sm text-blue-800">
-                                            <strong>Info:</strong> Sub-batch ini akan diteruskan ke finishing task yang sudah ada.
-                                            Jumlah pcs akan ditambahkan ke total penerimaan finishing.
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                            )}
+                            <Card className="bg-blue-50 border-blue-200">
+                                <CardContent className="pt-4">
+                                    <p className="text-sm text-blue-800">
+                                        <strong>Info:</strong> Sub-batch ini akan membuat task finishing baru
+                                        untuk kepala finishing yang dipilih.
+                                    </p>
+                                </CardContent>
+                            </Card>
                         </div>
                     )}
 
@@ -3735,7 +3747,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                         </Button>
                         <Button
                             onClick={handleForwardToFinishing}
-                            disabled={forwardingToFinishing || (!batch?.finishingTask && !forwardFinisherId)}
+                            disabled={forwardingToFinishing || !forwardFinisherId}
                         >
                             {forwardingToFinishing ? (
                                 <>

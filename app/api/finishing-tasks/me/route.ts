@@ -45,7 +45,7 @@ export async function GET() {
             sizeColorRequests: true,
             cuttingResults: true,
             sewingTask: true,
-            finishingTask: true,
+            finishingTasks: true,
           },
         },
       },

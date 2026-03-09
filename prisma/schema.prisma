@@ -327,7 +327,7 @@ model ProductionBatch {
   sewingResults            SewingResult[]
   cuttingTask              CuttingTask?
   sewingTask               SewingTask? // Legacy - untuk backward compatibility
-  finishingTask            FinishingTask? // Legacy - untuk backward compatibility
+  finishingTasks            FinishingTask[] // Multiple finishing tasks (one per forwarded sewing sub-batch)
   subBatches               SubBatch[] // Sub-batches untuk sewing & finishing
   qualityChecks            QualityCheck[]
   timeline                 BatchTimeline[]
@@ -461,10 +461,11 @@ model SewingTask {
 }
 
 // Finishing Task (Tracking keseluruhan finishing - reject dicatat di sini)
+// One FinishingTask per forwarded sewing sub-batch (multiple per batch)
 model FinishingTask {
   id              String     @id @default(cuid())
-  batchId         String     @unique
-  subBatchId      String? // Optional - linked to sub-batch for new flow
+  batchId         String
+  subBatchId      String? // Linked to the sewing sub-batch that was forwarded
   assignedToId    String // Ka. Finishing yang bertanggung jawab
   piecesReceived  Int // Pieces dari sewing
   piecesCompleted Int        @default(0) // Total hasil finishing (good + reject)
@@ -487,6 +488,7 @@ model FinishingTask {
   assignedTo User            @relation("FinishingTaskAssigned", fields: [assignedToId], references: [id])
   verifiedBy User?           @relation("FinishingTaskVerified", fields: [verifiedById], references: [id])
 
+  @@index([batchId])
   @@index([status])
   @@index([assignedToId])
   @@map("finishing_tasks")

@@ -45,11 +45,12 @@ interface SubBatch {
             name: string
             sku: string
         }
-        finishingTask: {
+        finishingTasks: Array<{
             id: string
             assignedTo: { id: string; name: string }
             piecesReceived: number
-        } | null
+            subBatchId: string | null
+        }>
     }
     items: SubBatchItem[]
 }
@@ -267,12 +268,16 @@ export default function WarehouseVerificationPage() {
                                                         {subBatch.subBatchSku}
                                                     </p>
                                                     <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                                                        {subBatch.batch.finishingTask?.assignedTo && (
-                                                            <span className="flex items-center gap-1">
-                                                                <User className="h-3 w-3" />
-                                                                {subBatch.batch.finishingTask.assignedTo.name}
-                                                            </span>
-                                                        )}
+                                                        {(() => {
+                                                            const linkedTask = subBatch.batch.finishingTasks?.find(ft => ft.subBatchId === subBatch.id)
+                                                                || subBatch.batch.finishingTasks?.[0]
+                                                            return linkedTask?.assignedTo ? (
+                                                                <span className="flex items-center gap-1">
+                                                                    <User className="h-3 w-3" />
+                                                                    {linkedTask.assignedTo.name}
+                                                                </span>
+                                                            ) : null
+                                                        })()}
                                                     </div>
                                                 </div>
                                                 <Button

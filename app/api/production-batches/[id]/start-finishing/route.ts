@@ -23,7 +23,7 @@ export async function POST(
     // Verify batch exists and is in correct status
     const batch = await prisma.productionBatch.findUnique({
       where: { id },
-      include: { finishingTask: true },
+      include: { finishingTasks: true },
     });
 
     if (!batch) {

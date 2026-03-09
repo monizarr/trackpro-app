@@ -34,24 +34,26 @@ export async function PATCH(
 
     const { id: taskId } = await params;
 
-    const existBatch = await prisma.productionBatch.findFirst({
-      where: {
-        id: (
-          await prisma.finishingTask.findUnique({
-            where: { id: taskId },
-          })
-        )?.batchId,
-        status: "ASSIGNED_TO_FINISHING",
-      },
+    const finishingTaskForBatch = await prisma.finishingTask.findUnique({
+      where: { id: taskId },
     });
 
-    if (existBatch){
-      await prisma.productionBatch.update({
-        where: { id: existBatch.id },
-        data: {
-          status: "IN_FINISHING",
+    if (finishingTaskForBatch) {
+      const existBatch = await prisma.productionBatch.findFirst({
+        where: {
+          id: finishingTaskForBatch.batchId,
+          status: "ASSIGNED_TO_FINISHING",
         },
       });
+
+      if (existBatch) {
+        await prisma.productionBatch.update({
+          where: { id: existBatch.id },
+          data: {
+            status: "IN_FINISHING",
+          },
+        });
+      }
     }
 
     // Check if task exists and belongs to this user

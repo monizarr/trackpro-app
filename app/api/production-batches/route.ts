@@ -71,15 +71,17 @@ export async function GET(request: Request) {
             },
           },
         },
-        finishingTask: {
-          select: {
-            piecesCompleted: true,
-            rejectBS: true,
-            rejectBSPermanent: true,
-            notes: true,
-            completedAt: true,
-          },
-        },
+        // finishingTasks: {
+        //   select: {
+        //     id: true,
+        //     piecesCompleted: true,
+        //     rejectBS: true,
+        //     rejectBSPermanent: true,
+        //     notes: true,
+        //     completedAt: true,
+        //     subBatchId: true,
+        //   },
+        // },
       },
       orderBy: {
         createdAt: "desc",

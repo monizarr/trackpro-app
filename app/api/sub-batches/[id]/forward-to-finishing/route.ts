@@ -54,42 +54,35 @@ export async function POST(
       0,
     );
 
-    // Check if FinishingTask already exists for this batch
-    const existingFinishingTask = await prisma.finishingTask.findUnique({
-      where: { batchId: subBatch.batchId },
-    });
-
-    // If no finishing task exists, require assignedToId
-    if (!existingFinishingTask && !assignedToId) {
+    // Always require assignedToId - each forwarded sub-batch creates a new finishing task
+    if (!assignedToId) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "Pilih kepala finishing terlebih dahulu. assignedToId wajib diisi untuk penugasan pertama.",
+            "Pilih kepala finishing terlebih dahulu. assignedToId wajib diisi.",
         },
         { status: 400 },
       );
     }
 
-    // If assignedToId provided, validate the finisher
-    if (assignedToId && !existingFinishingTask) {
-      const finisher = await prisma.user.findUnique({
-        where: { id: assignedToId },
-      });
+    // Validate the finisher
+    const finisher = await prisma.user.findUnique({
+      where: { id: assignedToId },
+    });
 
-      if (!finisher) {
-        return NextResponse.json(
-          { success: false, error: "Kepala finishing tidak ditemukan" },
-          { status: 404 },
-        );
-      }
+    if (!finisher) {
+      return NextResponse.json(
+        { success: false, error: "Kepala finishing tidak ditemukan" },
+        { status: 404 },
+      );
+    }
 
-      if (finisher.role !== "FINISHING") {
-        return NextResponse.json(
-          { success: false, error: "User yang dipilih bukan FINISHING" },
-          { status: 400 },
-        );
-      }
+    if (finisher.role !== "FINISHING") {
+      return NextResponse.json(
+        { success: false, error: "User yang dipilih bukan FINISHING" },
+        { status: 400 },
+      );
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -101,50 +94,30 @@ export async function POST(
         },
       });
 
-      if (existingFinishingTask) {
-        // Update existing finishing task - add pieces
-        await tx.finishingTask.update({
-          where: { id: existingFinishingTask.id },
-          data: {
-            piecesReceived: existingFinishingTask.piecesReceived + totalPieces,
-          },
-        });
-      } else {
-        // Create new finishing task
-        await tx.finishingTask.create({
-          data: {
-            batchId: subBatch.batchId,
-            assignedToId: assignedToId,
-            piecesReceived: totalPieces,
-            status: "PENDING",
-            notes: `Dibuat dari forwarding sub-batch ${subBatch.subBatchSku}`,
-          },
-        });
+      // Always create a NEW finishing task linked to this sewing sub-batch
+      await tx.finishingTask.create({
+        data: {
+          batchId: subBatch.batchId,
+          subBatchId: subBatch.id,
+          assignedToId: assignedToId,
+          piecesReceived: totalPieces,
+          status: "PENDING",
+          notes: `Dibuat dari forwarding sub-batch ${subBatch.subBatchSku}`,
+        },
+      });
 
-        // Check if all sewing is done before changing batch status
-        const sewingTask = await tx.sewingTask.findFirst({
-          where: { batchId: subBatch.batchId },
+      // Check if batch status needs to transition
+      const batch = await tx.productionBatch.findUnique({
+        where: { id: subBatch.batchId },
+      });
+      if (
+        batch &&
+        ["SEWING_COMPLETED", "SEWING_VERIFIED"].includes(batch.status)
+      ) {
+        await tx.productionBatch.update({
+          where: { id: subBatch.batchId },
+          data: { status: "ASSIGNED_TO_FINISHING" },
         });
-
-        // Only transition batch status if sewing task is completed/verified
-        // (don't change batch status while sewing is still in progress)
-        if (
-          sewingTask &&
-          ["COMPLETED", "VERIFIED"].includes(sewingTask.status)
-        ) {
-          const batch = await tx.productionBatch.findUnique({
-            where: { id: subBatch.batchId },
-          });
-          if (
-            batch &&
-            ["SEWING_COMPLETED", "SEWING_VERIFIED"].includes(batch.status)
-          ) {
-            await tx.productionBatch.update({
-              where: { id: subBatch.batchId },
-              data: { status: "ASSIGNED_TO_FINISHING" },
-            });
-          }
-        }
       }
 
       // Create timeline

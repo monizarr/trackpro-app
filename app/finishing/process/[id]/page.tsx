@@ -15,6 +15,7 @@ import { formatDateTime } from "@/lib/utils"
 interface FinishingTask {
     id: string
     batchId: string
+    subBatchId: string | null
     materialReceived: number
     piecesCompleted: number
     rejectPieces: number
@@ -248,7 +249,11 @@ export default function FinishingTaskDetailPage() {
 
     // Only count sewing sub-batches that have been forwarded to finishing
     const forwardedStatuses = ['FORWARDED_TO_FINISHING', 'SUBMITTED_TO_WAREHOUSE', 'WAREHOUSE_VERIFIED', 'COMPLETED'];
-    const forwardedSewingSubBatches = sewingSubBatches.filter(sb => forwardedStatuses.includes(sb.status));
+
+    // If this finishing task is linked to a specific sewing sub-batch, only show that one
+    const forwardedSewingSubBatches = task?.subBatchId
+        ? sewingSubBatches.filter(sb => sb.id === task.subBatchId)
+        : sewingSubBatches.filter(sb => forwardedStatuses.includes(sb.status));
 
     // Calculate sewing output per size/color from FORWARDED sewing sub-batches only
     const sewnPerSizeColor = new Map<string, number>();
@@ -586,7 +591,9 @@ export default function FinishingTaskDetailPage() {
                         batchId={currentBatch.id}
                         batchSku={currentBatch.batchSku}
                         sewingOutputs={remainingSewingOutputs}
+                        finishingTaskId={taskId}
                         onSuccess={async () => {
+                            await fetchTask();
                             await fetchBatchDetail();
                             await fetchSubBatches();
                             await fetchSewingSubBatches();

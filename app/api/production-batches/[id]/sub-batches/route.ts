@@ -80,10 +80,11 @@ export async function POST(
      *     { productSize: "M", color: "Putih", goodQuantity: 50, rejectBS: 2, rejectBSPermanent: 1 },
      *     { productSize: "L", color: "Putih", goodQuantity: 30, rejectBS: 0, rejectBSPermanent: 1 }
      *   ],
+     *   finishingTaskId?: string,
      *   notes?: string
      * }
      */
-    const { items, notes } = body;
+    const { items, notes, finishingTaskId } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -92,17 +93,22 @@ export async function POST(
       );
     }
 
-    // Get batch with finishing task
+    // Get batch with finishing tasks (plural)
     const batch = await prisma.productionBatch.findUnique({
       where: { id },
       include: {
-        finishingTask: true,
+        finishingTasks: true,
         sewingTask: true,
         subBatches: {
           include: { items: true },
         },
       },
     });
+
+    // Find the specific finishing task to update
+    const finishingTask = finishingTaskId
+      ? batch?.finishingTasks.find((ft) => ft.id === finishingTaskId)
+      : batch?.finishingTasks[0]; // fallback to first task for backward compatibility
 
     if (!batch) {
       return NextResponse.json(
@@ -217,25 +223,93 @@ export async function POST(
       });
 
       // Update finishing task totals
-      if (batch.finishingTask) {
-        const currentCompleted = batch.finishingTask.piecesCompleted;
-        const currentRejectBS = batch.finishingTask.rejectBS;
-        const currentRejectBSPermanent = batch.finishingTask.rejectBSPermanent;
+      if (finishingTask) {
+        const currentCompleted = finishingTask.piecesCompleted;
+        const currentRejectBS = finishingTask.rejectBS;
+        const currentRejectBSPermanent = finishingTask.rejectBSPermanent;
+
+        const newPiecesCompleted =
+          currentCompleted +
+          totalGoodOutput +
+          totalRejectBS +
+          totalRejectBSPermanent;
 
         await tx.finishingTask.update({
-          where: { id: batch.finishingTask.id },
+          where: { id: finishingTask.id },
           data: {
             completedAt: new Date(),
-            piecesCompleted:
-              currentCompleted +
-              totalGoodOutput +
-              totalRejectBS +
-              totalRejectBSPermanent,
+            piecesCompleted: newPiecesCompleted,
             rejectBS: currentRejectBS + totalRejectBS,
             rejectBSPermanent:
               currentRejectBSPermanent + totalRejectBSPermanent,
           },
         });
+
+        // Check if this specific finishing task's sewing sub-batch is fully processed
+        // Get the linked sewing sub-batch for this finishing task
+        const linkedSewingSubBatch = finishingTask.subBatchId
+          ? batch.subBatches.find((sb) => sb.id === finishingTask.subBatchId)
+          : null;
+
+        if (linkedSewingSubBatch) {
+          // Calculate total sewing output from the linked sewing sub-batch
+          let taskSewingOutput = 0;
+          for (const item of linkedSewingSubBatch.items) {
+            taskSewingOutput += item.goodQuantity || 0;
+          }
+
+          // Auto-complete this finishing task if all its sewing output is processed
+          if (
+            taskSewingOutput > 0 &&
+            newPiecesCompleted >= taskSewingOutput &&
+            finishingTask.status === "IN_PROGRESS"
+          ) {
+            await tx.finishingTask.update({
+              where: { id: finishingTask.id },
+              data: {
+                status: "COMPLETED",
+              },
+            });
+
+            // Create timeline entry for task auto-completion
+            await tx.batchTimeline.create({
+              data: {
+                batchId: id,
+                event: "FINISHING_COMPLETED",
+                details: `Finishing task untuk sub-batch ${linkedSewingSubBatch.subBatchSku} otomatis selesai. Good: ${newPiecesCompleted - (currentRejectBS + totalRejectBS) - (currentRejectBSPermanent + totalRejectBSPermanent)}, BS: ${currentRejectBS + totalRejectBS}, BS Permanen: ${currentRejectBSPermanent + totalRejectBSPermanent}`,
+              },
+            });
+          }
+        }
+
+        // Check if ALL finishing tasks for this batch are completed
+        // If so, update batch status to FINISHING_COMPLETED
+        const allFinishingTasks = await tx.finishingTask.findMany({
+          where: { batchId: id },
+        });
+        const allCompleted = allFinishingTasks.every(
+          (ft) => ft.status === "COMPLETED" || ft.status === "VERIFIED",
+        );
+        if (
+          allCompleted &&
+          allFinishingTasks.length > 0 &&
+          batch.status === "IN_FINISHING"
+        ) {
+          await tx.productionBatch.update({
+            where: { id },
+            data: {
+              status: "FINISHING_COMPLETED",
+            },
+          });
+
+          await tx.batchTimeline.create({
+            data: {
+              batchId: id,
+              event: "FINISHING_COMPLETED",
+              details: `Semua finishing task selesai (${allFinishingTasks.length} task). Batch finishing selesai.`,
+            },
+          });
+        }
       }
 
       // Create timeline entry for main batch

@@ -34,7 +34,7 @@ export async function GET() {
         },
         cuttingTask: true,
         sewingTask: true,
-        finishingTask: true,
+        finishingTasks: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -237,9 +237,14 @@ export async function GET() {
             sewing: batch.sewingTask
               ? Math.round(batch.sewingTask.piecesCompleted)
               : 0,
-            finishing: batch.finishingTask
-              ? Math.round(batch.finishingTask.piecesCompleted)
-              : 0,
+            finishing:
+              batch.finishingTasks && batch.finishingTasks.length > 0
+                ? batch.finishingTasks.reduce(
+                    (sum: number, ft: { piecesCompleted: number }) =>
+                      sum + Math.round(ft.piecesCompleted),
+                    0,
+                  )
+                : 0,
           },
         })),
         pendingVerification: pendingVerification.slice(0, 5),
@@ -253,7 +258,7 @@ export async function GET() {
         success: false,
         error: "Failed to fetch production statistics",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

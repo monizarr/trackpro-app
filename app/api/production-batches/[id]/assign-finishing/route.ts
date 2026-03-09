@@ -83,8 +83,8 @@ export async function POST(
       );
     }
 
-    // Check if finishing task already exists (from sub-batch forwarding)
-    const existingFinishingTask = await prisma.finishingTask.findUnique({
+    // Check if finishing tasks already exist (from sub-batch forwarding)
+    const existingFinishingTasks = await prisma.finishingTask.findMany({
       where: { batchId: batchId },
     });
 
@@ -92,17 +92,20 @@ export async function POST(
     const result = await prisma.$transaction(async (tx) => {
       let finishingTask;
 
-      if (existingFinishingTask) {
-        // Update existing finishing task (created via sub-batch forwarding)
-        finishingTask = await tx.finishingTask.update({
-          where: { id: existingFinishingTask.id },
-          data: {
-            assignedToId,
-            notes: notes || existingFinishingTask.notes,
-          },
-        });
+      if (existingFinishingTasks.length > 0) {
+        // Update all existing finishing tasks to the new finisher
+        for (const ft of existingFinishingTasks) {
+          await tx.finishingTask.update({
+            where: { id: ft.id },
+            data: {
+              assignedToId,
+              notes: notes || ft.notes,
+            },
+          });
+        }
+        finishingTask = existingFinishingTasks[0];
       } else {
-        // Create new finishing task
+        // Create new finishing task (legacy: without sub-batch link)
         finishingTask = await tx.finishingTask.create({
           data: {
             batchId,

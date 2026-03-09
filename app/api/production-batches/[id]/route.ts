@@ -93,17 +93,23 @@ export async function GET(
             },
           },
         },
-        finishingTask: {
-          include: {
-            assignedTo: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
+        // finishingTasks: {
+        //   include: {
+        //     assignedTo: {
+        //       select: {
+        //         id: true,
+        //         name: true,
+        //         email: true,
+        //       },
+        //     },
+        //     subBatch: {
+        //       select: {
+        //         id: true,
+        //         subBatchSku: true,
+        //       },
+        //     },
+        //   },
+        // },
         sewingResults: {
           orderBy: {
             createdAt: "asc",

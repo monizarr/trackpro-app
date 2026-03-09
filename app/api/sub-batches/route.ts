@@ -35,13 +35,14 @@ export async function GET(request: Request) {
                 sku: true,
               },
             },
-            finishingTask: {
+            finishingTasks: {
               select: {
                 id: true,
                 assignedTo: {
                   select: { id: true, name: true },
                 },
                 piecesReceived: true,
+                subBatchId: true,
               },
             },
           },

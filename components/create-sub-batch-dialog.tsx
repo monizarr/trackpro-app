@@ -33,6 +33,7 @@ interface CreateSubBatchDialogProps {
     batchId: string
     batchSku: string
     sewingOutputs: SewingOutput[] // Hasil jahitan untuk diproses di finishing
+    finishingTaskId?: string // Optional - ID of the specific finishing task
     onSuccess: () => void
 }
 
@@ -51,6 +52,7 @@ export function CreateSubBatchDialog({
     batchId,
     batchSku,
     sewingOutputs,
+    finishingTaskId,
     onSuccess,
 }: CreateSubBatchDialogProps) {
     const [items, setItems] = useState<FinishingOutputItem[]>([])
@@ -208,6 +210,7 @@ export function CreateSubBatchDialog({
                         rejectBSPermanent: item.rejectBSPermanent,
                     })),
                     notes: notes || null,
+                    finishingTaskId: finishingTaskId || undefined,
                 }),
             })
 
@@ -296,7 +299,7 @@ export function CreateSubBatchDialog({
                             const errorMsg = getItemErrorMessage(item)
 
                             return (
-                                <Card key={index} className={`border-2 ${errorMsg ? 'border-red-300 bg-red-50' : isValid ? 'border-green-300' : 'border-yellow-300'
+                                <Card key={index} className={`border-2 ${errorMsg ? 'border-red-300 bg-red-50 dark:bg-primary-foreground/10' : isValid ? 'border-green-300' : 'border-yellow-300'
                                     }`}>
                                     <CardHeader className="py-3 flex flex-row items-center justify-between">
                                         <CardTitle className="text-sm flex items-center gap-2">

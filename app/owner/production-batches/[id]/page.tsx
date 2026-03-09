@@ -212,7 +212,7 @@ interface ProductionBatch {
     cuttingResults?: CuttingResult[];
     cuttingTask?: CuttingTask;
     sewingTask?: SewingTask;
-    finishingTask?: FinishingTask;
+    finishingTasks?: FinishingTask[];
     timeline?: TimelineEvent[];
 }
 
@@ -791,7 +791,9 @@ export default function ProductionBatchDetailPage() {
             }
             return sum + total;
         }, 0)
-        : (batch.finishingTask?.piecesCompleted || 0);
+        : (batch.finishingTasks && batch.finishingTasks.length > 0
+            ? batch.finishingTasks.reduce((sum, ft) => sum + (ft.piecesCompleted || 0), 0)
+            : 0);
 
     const finishingReject = subBatches.length > 0
         ? subBatches.reduce((sum, sb) => {
@@ -803,7 +805,9 @@ export default function ProductionBatchDetailPage() {
             }
             return sum + total;
         }, 0)
-        : (batch.finishingTask?.rejectPieces || 0);
+        : (batch.finishingTasks && batch.finishingTasks.length > 0
+            ? batch.finishingTasks.reduce((sum, ft) => sum + (ft.rejectPieces || 0), 0)
+            : 0);
     console.log("Batch : ", batch)
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">

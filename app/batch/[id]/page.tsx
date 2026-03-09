@@ -86,7 +86,7 @@ interface ProductionBatch {
             name: string;
         };
     };
-    finishingTask?: {
+    finishingTasks?: Array<{
         id: string;
         piecesReceived: number;
         piecesCompleted: number;
@@ -98,7 +98,7 @@ interface ProductionBatch {
         assignedTo?: {
             name: string;
         };
-    };
+    }>;
 }
 
 export default function BatchActionPage({ params }: { params: Promise<{ id: string }> }) {
@@ -153,8 +153,8 @@ export default function BatchActionPage({ params }: { params: Promise<{ id: stri
                 endpoint = `/api/cutting-tasks/${batch.cuttingTask.id}/start`;
             } else if (role === "PENJAHIT" && batch.sewingTask) {
                 endpoint = `/api/sewing-tasks/${batch.sewingTask.id}/start`;
-            } else if (role === "FINISHING" && batch.finishingTask) {
-                endpoint = `/api/finishing-tasks/${batch.finishingTask.id}/start`;
+            } else if (role === "FINISHING" && batch.finishingTasks?.[0]) {
+                endpoint = `/api/finishing-tasks/${batch.finishingTasks[0].id}/start`;
             }
 
             if (!endpoint) {
@@ -205,8 +205,8 @@ export default function BatchActionPage({ params }: { params: Promise<{ id: stri
                 body.wasteQty = parseFloat(wasteQty) || 0;
             } else if (role === "PENJAHIT" && batch.sewingTask) {
                 endpoint = `/api/sewing-tasks/${batch.sewingTask.id}/complete`;
-            } else if (role === "FINISHING" && batch.finishingTask) {
-                endpoint = `/api/finishing-tasks/${batch.finishingTask.id}/complete`;
+            } else if (role === "FINISHING" && batch.finishingTasks?.[0]) {
+                endpoint = `/api/finishing-tasks/${batch.finishingTasks[0].id}/complete`;
             }
 
             if (!endpoint) {
@@ -522,8 +522,8 @@ export default function BatchActionPage({ params }: { params: Promise<{ id: stri
         }
 
         // FINISHING Actions
-        if (role === "FINISHING" && batch.finishingTask) {
-            const task = batch.finishingTask;
+        if (role === "FINISHING" && batch.finishingTasks && batch.finishingTasks.length > 0) {
+            const task = batch.finishingTasks[0];
             const canStart = task.status === "PENDING";
             const canComplete = task.status === "IN_PROGRESS";
 
