@@ -1362,13 +1362,13 @@ export default function ProductionBatchDetailPage() {
                                 <div className="space-y-2">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">Input dari Potong</span>
-                                        <span className="font-medium">{cuttingOutput} pcs</span>
+                                        <span className="font-medium">{batch.sewingTask?.piecesReceived ?? 0} pcs</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">Output Jahit</span>
                                         <span className="font-medium text-green-600">{sewingOutput} pcs</span>
                                     </div>
-                                    <Progress value={cuttingOutput > 0 ? (sewingOutput / cuttingOutput) * 100 : 0} className="h-2" />
+                                    <Progress value={(batch.sewingTask?.piecesReceived ?? 0) > 0 ? (sewingOutput / (batch.sewingTask?.piecesReceived ?? 0)) * 100 : 0} className="h-2" />
                                 </div>
                             </CardContent>
                         </Card>

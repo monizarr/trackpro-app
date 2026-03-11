@@ -18,6 +18,7 @@ interface SewingTask {
     rejectPieces: number
     status: string
     notes: string | null
+    createdAt: Date
     startedAt: Date | null
     completedAt: Date | null
     batch: {
@@ -261,9 +262,6 @@ export default function SewingProcessPage() {
                                                     <div className="flex-1 min-w-0">
                                                         <div className="font-mono font-medium text-sm sm:text-base truncate">{task.batch.batchSku}</div>
                                                         <div className="text-xs sm:text-sm text-muted-foreground truncate">{task.batch.product.name}</div>
-                                                        <div className="text-xs text-muted-foreground mt-1">
-                                                            Target: {task.batch.targetQuantity} pcs
-                                                        </div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         <div className="text-right">
@@ -271,6 +269,47 @@ export default function SewingProcessPage() {
                                                         </div>
                                                         <ChevronRight className="h-5 w-5 text-muted-foreground" />
                                                     </div>
+                                                </div>
+                                                <div className="text-xs text-muted-foreground mt-4 grid grid-cols-3 gap-1 border-t pt-2">
+                                                    <p className="flex flex-col flex-wrap bg-accent/30 rounded-md p-2">
+                                                        {/* Tanggal diterima */}
+                                                        Diterima : <br />
+                                                        {task.createdAt
+                                                            ? `${new Date(task.createdAt).toLocaleString("id-ID", {
+                                                                day: "2-digit",
+                                                                month: "short",
+                                                                year: "numeric",
+                                                                hour: "2-digit",
+                                                                minute: "2-digit",
+                                                            })}`
+                                                            : "Tanggal diterima tidak tersedia"}
+                                                    </p>
+                                                    <p className="flex flex-col flex-wrap bg-accent/30 rounded-md p-2">
+                                                        {/* tanggal dimulai */}
+                                                        Dimulai : <br />
+                                                        {task.startedAt
+                                                            ? `${new Date(task.startedAt).toLocaleString("id-ID", {
+                                                                day: "2-digit",
+                                                                month: "short",
+                                                                year: "numeric",
+                                                                hour: "2-digit",
+                                                                minute: "2-digit",
+                                                            })}`
+                                                            : "Belum dimulai"}
+                                                    </p>
+                                                    <p className="flex flex-col flex-wrap bg-accent/30 rounded-md p-2">
+                                                        {/* tanggal selesai */}
+                                                        Selesai : <br />
+                                                        {task.completedAt
+                                                            ? `${new Date(task.completedAt).toLocaleString("id-ID", {
+                                                                day: "2-digit",
+                                                                month: "short",
+                                                                year: "numeric",
+                                                                hour: "2-digit",
+                                                                minute: "2-digit",
+                                                            })}`
+                                                            : "Belum selesai"}
+                                                    </p>
                                                 </div>
                                             </CardContent>
                                         </Card>

@@ -497,7 +497,7 @@ export function CreateBatchDialog({ open, onOpenChange, products, onSuccess }: C
                                                 .filter(v => v.materialId === alloc.materialId)
                                                 .map((variant) => (
                                                     <option key={variant.id} value={variant.colorName}>
-                                                        {variant.colorName} (Stok: {variant.stock} {variant.unit || alloc.unit})
+                                                        {variant.colorName} (Stok:  {variant.rollQuantity ? `${variant.rollQuantity} roll` : "Tidak ada roll"} - {variant.stock} {variant.unit || alloc.unit})
                                                     </option>
                                                 ))}
                                         </Select>
