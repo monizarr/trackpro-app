@@ -22,6 +22,7 @@ interface FinishingTask {
     startedAt: Date | null
     completedAt: Date | null
     createdAt: string
+    piecesReceived: number
     batch: {
         id: string
         batchSku: string
@@ -248,8 +249,8 @@ export default function FinishingProcessPage() {
                                                     <div className="flex-1 min-w-0">
                                                         <div className="font-mono font-medium text-sm sm:text-base truncate">{task.batch.batchSku}</div>
                                                         <div className="text-xs sm:text-sm text-muted-foreground truncate">{task.batch.product.name}</div>
-                                                        <div className="text-xs text-muted-foreground mt-1">
-                                                            {formatDateTime(task.createdAt)}
+                                                        <div className="text-xs font-black text-muted-foreground mt-1">
+                                                            {(task.piecesReceived)} Pcs
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
@@ -258,6 +259,29 @@ export default function FinishingProcessPage() {
                                                         </div>
                                                         <ChevronRight className="h-5 w-5 text-muted-foreground" />
                                                     </div>
+                                                </div>
+                                                <div className="text-xs text-muted-foreground mt-4 grid grid-cols-3 gap-1 border-t pt-2">
+                                                    <p className="flex flex-col flex-wrap bg-accent/30 rounded-md p-2">
+                                                        {/* Tanggal diterima */}
+                                                        Diterima : <br />
+                                                        {task.createdAt
+                                                            ? `${formatDateTime(task.createdAt)}`
+                                                            : "Tanggal diterima tidak tersedia"}
+                                                    </p>
+                                                    <p className="flex flex-col flex-wrap bg-accent/30 rounded-md p-2">
+                                                        {/* tanggal dimulai */}
+                                                        Dimulai : <br />
+                                                        {task.startedAt
+                                                            ? `${formatDateTime(task.startedAt)}`
+                                                            : "Belum dimulai"}
+                                                    </p>
+                                                    <p className="flex flex-col flex-wrap bg-accent/30 rounded-md p-2">
+                                                        {/* tanggal selesai */}
+                                                        Selesai : <br />
+                                                        {task.completedAt
+                                                            ? `${formatDateTime(task.completedAt)}`
+                                                            : "Belum selesai"}
+                                                    </p>
                                                 </div>
                                             </CardContent>
                                         </Card>

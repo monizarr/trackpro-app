@@ -287,6 +287,7 @@ export default function ProductsPage() {
                 }))
             )
         }
+        console.log("Editing product materials:", product.materials)
 
         // Load color variants if available
         if (product.colorVariants) {
@@ -500,7 +501,7 @@ export default function ProductsPage() {
                                                 (m) => m.materialId === material.id
                                             )}
                                         >
-                                            {material.name} ({material.code}) - Stock: {material.currentStock} {material.unit}
+                                            {material.name} ({material.code})
                                         </option>
                                     ))}
                                 </Select>

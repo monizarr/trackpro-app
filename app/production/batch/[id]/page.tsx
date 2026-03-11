@@ -1933,6 +1933,30 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                                             </div>
                                         )}
 
+                                        <div className="">
+                                            <span className="text-sm font-medium mb-3">Progres Jahitan</span>
+                                            <Progress value={(batch.sewingTask?.piecesReceived ?? 0) > 0 ? (sewingOutput / (batch.sewingTask?.piecesReceived ?? 0)) * 100 : 0} className="h-2" />
+                                            {/* Summary per size/color */}
+                                            {sewingSubBatches.length > 0 && batch.cuttingResults && (
+                                                <div className="space-y-2 mt-2 pt-2 border-t">
+                                                    <span className="text-sm font-medium">Per Ukuran/Warna</span>
+                                                    {batch.cuttingResults.map((cr) => {
+                                                        const key = `${cr.productSize}|${cr.color}`;
+                                                        const sewn = sewnPerSizeColor.get(key) || 0;
+                                                        const pct = cr.actualPieces > 0 ? Math.round((sewn / cr.actualPieces) * 100) : 0;
+                                                        return (
+                                                            <div key={key} className="space-y-1">
+                                                                <div className="flex justify-between text-xs">
+                                                                    <span className="text-muted-foreground">{cr.productSize} - {cr.color}</span>
+                                                                    <span>{sewn}/{cr.actualPieces} ({pct}%)</span>
+                                                                </div>
+                                                                <Progress value={pct} className="h-2" />
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="text-center py-8 text-muted-foreground">
@@ -1943,51 +1967,6 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                             </CardContent>
                         </Card>
 
-                        {/* Sewing Progress */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Progress Penjahitan</CardTitle>
-                                <CardDescription>Kemajuan proses penjahitan</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Input dari Potong</span>
-                                        <span className="font-medium">{cuttingOutput} pcs</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Output Jahit</span>
-                                        <span className="font-medium text-green-600">{sewingOutput} pcs</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Sisa Belum Dijahit</span>
-                                        <span className="font-medium text-orange-600">{Math.max(0, cuttingOutput - sewingOutput)} pcs</span>
-                                    </div>
-                                    <Progress value={cuttingOutput > 0 ? (sewingOutput / cuttingOutput) * 100 : 0} className="h-2" />
-                                </div>
-
-                                {/* Summary per size/color */}
-                                {sewingSubBatches.length > 0 && batch.cuttingResults && (
-                                    <div className="space-y-2 pt-2 border-t">
-                                        <span className="text-sm font-medium">Per Ukuran/Warna</span>
-                                        {batch.cuttingResults.map((cr) => {
-                                            const key = `${cr.productSize}|${cr.color}`;
-                                            const sewn = sewnPerSizeColor.get(key) || 0;
-                                            const pct = cr.actualPieces > 0 ? Math.round((sewn / cr.actualPieces) * 100) : 0;
-                                            return (
-                                                <div key={key} className="space-y-1">
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-muted-foreground">{cr.productSize} - {cr.color}</span>
-                                                        <span>{sewn}/{cr.actualPieces} ({pct}%)</span>
-                                                    </div>
-                                                    <Progress value={pct} className="h-1" />
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
                         <Card>
                             <CardHeader>
                                 <CardTitle>Hasil Jahitan</CardTitle>
@@ -2274,7 +2253,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             </Tabs>
 
             {/* Sub-Batches (shown when status is after CUTTING_VERIFIED) */}
-            {["IN_FINISHING", "FINISHING_COMPLETED", "WAREHOUSE_VERIFIED", "COMPLETED"].includes(batch.status) && (
+            {["IN_SEWING", "IN_FINISHING", "FINISHING_COMPLETED", "WAREHOUSE_VERIFIED", "COMPLETED"].includes(batch.status) && (
                 <SubBatchList
                     role="PRODUCTION_HEAD"
                     batchId={batch.id}

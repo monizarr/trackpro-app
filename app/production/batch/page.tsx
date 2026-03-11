@@ -290,7 +290,7 @@ export default function BatchManagementPage() {
             setLoading(false)
         }
     }
-    console.log(batches);
+    
     const fetchProducts = async () => {
         try {
             const response = await fetch("/api/products")

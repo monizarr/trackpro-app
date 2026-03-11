@@ -88,6 +88,7 @@ export async function POST(request: Request) {
     const session = await requireRole(["OWNER"]);
 
     const body = await request.json();
+    console.log("Request body:", body);
     const {
       sku,
       name,
