@@ -45,6 +45,14 @@ interface FinishingTask {
             actualPieces: number
         }>
     }
+    subBatch: {
+        id: string
+        subBatchSku: string
+        status: string
+        sewingTask: {
+            id: string
+        } | null
+    }
 }
 
 export default function FinishingProcessPage() {
@@ -238,6 +246,7 @@ export default function FinishingProcessPage() {
                                 </Alert>
                             ) : (
                                 <div className="grid gap-3">
+                                    {console.log("Rendering tasks for group:", group.label, "Filtered tasks:", filteredTasks)}
                                     {filteredTasks.map((task) => (
                                         <Card
                                             key={task.id}
@@ -247,7 +256,7 @@ export default function FinishingProcessPage() {
                                             <CardContent className="p-4">
                                                 <div className="flex items-center justify-between gap-4">
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="font-mono font-medium text-sm sm:text-base truncate">{task.batch.batchSku}</div>
+                                                        <div className="font-mono font-medium text-sm sm:text-base truncate">{task.subBatch.subBatchSku}</div>
                                                         <div className="text-xs sm:text-sm text-muted-foreground truncate">{task.batch.product.name}</div>
                                                         <div className="text-xs font-black text-muted-foreground mt-1">
                                                             {(task.piecesReceived)} Pcs

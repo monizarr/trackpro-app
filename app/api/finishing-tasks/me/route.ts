@@ -48,6 +48,14 @@ export async function GET() {
             finishingTasks: true,
           },
         },
+        subBatch: {
+          select: {
+            id: true,
+            subBatchSku: true,
+            status: true,
+            sewingTask: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",

@@ -524,9 +524,9 @@ export default function SewingTaskDetailPage() {
             {task.status === 'IN_PROGRESS' && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Kirim Hasil Jahitan ke Finishing</CardTitle>
+                        <CardTitle>Kirim Hasil Jahitan</CardTitle>
                         <CardDescription>
-                            Masukkan jumlah jahitan yang siap dikirim ke finishing. Setiap pengiriman akan dibuat sebagai sub-batch.
+                            Masukkan jumlah jahitan yang siap dikirim. Setiap pengiriman akan dibuat sebagai sub-batch.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -535,7 +535,7 @@ export default function SewingTaskDetailPage() {
                             <Alert>
                                 <AlertCircle className="h-4 w-4" />
                                 <AlertDescription>
-                                    Sudah dikirim <strong>{totalAlreadySewn} pcs</strong> ke finishing via {task.batch.subBatches?.length || 0} sub-batch.
+                                    Sudah dikirim <strong>{totalAlreadySewn} pcs</strong> ke finishing.
                                     Masukkan hanya jumlah BARU yang siap dikirim.
                                 </AlertDescription>
                             </Alert>
@@ -664,7 +664,7 @@ export default function SewingTaskDetailPage() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Konfirmasi Simpan Jahitan</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Anda yakin ingin menyimpan hasil jahitan? <br/> hasil jahitan akan diperiksa oleh Kepala Produksi
+                            Anda yakin ingin menyimpan hasil jahitan? <br /> hasil jahitan akan diperiksa oleh Kepala Produksi
                         </AlertDialogDescription>
                     </AlertDialogHeader>
 
