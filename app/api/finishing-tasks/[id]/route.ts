@@ -31,6 +31,7 @@ export async function GET(
             },
           },
         },
+        subBatch: {},
         assignedTo: {
           select: {
             id: true,

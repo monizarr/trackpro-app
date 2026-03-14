@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 
-// GET - List sub-batches untuk batch tertentu (optional filter by source)
+// GET - List sub-batches untuk batch tertentu (optional filter by source/finishingTaskId)
 export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> },
@@ -18,15 +18,23 @@ export async function GET(
     const params = await context.params;
     const { id } = params;
 
-    // Check for source filter in query params
+    // Check for source/filter params
     const url = new URL(request.url);
     const source = url.searchParams.get("source"); // "SEWING" or "FINISHING"
+    const finishingTaskId = url.searchParams.get("finishingTaskId");
 
-    const whereClause: { batchId: string; source?: "SEWING" | "FINISHING" } = {
+    const whereClause: {
+      batchId: string;
+      source?: "SEWING" | "FINISHING";
+      finishingTaskId?: string;
+    } = {
       batchId: id,
     };
     if (source === "SEWING" || source === "FINISHING") {
       whereClause.source = source;
+    }
+    if (finishingTaskId) {
+      whereClause.finishingTaskId = finishingTaskId;
     }
 
     const subBatches = await prisma.subBatch.findMany({
@@ -110,6 +118,16 @@ export async function POST(
       ? batch?.finishingTasks.find((ft) => ft.id === finishingTaskId)
       : batch?.finishingTasks[0]; // fallback to first task for backward compatibility
 
+    if (finishingTaskId && !finishingTask) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Finishing task tidak ditemukan pada batch ini",
+        },
+        { status: 400 },
+      );
+    }
+
     if (!batch) {
       return NextResponse.json(
         { success: false, error: "Production batch not found" },
@@ -188,6 +206,7 @@ export async function POST(
           subBatchSku,
           batchId: id,
           source: "FINISHING",
+          finishingTaskId: finishingTask?.id ?? null,
           finishingGoodOutput: totalGoodOutput,
           rejectBS: totalRejectBS,
           rejectBSPermanent: totalRejectBSPermanent,

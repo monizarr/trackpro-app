@@ -66,6 +66,10 @@ interface FinishingTask {
             }
         }>
     }
+    subBatch: {
+        id: string;
+        subBatchSku: string;
+    }
 }
 
 interface SubBatchItem {
@@ -175,11 +179,11 @@ export default function FinishingTaskDetailPage() {
             setLoading(false)
         }
     }
-    console.log(task)
+    console.log("Fetched task data:", task)
     const fetchSubBatches = async () => {
         try {
             // Fetch only FINISHING sub-batches
-            const response = await fetch(`/api/production-batches/${task?.batch.id}/sub-batches?source=FINISHING`);
+            const response = await fetch(`/api/production-batches/${task?.batch.id}/sub-batches?source=FINISHING&finishingTaskId=${taskId}`);
             const result = await response.json();
 
             if (result.success) {
@@ -354,7 +358,7 @@ export default function FinishingTaskDetailPage() {
     const currentBatch = {
         id: task.batch.id,
         batchSku: task.batch.batchSku,
-        code: task.batch.batchSku,
+        code: task.subBatch.subBatchSku,
         startedAt: task.startedAt ? formatDateTime(task.startedAt) : "N/A",
         completedAt: task.completedAt ? formatDateTime(task.completedAt) : "N/A",
         product: task.batch.product.name,
@@ -365,7 +369,7 @@ export default function FinishingTaskDetailPage() {
         totalRoll: task.batch.totalRolls,
         status: task.status
     }
-    console.log("Current Batch:", currentBatch);
+
     return (
         <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6">
             {/* Header dengan tombol kembali */}
@@ -573,6 +577,7 @@ export default function FinishingTaskDetailPage() {
                     <SubBatchList
                         role="FINISHING"
                         batchId={currentBatch.id}
+                        finishingTaskId={taskId}
                         onRefresh={async () => {
                             await fetchBatchDetail();
                             await fetchSubBatches();

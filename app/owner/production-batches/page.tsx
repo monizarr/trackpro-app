@@ -413,8 +413,13 @@ export default function OwnerBatchMonitoring() {
 
     if (loading) {
         return (
-            <div className="flex-1 flex items-center justify-center p-8">
-                <SpinnerCustom />
+            <div className="h-screen flex justify-center items-center">
+                <div className="flex items-center justify-center h-96">
+                    <div className="text-center">
+                        <SpinnerCustom />
+                        <p className="text-muted-foreground">Memuat dashboard...</p>
+                    </div>
+                </div>
             </div>
         )
     }
@@ -565,7 +570,7 @@ export default function OwnerBatchMonitoring() {
             })()}
 
             {/* Progress Distribution */}
-            {(() => {
+            {/* {(() => {
                 const stats = getOverallStats()
                 return (
                     <Card>
@@ -606,10 +611,10 @@ export default function OwnerBatchMonitoring() {
                         </CardContent>
                     </Card>
                 )
-            })()}
+            })()} */}
 
             {/* Search */}
-            <div className="relative max-w-md">
+            <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                     placeholder="Cari batch, produk, atau SKU..."

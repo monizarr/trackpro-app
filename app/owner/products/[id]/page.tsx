@@ -925,6 +925,240 @@ export default function ProductDetailPage() {
             </Card>
 
             <div className="grid gap-4 grid-cols-1 lg:grid-cols-7">
+                 {/* Product Info Card */}
+                <Card className="lg:col-span-3">
+                    <CardHeader>
+                        <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                                <CardTitle>{product.name}</CardTitle>
+                                <CardDescription>{product.description}</CardDescription>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button variant="ghost" size="icon" onClick={handleEdit}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={handleDeleteClick}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* Product Details */}
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-muted-foreground">Harga Produksi</span>
+                                <span className="text-xl font-bold">{formatPrice(Number(product.price))}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-muted-foreground">Status</span>
+                                <Badge variant={product.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                                    {product.status}
+                                </Badge>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-muted-foreground">SKU</span>
+                                <span className="font-mono text-sm font-medium">{product.sku}</span>
+                            </div>
+                            {product.materials && product.materials.length > 0 && (
+                                <div className="space-y-2">
+                                    <Separator />
+                                    <div>
+                                        <span className="text-sm font-medium text-muted-foreground block mb-2">Materials Used</span>
+                                        <div className="space-y-2">
+                                            {product.materials.map((item) => (
+                                                <div key={item.id} className="flex justify-between items-center text-sm p-2 bg-muted/50 rounded">
+                                                    <div>
+                                                        <p className="font-medium">{item.material.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{item.material.code}</p>
+                                                    </div>
+                                                    <span className="text-muted-foreground font-medium">
+                                                        {Number(item.quantity).toFixed(2)} {item.unit}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        {/* Color Variants Card */}
+                        <Card>
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Palette className="h-5 w-5 text-primary" />
+                                        <div>
+                                            <CardTitle className="text-lg">Varian Warna</CardTitle>
+                                            <CardDescription>
+                                                Warna produk yang tersedia untuk produksi
+                                            </CardDescription>
+                                        </div>
+                                    </div>
+                                    <Badge variant="outline">
+                                        {product.colorVariants?.length || 0} warna
+                                    </Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {/* Add Color Form */}
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="Nama warna (cth: Putih)"
+                                        value={newColorName}
+                                        onChange={(e) => setNewColorName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                handleAddColorVariant();
+                                            }
+                                        }}
+                                        className="flex-1"
+                                    />
+                                    <Input
+                                        placeholder="Kode (opsional)"
+                                        value={newColorCode}
+                                        onChange={(e) => setNewColorCode(e.target.value)}
+                                        className="w-28"
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={handleAddColorVariant}
+                                        disabled={isAddingColor || !newColorName.trim()}
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </div>
+
+                                {/* Color List */}
+                                {product.colorVariants && product.colorVariants.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {product.colorVariants.map((variant) => (
+                                            <Badge
+                                                key={variant.id}
+                                                variant="secondary"
+                                                className="gap-1 pr-1 py-1.5"
+                                            >
+                                                {variant.colorName}
+                                                {variant.colorCode && (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        ({variant.colorCode})
+                                                    </span>
+                                                )}
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-4 w-4 ml-1 hover:bg-destructive/20"
+                                                    onClick={() => handleDeleteColorVariant(variant.id)}
+                                                    disabled={deletingColorId === variant.id}
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </Button>
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-4 text-muted-foreground">
+                                        <Palette className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                        <p className="text-sm">Belum ada varian warna</p>
+                                        <p className="text-xs">Tambahkan warna untuk produk ini</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Size Variants Card */}
+                        <Card>
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Ruler className="h-5 w-5 text-primary" />
+                                        <div>
+                                            <CardTitle className="text-lg">Varian Ukuran</CardTitle>
+                                            <CardDescription>
+                                                Ukuran produk yang tersedia untuk produksi
+                                            </CardDescription>
+                                        </div>
+                                    </div>
+                                    <Badge variant="outline">
+                                        {product.sizeVariants?.length || 0} ukuran
+                                    </Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {/* Add Size Form */}
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="Nama ukuran (cth: S, M, L)"
+                                        value={newSizeName}
+                                        onChange={(e) => setNewSizeName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                handleAddSizeVariant();
+                                            }
+                                        }}
+                                        className="flex-1"
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={handleAddSizeVariant}
+                                        disabled={isAddingSize || !newSizeName.trim()}
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </div>
+
+                                {/* Quick Add Predefined Sizes */}
+                                <Button
+                                    type="button"
+                                    variant="link"
+                                    size="sm"
+                                    className="text-xs p-0 h-auto"
+                                    onClick={addPredefinedSizes}
+                                    disabled={isAddingSize}
+                                >
+                                    + Tambah Ukuran Standar (XS-XXL)
+                                </Button>
+
+                                {/* Size List */}
+                                {product.sizeVariants && product.sizeVariants.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {product.sizeVariants.map((variant) => (
+                                            <Badge
+                                                key={variant.id}
+                                                variant="outline"
+                                                className="gap-1 pr-1 py-1.5"
+                                            >
+                                                {variant.sizeName}
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-4 w-4 ml-1 hover:bg-destructive/20"
+                                                    onClick={() => handleDeleteSizeVariant(variant.id)}
+                                                    disabled={deletingSizeId === variant.id}
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </Button>
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-4 text-muted-foreground">
+                                        <Ruler className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                        <p className="text-sm">Belum ada varian ukuran</p>
+                                        <p className="text-xs">Tambahkan ukuran untuk produk ini</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </CardContent>
+                </Card>
+
                 {/* Production Section */}
                 <Card className="lg:col-span-4">
                     <CardHeader>
@@ -1145,244 +1379,11 @@ export default function ProductDetailPage() {
                         )}
                     </CardContent>
                 </Card>
-
-                {/* Product Info Card */}
-                <Card className="lg:col-span-3">
-                    <CardHeader>
-                        <div className="flex justify-between items-start">
-                            <div className="space-y-1">
-                                <CardTitle>{product.name}</CardTitle>
-                                <CardDescription>{product.description}</CardDescription>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button variant="ghost" size="icon" onClick={handleEdit}>
-                                    <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={handleDeleteClick}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {/* Product Details */}
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-muted-foreground">Harga Produksi</span>
-                                <span className="text-xl font-bold">{formatPrice(Number(product.price))}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-muted-foreground">Status</span>
-                                <Badge variant={product.status === 'ACTIVE' ? 'default' : 'secondary'}>
-                                    {product.status}
-                                </Badge>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-muted-foreground">SKU</span>
-                                <span className="font-mono text-sm font-medium">{product.sku}</span>
-                            </div>
-                            {product.materials && product.materials.length > 0 && (
-                                <div className="space-y-2">
-                                    <Separator />
-                                    <div>
-                                        <span className="text-sm font-medium text-muted-foreground block mb-2">Materials Used</span>
-                                        <div className="space-y-2">
-                                            {product.materials.map((item) => (
-                                                <div key={item.id} className="flex justify-between items-center text-sm p-2 bg-muted/50 rounded">
-                                                    <div>
-                                                        <p className="font-medium">{item.material.name}</p>
-                                                        <p className="text-xs text-muted-foreground">{item.material.code}</p>
-                                                    </div>
-                                                    <span className="text-muted-foreground font-medium">
-                                                        {Number(item.quantity).toFixed(2)} {item.unit}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
 
             {/* Product Variants Section */}
             <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-                {/* Color Variants Card */}
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Palette className="h-5 w-5 text-primary" />
-                                <div>
-                                    <CardTitle className="text-lg">Varian Warna</CardTitle>
-                                    <CardDescription>
-                                        Warna produk yang tersedia untuk produksi
-                                    </CardDescription>
-                                </div>
-                            </div>
-                            <Badge variant="outline">
-                                {product.colorVariants?.length || 0} warna
-                            </Badge>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {/* Add Color Form */}
-                        <div className="flex gap-2">
-                            <Input
-                                placeholder="Nama warna (cth: Putih)"
-                                value={newColorName}
-                                onChange={(e) => setNewColorName(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        handleAddColorVariant();
-                                    }
-                                }}
-                                className="flex-1"
-                            />
-                            <Input
-                                placeholder="Kode (opsional)"
-                                value={newColorCode}
-                                onChange={(e) => setNewColorCode(e.target.value)}
-                                className="w-28"
-                            />
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={handleAddColorVariant}
-                                disabled={isAddingColor || !newColorName.trim()}
-                            >
-                                <Plus className="h-4 w-4" />
-                            </Button>
-                        </div>
 
-                        {/* Color List */}
-                        {product.colorVariants && product.colorVariants.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                                {product.colorVariants.map((variant) => (
-                                    <Badge
-                                        key={variant.id}
-                                        variant="secondary"
-                                        className="gap-1 pr-1 py-1.5"
-                                    >
-                                        {variant.colorName}
-                                        {variant.colorCode && (
-                                            <span className="text-xs text-muted-foreground">
-                                                ({variant.colorCode})
-                                            </span>
-                                        )}
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-4 w-4 ml-1 hover:bg-destructive/20"
-                                            onClick={() => handleDeleteColorVariant(variant.id)}
-                                            disabled={deletingColorId === variant.id}
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </Button>
-                                    </Badge>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-4 text-muted-foreground">
-                                <Palette className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                <p className="text-sm">Belum ada varian warna</p>
-                                <p className="text-xs">Tambahkan warna untuk produk ini</p>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Size Variants Card */}
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Ruler className="h-5 w-5 text-primary" />
-                                <div>
-                                    <CardTitle className="text-lg">Varian Ukuran</CardTitle>
-                                    <CardDescription>
-                                        Ukuran produk yang tersedia untuk produksi
-                                    </CardDescription>
-                                </div>
-                            </div>
-                            <Badge variant="outline">
-                                {product.sizeVariants?.length || 0} ukuran
-                            </Badge>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {/* Add Size Form */}
-                        <div className="flex gap-2">
-                            <Input
-                                placeholder="Nama ukuran (cth: S, M, L)"
-                                value={newSizeName}
-                                onChange={(e) => setNewSizeName(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        handleAddSizeVariant();
-                                    }
-                                }}
-                                className="flex-1"
-                            />
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={handleAddSizeVariant}
-                                disabled={isAddingSize || !newSizeName.trim()}
-                            >
-                                <Plus className="h-4 w-4" />
-                            </Button>
-                        </div>
-
-                        {/* Quick Add Predefined Sizes */}
-                        <Button
-                            type="button"
-                            variant="link"
-                            size="sm"
-                            className="text-xs p-0 h-auto"
-                            onClick={addPredefinedSizes}
-                            disabled={isAddingSize}
-                        >
-                            + Tambah Ukuran Standar (XS-XXL)
-                        </Button>
-
-                        {/* Size List */}
-                        {product.sizeVariants && product.sizeVariants.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                                {product.sizeVariants.map((variant) => (
-                                    <Badge
-                                        key={variant.id}
-                                        variant="outline"
-                                        className="gap-1 pr-1 py-1.5"
-                                    >
-                                        {variant.sizeName}
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-4 w-4 ml-1 hover:bg-destructive/20"
-                                            onClick={() => handleDeleteSizeVariant(variant.id)}
-                                            disabled={deletingSizeId === variant.id}
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </Button>
-                                    </Badge>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-4 text-muted-foreground">
-                                <Ruler className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                <p className="text-sm">Belum ada varian ukuran</p>
-                                <p className="text-xs">Tambahkan ukuran untuk produk ini</p>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
                 <div className="lg:hidden">
                     <Separator className="my-4" />
                 </div>

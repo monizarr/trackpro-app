@@ -27,6 +27,7 @@ interface ProductionBatch {
     createdBy: {
         name: string;
     };
+    totalRolls: number;
 }
 
 interface MaterialColorVariant {
@@ -116,6 +117,7 @@ export default function DashboardPage() {
             setLoading(false);
         }
     };
+    console.log(recentBatches);
 
     const getStatusBadge = (status: string) => {
         const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -143,7 +145,7 @@ export default function DashboardPage() {
 
     if (loading) {
         return (
-            <div className="flex-1 space-y-4 p-8 pt-6">
+            <div className="h-screen flex justify-center items-center">
                 <div className="flex items-center justify-center h-96">
                     <div className="text-center">
                         <SpinnerCustom />
@@ -242,7 +244,7 @@ export default function DashboardPage() {
                                 {recentBatches.length > 0 ? (
                                     <div className="space-y-2">
                                         {recentBatches.map((batch) => (
-                                            <div key={batch.id} className="flex items-center cursor-pointer rounded-lg border p-3 hover:bg-gray-50 dark:hover:bg-primary/10" 
+                                            <div key={batch.id} className="flex items-center cursor-pointer rounded-lg border p-3 hover:bg-gray-50 dark:hover:bg-primary/10"
                                                 onClick={() => window.location.href = `/owner/production-batches/${batch.id}`}
                                             >
                                                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100">
@@ -257,7 +259,7 @@ export default function DashboardPage() {
                                                     <div className="text-right">
                                                         {/* <p className="text-sm font-medium">{getProgressPercentage(batch)}%</p> */}
                                                         <p className="text-xs text-muted-foreground">
-                                                            {batch.actualQuantity} Pcs
+                                                            {batch.totalRolls} Roll
                                                         </p>
                                                     </div>
                                                 </div>

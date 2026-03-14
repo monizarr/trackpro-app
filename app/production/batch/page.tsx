@@ -2387,13 +2387,13 @@ export default function BatchManagementPage() {
                             <div className="grid gap-4 md:grid-cols-3">
                                 <Card>
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="text-sm font-medium">Total Batch</CardTitle>
+                                        <CardTitle className="text-sm font-medium">Total PO</CardTitle>
                                         <Package className="h-4 w-4 text-muted-foreground" />
                                     </CardHeader>
                                     <CardContent>
                                         <div className="text-2xl font-bold">{stats.total}</div>
                                         <p className="text-xs text-muted-foreground">
-                                            {stats.total} batch
+                                            {stats.total} purchase order
                                         </p>
                                     </CardContent>
                                 </Card>
@@ -2428,7 +2428,7 @@ export default function BatchManagementPage() {
                             {/* Batches Table */}
                             <Card className="bg-accent/5">
                                 <CardHeader>
-                                    <CardTitle>Batch {group.label}</CardTitle>
+                                    <CardTitle>PO {group.label}</CardTitle>
                                     <CardDescription>
                                         {filteredGroupBatches.length} batch{filteredGroupBatches.length !== 1 ? 'es' : ''} dalam tahap {group.label.toLowerCase()}
                                     </CardDescription>

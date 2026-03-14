@@ -47,6 +47,7 @@ interface SubBatch {
 interface SubBatchListProps {
     role: "FINISHING" | "WAREHOUSE" | "PRODUCTION_HEAD"
     batchId: string
+    finishingTaskId?: string
     onRefresh: () => void
     onVerifyFinishing?: (subBatch: SubBatch) => void
 }
@@ -83,7 +84,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
  * 3. WAREHOUSE_VERIFIED - Ka. Gudang memverifikasi
  * 4. COMPLETED - Selesai
  */
-export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: SubBatchListProps) {
+export function SubBatchList({ batchId, finishingTaskId, onRefresh, onVerifyFinishing, role }: SubBatchListProps) {
     const [subBatches, setSubBatches] = useState<SubBatch[]>([])
     const [loading, setLoading] = useState(true)
     const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -91,7 +92,11 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: Su
 
     const fetchSubBatches = useCallback(async () => {
         try {
-            const response = await fetch(`/api/production-batches/${batchId}/sub-batches?source=FINISHING`)
+            const params = new URLSearchParams({ source: "FINISHING" })
+            if (finishingTaskId) {
+                params.set("finishingTaskId", finishingTaskId)
+            }
+            const response = await fetch(`/api/production-batches/${batchId}/sub-batches?${params.toString()}`)
             const result = await response.json()
             if (result.success) {
                 setSubBatches(result.data)
@@ -101,7 +106,7 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: Su
         } finally {
             setLoading(false)
         }
-    }, [batchId])
+    }, [batchId, finishingTaskId])
 
     useEffect(() => {
         fetchSubBatches()
@@ -150,7 +155,7 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: Su
             <Card className="border-dashed">
                 <CardContent className="py-8 text-center text-muted-foreground">
                     <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Belum ada sub-batch hasil finishing</p>
+                    <p>Belum ada hasil finishing</p>
                     <p className="text-sm">Buat sub-batch untuk mengirim hasil finishing ke gudang</p>
                 </CardContent>
             </Card>
@@ -176,7 +181,7 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: Su
                 <CardHeader className="py-3">
                     <CardTitle className="text-sm flex items-center gap-2">
                         <Package className="h-5 w-5" />
-                        Sub-Batch Hasil Finishing ({summary.verified}/{summary.total} terverifikasi)
+                        Hasil Finishing ({summary.verified}/{summary.total} terverifikasi)
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="py-2">
