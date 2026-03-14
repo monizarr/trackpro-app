@@ -47,6 +47,7 @@ interface SubBatch {
 interface SubBatchListProps {
     role: "FINISHING" | "WAREHOUSE" | "PRODUCTION_HEAD"
     batchId: string
+    finishingTaskId?: string
     onRefresh: () => void
     onVerifyFinishing?: (subBatch: SubBatch) => void
 }
@@ -83,7 +84,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
  * 3. WAREHOUSE_VERIFIED - Ka. Gudang memverifikasi
  * 4. COMPLETED - Selesai
  */
-export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: SubBatchListProps) {
+export function SubBatchList({ batchId, finishingTaskId, onRefresh, onVerifyFinishing, role }: SubBatchListProps) {
     const [subBatches, setSubBatches] = useState<SubBatch[]>([])
     const [loading, setLoading] = useState(true)
     const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -91,7 +92,10 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: Su
 
     const fetchSubBatches = useCallback(async () => {
         try {
-            const response = await fetch(`/api/production-batches/${batchId}/sub-batches?source=FINISHING`)
+            const url = finishingTaskId
+                ? `/api/production-batches/${batchId}/sub-batches?source=FINISHING&finishingTaskId=${finishingTaskId}`
+                : `/api/production-batches/${batchId}/sub-batches?source=FINISHING`;
+            const response = await fetch(url)
             const result = await response.json()
             if (result.success) {
                 setSubBatches(result.data)
@@ -101,7 +105,7 @@ export function SubBatchList({ batchId, onRefresh, onVerifyFinishing, role }: Su
         } finally {
             setLoading(false)
         }
-    }, [batchId])
+    }, [batchId, finishingTaskId])
 
     useEffect(() => {
         fetchSubBatches()

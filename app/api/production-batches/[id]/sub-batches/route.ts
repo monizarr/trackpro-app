@@ -21,12 +21,20 @@ export async function GET(
     // Check for source filter in query params
     const url = new URL(request.url);
     const source = url.searchParams.get("source"); // "SEWING" or "FINISHING"
+    const finishingTaskId = url.searchParams.get("finishingTaskId"); // filter by finishing task
 
-    const whereClause: { batchId: string; source?: "SEWING" | "FINISHING" } = {
+    const whereClause: {
+      batchId: string;
+      source?: "SEWING" | "FINISHING";
+      finishingTaskId?: string;
+    } = {
       batchId: id,
     };
     if (source === "SEWING" || source === "FINISHING") {
       whereClause.source = source;
+    }
+    if (finishingTaskId) {
+      whereClause.finishingTaskId = finishingTaskId;
     }
 
     const subBatches = await prisma.subBatch.findMany({
@@ -188,6 +196,7 @@ export async function POST(
           subBatchSku,
           batchId: id,
           source: "FINISHING",
+          finishingTaskId: finishingTask?.id || null,
           finishingGoodOutput: totalGoodOutput,
           rejectBS: totalRejectBS,
           rejectBSPermanent: totalRejectBSPermanent,
