@@ -496,79 +496,6 @@ export default function OwnerBatchMonitoring() {
                 </CardContent>
             </Card>
 
-            {/* Overview Stats */}
-            {(() => {
-                const stats = getOverallStats()
-                const completionRate = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0
-
-                return (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Total Batch</CardTitle>
-                                <Package className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{stats.total}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    {selectedMonth !== null ? MONTHS[selectedMonth].label + " " : "Semua bulan "}{selectedYear}
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Total Roll</CardTitle>
-                                <Package className="h-4 w-4 text-blue-600" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-blue-600">{stats.totalRolls}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    Roll bahan digunakan
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Output Produksi</CardTitle>
-                                <TrendingUp className="h-4 w-4 text-green-600" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-green-600">{stats.totalPieces}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    Pieces diproduksi
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Total Reject</CardTitle>
-                                <XCircle className="h-4 w-4 text-destructive" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-destructive">{stats.totalReject}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    Pieces ditolak
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Tingkat Selesai</CardTitle>
-                                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{completionRate.toFixed(1)}%</div>
-                                <Progress value={completionRate} className="h-2 mt-2" />
-                            </CardContent>
-                        </Card>
-                    </div>
-                )
-            })()}
-
             {/* Progress Distribution */}
             {/* {(() => {
                 const stats = getOverallStats()
@@ -692,7 +619,7 @@ export default function OwnerBatchMonitoring() {
                                     </CardContent>
                                 </Card>
 
-                                <Card>
+                                {/* <Card>
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                         <CardTitle className="text-sm font-medium">Reject</CardTitle>
                                         <XCircle className="h-4 w-4 text-destructive" />
@@ -703,13 +630,13 @@ export default function OwnerBatchMonitoring() {
                                             Pcs ditolak
                                         </p>
                                     </CardContent>
-                                </Card>
+                                </Card> */}
                             </div>
 
                             {/* Batches Table */}
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Batch {group.label}</CardTitle>
+                                    <CardTitle>PO {group.label}</CardTitle>
                                     <CardDescription>
                                         {filteredBatches.length} batch{filteredBatches.length !== 1 ? 'es' : ''} dalam tahap {group.label.toLowerCase()}
                                     </CardDescription>
@@ -718,7 +645,7 @@ export default function OwnerBatchMonitoring() {
                                     {filteredBatches.length === 0 ? (
                                         <div className="text-center py-12 text-muted-foreground">
                                             <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                            <p>Tidak ada batch dalam tahap ini</p>
+                                            <p>Tidak ada PO dalam tahap ini</p>
                                         </div>
                                     ) : (
                                         <div className="space-y-2">
@@ -755,7 +682,7 @@ export default function OwnerBatchMonitoring() {
                                                                             </Link>
                                                                             {getStatusBadge(batch.status)}
                                                                         </div>
-                                                                        <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                                                                        {/* <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                                                                             <span>{batch.product.name}</span>
                                                                             <span>•</span>
                                                                             <span>{batch.totalRolls} roll</span>
@@ -769,7 +696,7 @@ export default function OwnerBatchMonitoring() {
                                                                             )}
                                                                             <span>•</span>
                                                                             <span>{formatDate(batch.createdAt)}</span>
-                                                                        </div>
+                                                                        </div> */}
                                                                     </div>
                                                                 </div>
 
@@ -781,6 +708,23 @@ export default function OwnerBatchMonitoring() {
                                                                     <Eye className="h-4 w-4 mr-2" />
                                                                     Detail
                                                                 </Button>
+                                                            </div>
+                                                            <div className="grid grid-cols-3 gap-2 text-sm">
+                                                                <div>
+                                                                    <p className="text-muted-foreground text-xs">Total Roll</p>
+                                                                    <p className="font-medium">{batch.totalRolls} roll</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-muted-foreground text-xs">Hasil</p>
+                                                                    <p className="font-medium text-green-600">{batch.actualQuantity || 0} pcs</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-muted-foreground text-xs">Tanggal Dibuat</p>
+                                                                    <p className="font-medium ">{formatDate(batch.createdAt)}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {/* <Badge>{getStatusLabel(batch.status)}</Badge> */}
                                                             </div>
                                                         </div>
 

@@ -749,12 +749,12 @@ export default function ProductDetailPage() {
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Batch</CardTitle>
+                        <CardTitle className="text-sm font-medium">Total PO</CardTitle>
                         <Package className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{product.productionBatches.length}</div>
-                        <p className="text-xs text-muted-foreground">Batch produksi</p>
+                        <div className="text-2xl font-bold">{product.productionBatches.filter(b => !["COMPLETED", "CANCELLED", "WAREHOUSE_VERIFIED"].includes(b.status)).length}</div>
+                        <p className="text-xs text-muted-foreground">dari total {product.productionBatches.length} PO</p>
                     </CardContent>
                 </Card>
 
@@ -773,7 +773,7 @@ export default function ProductDetailPage() {
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Actual Production</CardTitle>
+                        <CardTitle className="text-sm font-medium">Jumlah Diproduksi</CardTitle>
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                     </CardHeader>
                     <CardContent>
@@ -781,19 +781,6 @@ export default function ProductDetailPage() {
                             {product.productionBatches.reduce((sum, b) => sum + (b.actualQuantity || 0), 0)}
                         </div>
                         <p className="text-xs text-muted-foreground">Total pieces produced</p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Active Batches</CardTitle>
-                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {product.productionBatches.filter(b => !["COMPLETED", "CANCELLED", "WAREHOUSE_VERIFIED"].includes(b.status)).length}
-                        </div>
-                        <p className="text-xs text-muted-foreground">In production</p>
                     </CardContent>
                 </Card>
             </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { Plus, Search, Eye, CheckCircle, AlertCircle, Package, UserPlus, Scissors, Clock, Users, TrendingUp, ChevronDown, ChevronRight, ExternalLink } from "lucide-react"
+import { Plus, Search, Eye, CheckCircle, AlertCircle, Package, UserPlus, Scissors, Clock, Users, TrendingUp, ChevronDown, ChevronRight, ExternalLink, CalendarDays } from "lucide-react"
 import { Fragment } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -207,10 +207,8 @@ export default function BatchManagementPage() {
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState("")
     const [activeTab, setActiveTab] = useState("PENDING")
-    const [selectedMonth, setSelectedMonth] = useState(() => {
-        const now = new Date()
-        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    })
+    const [selectedYear, setSelectedYear] = useState(() => String(new Date().getFullYear()))
+    const [selectedMonth, setSelectedMonth] = useState(() => String(new Date().getMonth() + 1).padStart(2, "0"))
     const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set())
     const [loadingSubBatches, setLoadingSubBatches] = useState<Set<string>>(new Set())
     const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -290,7 +288,7 @@ export default function BatchManagementPage() {
             setLoading(false)
         }
     }
-    
+
     const fetchProducts = async () => {
         try {
             const response = await fetch("/api/products")
@@ -985,6 +983,26 @@ export default function BatchManagementPage() {
         }
     }
 
+    const today = new Date()
+    const currentYear = String(today.getFullYear())
+    const currentMonth = String(today.getMonth() + 1).padStart(2, "0")
+
+    const yearOptions = Array.from(
+        new Set([
+            currentYear,
+            ...batches.map((batch) => String(new Date(batch.createdAt).getFullYear())),
+        ]),
+    ).sort((a, b) => Number(b) - Number(a))
+
+    const monthOptions = Array.from({ length: 12 }, (_, index) => {
+        const monthValue = String(index + 1).padStart(2, "0")
+        const monthDate = new Date(Number(selectedYear), index, 1)
+        return {
+            value: monthValue,
+            label: monthDate.toLocaleDateString("id-ID", { month: "long" }),
+        }
+    })
+
     const filterBatches = (groupStatuses: string[]) => {
         return batches.filter(batch => {
             const matchesStatus = groupStatuses.includes(batch.status)
@@ -993,12 +1011,13 @@ export default function BatchManagementPage() {
                 batch.product.name.toLowerCase().includes(search.toLowerCase()) ||
                 batch.product.sku.toLowerCase().includes(search.toLowerCase())
 
-            // Filter by month
+            // Filter by period (year + month)
             const batchDate = new Date(batch.createdAt)
-            const batchMonth = `${batchDate.getFullYear()}-${String(batchDate.getMonth() + 1).padStart(2, '0')}`
-            const matchesMonth = batchMonth === selectedMonth
+            const batchYear = String(batchDate.getFullYear())
+            const batchMonth = String(batchDate.getMonth() + 1).padStart(2, "0")
+            const matchesPeriod = batchYear === selectedYear && batchMonth === selectedMonth
 
-            return matchesStatus && matchesSearch && matchesMonth
+            return matchesStatus && matchesSearch && matchesPeriod
         })
     }
 
@@ -1010,12 +1029,13 @@ export default function BatchManagementPage() {
                 batch.product.name.toLowerCase().includes(search.toLowerCase()) ||
                 batch.product.sku.toLowerCase().includes(search.toLowerCase())
 
-            // Filter by month
+            // Filter by period (year + month)
             const batchDate = new Date(batch.createdAt)
-            const batchMonth = `${batchDate.getFullYear()}-${String(batchDate.getMonth() + 1).padStart(2, '0')}`
-            const matchesMonth = batchMonth === selectedMonth
+            const batchYear = String(batchDate.getFullYear())
+            const batchMonth = String(batchDate.getMonth() + 1).padStart(2, "0")
+            const matchesPeriod = batchYear === selectedYear && batchMonth === selectedMonth
 
-            return matchesStatus && matchesSearch && matchesMonth
+            return matchesStatus && matchesSearch && matchesPeriod
         })
         return {
             total: groupBatches.length,
@@ -2317,32 +2337,54 @@ export default function BatchManagementPage() {
             {/* Assign to Finisher Dialog - DEPRECATED: Use sub-batch flow */}
             {/* Dialog ini sudah tidak digunakan. Sub-batch dibuat di tahap finishing */}
 
-            {/* Filter Section - Month and Search */}
-            <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
-                {/* Month Filter */}
-                <div className="w-full sm:w-auto">
-                    <Label className="text-sm text-muted-foreground mb-2 block">Filter Bulan</Label>
-                    <select
-                        value={selectedMonth}
-                        onChange={(e) => setSelectedMonth(e.target.value)}
-                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    >
-                        {Array.from({ length: 12 }, (_, i) => {
-                            const date = new Date()
-                            date.setMonth(date.getMonth() - i)
-                            const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-                            const label = date.toLocaleDateString("id-ID", { month: "long", year: "numeric" })
-                            return (
-                                <option key={i} value={value}>
-                                    {label}
-                                </option>
-                            )
-                        })}
-                    </select>
-                </div>
+            {/* Filter Section - Period and Search */}
+            <div className="space-y-4">
+                <Card>
+                    <CardHeader className="pb-3">
+                        <div className="flex items-center gap-2">
+                            <CalendarDays className="h-5 w-5 text-muted-foreground" />
+                            <CardTitle className="text-base">Filter Periode</CardTitle>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="year-filter">Tahun</Label>
+                                <select
+                                    id="year-filter"
+                                    value={selectedYear}
+                                    onChange={(e) => setSelectedYear(e.target.value)}
+                                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                >
+                                    {yearOptions.map((year) => (
+                                        <option key={year} value={year}>
+                                            {year}{year === currentYear ? " (Sekarang)" : ""}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
 
-                {/* Search */}
-                <div className="flex-1 relative">
+                            <div className="space-y-2">
+                                <Label htmlFor="month-filter">Bulan</Label>
+                                <select
+                                    id="month-filter"
+                                    value={selectedMonth}
+                                    onChange={(e) => setSelectedMonth(e.target.value)}
+                                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                >
+                                    {monthOptions.map((month) => (
+                                        <option key={month.value} value={month.value}>
+                                            {month.label}
+                                            {selectedYear === currentYear && month.value === currentMonth ? " (Sekarang)" : ""}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <div className="w-full">
                     <Label className="text-sm text-muted-foreground mb-2 block">Cari Batch</Label>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -2731,15 +2773,12 @@ export default function BatchManagementPage() {
                                                                         </Button>
                                                                     )}
                                                                     <div className="space-y-1 flex-1">
-                                                                        <CardTitle
-                                                                            className="text-base font-mono cursor-pointer hover:text-primary flex gap-2 items-center"
-
-                                                                        >
-                                                                            {batch.batchSku}
+                                                                        <CardTitle className="text-base font-mono cursor-pointer hover:text-primary flex gap-2 items-center">
+                                                                            {batch.product.name}
                                                                             <ExternalLink className="h-4 w-4 text-muted-foreground" />
                                                                         </CardTitle>
                                                                         <CardDescription className="text-sm">
-                                                                            {batch.product.name}
+                                                                            {batch.batchSku}
                                                                         </CardDescription>
                                                                     </div>
                                                                 </div>
@@ -2753,7 +2792,7 @@ export default function BatchManagementPage() {
                                                             </div>
                                                         </CardHeader>
                                                         <CardContent className="space-y-3">
-                                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                            <div className="grid grid-cols-3 gap-2 text-sm">
                                                                 <div>
                                                                     <p className="text-muted-foreground text-xs">Total Roll</p>
                                                                     <p className="font-medium">{batch.totalRolls} roll</p>
@@ -2761,6 +2800,10 @@ export default function BatchManagementPage() {
                                                                 <div>
                                                                     <p className="text-muted-foreground text-xs">Hasil</p>
                                                                     <p className="font-medium text-green-600">{batch.actualQuantity || 0} pcs</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-muted-foreground text-xs">Tanggal Dibuat</p>
+                                                                    <p className="font-medium ">{formatDate(batch.createdAt)}</p>
                                                                 </div>
                                                             </div>
                                                             <div className="flex flex-wrap gap-2">
