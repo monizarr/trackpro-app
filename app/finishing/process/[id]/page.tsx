@@ -84,6 +84,7 @@ interface SubBatchSummary {
     finishingGoodOutput: number;
     rejectBS: number;
     rejectBSPermanent: number;
+    finishingTaskId?: string | null;
     notes?: string | null;
     items: SubBatchItem[];
     warehouseVerifiedBy?: { id: string; name: string; username: string } | null;
@@ -178,8 +179,8 @@ export default function FinishingTaskDetailPage() {
     console.log(task)
     const fetchSubBatches = async () => {
         try {
-            // Fetch only FINISHING sub-batches
-            const response = await fetch(`/api/production-batches/${task?.batch.id}/sub-batches?source=FINISHING`);
+            // Fetch only FINISHING sub-batches for this specific finishing task
+            const response = await fetch(`/api/production-batches/${task?.batch.id}/sub-batches?source=FINISHING&finishingTaskId=${taskId}`);
             const result = await response.json();
 
             if (result.success) {
@@ -573,6 +574,7 @@ export default function FinishingTaskDetailPage() {
                     <SubBatchList
                         role="FINISHING"
                         batchId={currentBatch.id}
+                        finishingTaskId={taskId}
                         onRefresh={async () => {
                             await fetchBatchDetail();
                             await fetchSubBatches();
