@@ -31,7 +31,7 @@ export const authOptions: NextAuthOptions = {
           "✅ User found:",
           user.username,
           "isActive:",
-          user.isActive
+          user.isActive,
         );
 
         if (!user.isActive) {
@@ -42,7 +42,7 @@ export const authOptions: NextAuthOptions = {
         console.log("🔑 Comparing password...");
         const isPasswordValid = await bcrypt.compare(
           credentials.password,
-          user.password
+          user.password,
         );
         console.log("🔑 Password valid:", isPasswordValid);
 
@@ -96,7 +96,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 2 * 60 * 60, // 2 hours
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
