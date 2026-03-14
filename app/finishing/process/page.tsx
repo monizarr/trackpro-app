@@ -246,7 +246,6 @@ export default function FinishingProcessPage() {
                                 </Alert>
                             ) : (
                                 <div className="grid gap-3">
-                                    {console.log("Rendering tasks for group:", group.label, "Filtered tasks:", filteredTasks)}
                                     {filteredTasks.map((task) => (
                                         <Card
                                             key={task.id}
@@ -258,8 +257,13 @@ export default function FinishingProcessPage() {
                                                     <div className="flex-1 min-w-0">
                                                         <div className="font-mono font-medium text-sm sm:text-base truncate">{task.subBatch.subBatchSku}</div>
                                                         <div className="text-xs sm:text-sm text-muted-foreground truncate">{task.batch.product.name}</div>
-                                                        <div className="text-xs font-black text-muted-foreground mt-1">
-                                                            {(task.piecesReceived)} Pcs
+                                                        <div className="flex gap-4 mt-1">
+                                                            <div className="text-xs font-black text-muted-foreground mt-1">
+                                                                Diterima : {(task.piecesReceived)} Pcs
+                                                            </div>
+                                                            <div className="text-xs font-black text-muted-foreground mt-1">
+                                                                Selesai : {(task.piecesCompleted)} Pcs
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
